@@ -4820,17 +4820,6 @@ function makeCounterRow(d, store) {
       <div class="counter-name">${d.label}${d.sub ? '<span class="counter-sub-inline">（'+d.sub+'）</span>' : ''}</div>
     </div>
     <div class="counter-controls">
-      <button
-        class="cnt-btn cnt-btn-minus"
-        tabindex="-1"
-        onmousedown="onCounterPressStart(${d.val},'${store}',-1)"
-        ontouchstart="onCounterPressStart(${d.val},'${store}',-1)"
-        onmouseup="onCounterPressEnd()"
-        onmouseleave="onCounterPressEnd()"
-        ontouchend="onCounterPressEnd()"
-        ontouchcancel="onCounterPressEnd()"
-        onclick="onCounterClick(${d.val},'${store}',-1)"
-      >−</button>
       <input
         type="number" class="cnt-val" id="${idKey}" value="0" min="0" inputmode="numeric"
         oninput="onCounterInput(${d.val},'${store}',this)"
@@ -4838,18 +4827,8 @@ function makeCounterRow(d, store) {
         onfocus="this.select()"
         onclick="this.select()"
         onkeydown="onCounterEnterKey(event,this)"
+        style="border:1px solid var(--border);border-radius:4px;width:72px;"
       />
-      <button
-        class="cnt-btn cnt-btn-plus"
-        tabindex="-1"
-        onmousedown="onCounterPressStart(${d.val},'${store}',1)"
-        ontouchstart="onCounterPressStart(${d.val},'${store}',1)"
-        onmouseup="onCounterPressEnd()"
-        onmouseleave="onCounterPressEnd()"
-        ontouchend="onCounterPressEnd()"
-        ontouchcancel="onCounterPressEnd()"
-        onclick="onCounterClick(${d.val},'${store}',1)"
-      >＋</button>
     </div>
   `;
   return row;
@@ -5581,9 +5560,13 @@ window.addEventListener('pagehide', function() {
                     <select id="shiftBranchSwitcherSelect" onchange="switchShiftViewBranch(this.value)" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
                 </div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                 <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;">レイアウト切替：左右</button>
                 <button id="btnShiftPrint" onclick="openShiftPdfModal()" style="background:#555;">ダウンロード/印刷</button>
+                <span id="shiftSaveWrap" style="display:none;align-items:center;gap:6px;">
+                  <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
+                  <button type="button" onclick="shiftSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
+                </span>
             </div>
         </div>
         <div class="sf-calendar-body">
@@ -5967,9 +5950,13 @@ window.addEventListener('pagehide', function() {
             <select id="salesBranchSwitcherSelect" onchange="switchSalesViewBranch(this.value)" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
           </div>
           <button type="button" id="salesDayViewBackBtn" class="sales-nav-btn" onclick="exitSalesDayView()" style="display:none;">戻る</button>
-          <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+          <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
             <button type="button" id="salesSettingsBtn" class="sales-settings-btn" onclick="openSalesItemsModal()">設定</button>
             <button type="button" class="sales-settings-btn" style="background:#555;" onclick="openSalesPdfModal()">ダウンロード/印刷</button>
+            <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
+              <button type="button" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
+            </span>
           </div>
         </div>
         <div id="salesDayViewLabel" style="display:none;text-align:center;font-weight:bold;font-size:15px;padding:5px 0 10px;"></div>
@@ -6000,7 +5987,11 @@ window.addEventListener('pagehide', function() {
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(-1)">前月</button>
           <div id="dailyMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(1)">次月</button>
-          <button type="button" class="sales-settings-btn" style="margin-left:auto;" onclick="openDailySettingsMenu()">設定</button>
+          <button type="button" class="sales-settings-btn" onclick="openDailySettingsMenu()">設定</button>
+          <span id="dailySaveWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
+            <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
+            <button type="button" onclick="dailySaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
+          </span>
         </div>
         <div class="daily-table-wrapper" style="flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:6px;">
           <table id="dailyTable"></table>
@@ -6299,8 +6290,10 @@ window.addEventListener('pagehide', function() {
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">予定内容</label>
-            <input type="text" id="taskInput" placeholder="予定を入力またはプルダウン選択" maxlength="200" list="schedulePresetList" autocomplete="off"
-              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+            <select id="taskInput"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;background:var(--surface);color:var(--text);">
+              <option value="">-- 予定を選択してください --</option>
+            </select>
           </div>
           <div style="display:flex;gap:8px;">
             <div style="flex:1;">
@@ -7193,6 +7186,8 @@ window.addEventListener('pagehide', function() {
         console.error(err);
         storageAvailable = false;
       }
+      // 編集のたびにスプレッドシートへ自動同期（1.5秒デバウンス）
+      if (typeof autoSyncToSheet === 'function') autoSyncToSheet();
     }
 
     function uid() {
@@ -8054,10 +8049,11 @@ window.addEventListener('pagehide', function() {
     }
 
     function renderSchedulePresetList() {
-      const dl = document.getElementById('schedulePresetList');
-      if (!dl) return;
+      const sel = document.getElementById('taskInput');
+      if (!sel) return;
       const presets = state.schedulePresets || [];
-      dl.innerHTML = presets.map(p => `<option value="${escapeHtml(p.name)}">`).join('');
+      sel.innerHTML = '<option value="">-- 予定を選択してください --</option>' +
+        presets.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
     }
 
     function renderSettingsPresets() {
@@ -8623,14 +8619,19 @@ window.addEventListener('pagehide', function() {
 
           const oldName = state.branches[i].name;
           if (state.currentBranch === oldName) state.currentBranch = trimmedName;
+          const newSheetId = sheetInput.value.trim();
           state.branches[i].branchId = trimmedId;
           state.branches[i].name = trimmedName;
-          state.branches[i].spreadsheetId = sheetInput.value.trim();
+          state.branches[i].spreadsheetId = newSheetId;
           state.branches[i].password = passInput.value.trim();
           state.branches[i].shiftSettingsPassword = shiftPassInput.value.trim();
+          // 名前変更時は旧名のキーを削除して新名で保存
+          if (oldName !== trimmedName) saveSheetId(oldName, '');
+          saveSheetId(trimmedName, newSheetId);
           saveState();
           renderCurrentBranchLabel();
           adminDirty = false;
+          if (typeof updateTabSaveBtnVisibility === 'function') updateTabSaveBtnVisibility();
           showToast('営業所情報を保存しました');
         });
       });
@@ -8641,6 +8642,7 @@ window.addEventListener('pagehide', function() {
           if (b.name === '本社') { alert('本社は削除できません。'); return; }
           if (state.branches.length <= 1) { alert('営業所は最低1つ必要です。'); return; }
           if (!confirm(`「${b.name}」を削除しますか？`)) return;
+          saveSheetId(b.name, '');
           state.branches.splice(i, 1);
           if (state.currentBranch === b.name) state.currentBranch = state.branches[0].name;
           saveState();
@@ -9725,7 +9727,7 @@ window.addEventListener('pagehide', function() {
       }
       state.currentBranch = branchSel.value;
       saveState();
-      try { sessionStorage.setItem('kawakyu_logged_in', '1'); } catch (e) {}
+      try { localStorage.setItem('kawakyu_logged_in', '1'); } catch (e) {}
       if (errorEl) errorEl.style.display = 'none';
       passInput.value = '';
       hideLoginGate();
@@ -10632,7 +10634,7 @@ window.addEventListener('pagehide', function() {
       if (e.key === 'Enter') { e.preventDefault(); attemptLogin(); }
     });
     document.getElementById('btnLogout').addEventListener('click', () => {
-      try { sessionStorage.removeItem('kawakyu_logged_in'); } catch (e) {}
+      try { localStorage.removeItem('kawakyu_logged_in'); } catch (e) {}
       showLoginGate();
     });
     document.getElementById('memberAddColorBtn').addEventListener('click', e => {
@@ -11103,7 +11105,7 @@ window.addEventListener('pagehide', function() {
     // ── ログインゲート ──
     renderCurrentBranchLabel();
     let alreadyLoggedIn = false;
-    try { alreadyLoggedIn = sessionStorage.getItem('kawakyu_logged_in') === '1'; } catch (e) {}
+    try { alreadyLoggedIn = localStorage.getItem('kawakyu_logged_in') === '1'; } catch (e) {}
     if (alreadyLoggedIn) { hideLoginGate(); } else { showLoginGate(); }
 
     // 予定を追加中（フォームに入力済み・未保存）に画面を閉じようとした場合の確認
@@ -12949,12 +12951,26 @@ if(isMobileDevice()){
    スプレッドシート連携（GAS）
    ============================================================ */
 const GAS_URL_KEY = 'kawakyu_gas_url';
+const SHEET_IDS_KEY = 'kawakyu_spreadsheet_ids';
 
 function getGasUrl() {
   return localStorage.getItem(GAS_URL_KEY) || '';
 }
 
+function getSheetIds() {
+  try { return JSON.parse(localStorage.getItem(SHEET_IDS_KEY) || '{}'); } catch(e) { return {}; }
+}
+
+function saveSheetId(branchName, id) {
+  const map = getSheetIds();
+  if (id) { map[branchName] = id; } else { delete map[branchName]; }
+  localStorage.setItem(SHEET_IDS_KEY, JSON.stringify(map));
+}
+
 function getSpreadsheetId(branchName) {
+  // 独立キーを優先、なければ state.branches にフォールバック
+  const map = getSheetIds();
+  if (map[branchName]) return map[branchName];
   try {
     if (typeof state !== 'undefined' && Array.isArray(state.branches)) {
       const b = state.branches.find(b => b.name === branchName);
@@ -13053,12 +13069,72 @@ function showGasSyncStatus(msg, isError) {
   el.style.color = isError ? 'var(--danger)' : '#1a7a3c';
 }
 
+// ── サイレント自動同期（デバウンス：連続保存でも1.5秒後に1回だけ実行） ──
+let _autoSyncTimer = null;
+function autoSyncToSheet() {
+  clearTimeout(_autoSyncTimer);
+  _autoSyncTimer = setTimeout(() => {
+    const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+    if (!branchName) return;
+    if (!getGasUrl() || !getSpreadsheetId(branchName)) return;
+    syncToSheet(branchName).then(() => {
+      appToast('スプレッドシートに保存しました');
+    }).catch(err => {
+      appToast('シート保存に失敗: ' + err.message);
+    });
+  }, 1500);
+}
+
+// ── タブ別保存ボタン（シフト・販売実績・日常業務） ──
+function _tabSaveToSheet(tabBtnId) {
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  if (!branchName) { appToast('ログインしてください'); return; }
+  if (!getGasUrl() || !getSpreadsheetId(branchName)) {
+    appToast('GAS URLとスプレッドシートIDを設定してください');
+    return;
+  }
+  syncToSheet(branchName).then(() => {
+    appToast('スプレッドシートに保存しました');
+  }).catch(err => {
+    appToast('シート保存に失敗: ' + err.message);
+  });
+}
+function shiftSaveToSheet() { _tabSaveToSheet('shift'); }
+function salesSaveToSheet() { _tabSaveToSheet('sales'); }
+function dailySaveToSheet() { _tabSaveToSheet('daily'); }
+
+// GAS設定済みの場合のみ保存ボタンを表示
+function updateTabSaveBtnVisibility() {
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  const show = !!(branchName && getGasUrl() && getSpreadsheetId(branchName));
+  ['shiftSaveWrap', 'salesSaveWrap', 'dailySaveWrap'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = show ? 'flex' : 'none';
+  });
+}
+// 起動時と設定変更時に表示を更新
+updateTabSaveBtnVisibility();
+
+// ── 起動時：ログイン済みなら自動読み込み ──
+(function autoLoadOnStartup() {
+  const isLoggedIn = localStorage.getItem('kawakyu_logged_in') === '1';
+  if (!isLoggedIn) return;
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  if (!branchName || !getGasUrl() || !getSpreadsheetId(branchName)) return;
+  syncFromSheet(branchName).then(result => {
+    if (result && result.ok) {
+      appToast(`スプレッドシートからデータを読み込みました（${result.count}件）`);
+    }
+  }).catch(() => {}); // 接続できない場合は無視
+})();
+
 // ── イベントリスナー ──
 document.getElementById('gasUrlSaveBtn').addEventListener('click', () => {
   const url = document.getElementById('gasUrlInput').value.trim();
   localStorage.setItem(GAS_URL_KEY, url);
   const st = document.getElementById('gasUrlStatus');
   st.textContent = url ? '✓ GAS URLを保存しました' : 'GAS URLをクリアしました';
+  if (typeof updateTabSaveBtnVisibility === 'function') updateTabSaveBtnVisibility();
   st.style.color = 'var(--cw-green)';
 });
 
