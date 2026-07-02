@@ -8765,6 +8765,26 @@ window.addEventListener('pagehide', function() {
 
     loadSalesData();
 
+    // salesRecordsのキーを項目名→項目IDに移行する（初回のみ）
+    (function migrateSalesRecordsToIdBased() {
+      const idMap = {};
+      (salesItems || []).forEach(it => { if (it.id && it.name) idMap[it.name] = it.id; });
+      let migrated = false;
+      Object.keys(salesRecords).forEach(dateKey => {
+        const rec = salesRecords[dateKey];
+        if (!rec) return;
+        Object.keys(rec).forEach(k => {
+          if (idMap[k] && k !== idMap[k]) {
+            const id = idMap[k];
+            if (!(id in rec)) rec[id] = rec[k];
+            delete rec[k];
+            migrated = true;
+          }
+        });
+      });
+      if (migrated) saveSalesRecords();
+    })();
+
     function saveSalesItems() {
       localStorage.setItem(SALES_ITEMS_GLOBAL_KEY, JSON.stringify(salesItems));
     }
@@ -8899,7 +8919,7 @@ window.addEventListener('pagehide', function() {
       if (event.isComposing || event.keyCode === 229) { return; } // IME変換確定中は無視
 
       const input = event.target;
-      const item = salesItems[itemIndex].name;
+      const item = salesItems[itemIndex].id;
       const commitIfNeeded = () => {
         if (input.dataset.committed === "false") {
           onSalesDailyInput(day, item, input.value.trim(), input);
@@ -8944,14 +8964,14 @@ window.addEventListener('pagehide', function() {
     let salesChartMode = 'rolling12'; // 'rolling12' | 'year'
     let salesChartYear = new Date().getFullYear();
 
-    function getSalesMonthlyTotal(itemName, year, month0) {
+    function getSalesMonthlyTotal(itemId, year, month0) {
       const days = new Date(year, month0 + 1, 0).getDate();
       let total = 0;
       let hasAny = false;
       for (let d = 1; d <= days; d++) {
         const rec = salesRecords[`${year}-${month0 + 1}-${d}`];
-        if (rec && typeof rec[itemName] === 'number') {
-          total += rec[itemName];
+        if (rec && typeof rec[itemId] === 'number') {
+          total += rec[itemId];
           hasAny = true;
         }
       }
@@ -9015,7 +9035,7 @@ window.addEventListener('pagehide', function() {
 
       let runningTotal = 0;
       const points = months.map(m => {
-        const { total, hasAny } = getSalesMonthlyTotal(item.name, m.year, m.month0);
+        const { total, hasAny } = getSalesMonthlyTotal(item.id, m.year, m.month0);
         runningTotal += total;
         return { label: m.label, value: total, hasAny, cumulative: runningTotal };
       });
@@ -9193,17 +9213,17 @@ window.addEventListener('pagehide', function() {
       });
 
       const cumulative = {};
-      salesItems.forEach(item => { cumulative[item.name] = 0; });
+      salesItems.forEach(item => { cumulative[item.id] = 0; });
 
       const rows = [];
       for (let d = 1; d <= days; d++) {
         const dayRecord = salesRecords[`${year}-${month}-${d}`] || {};
         const row = [`${d}日`];
         salesItems.forEach(item => {
-          const val = dayRecord[item.name];
-          cumulative[item.name] += (typeof val === 'number') ? val : 0;
+          const val = dayRecord[item.id];
+          cumulative[item.id] += (typeof val === 'number') ? val : 0;
           row.push(val !== undefined ? val : '');
-          if (item.mode !== 'dailyOnly') { row.push(cumulative[item.name]); }
+          if (item.mode !== 'dailyOnly') { row.push(cumulative[item.id]); }
         });
         rows.push(row);
       }
@@ -9221,8 +9241,10 @@ window.addEventListener('pagehide', function() {
         const m = key.match(/^(\d+)-(\d+)-(\d+)$/);
         if (!m) return;
         const dateStr = `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
-        Object.keys(rec).forEach(itemName => {
-          rows.push([dateStr, itemName, rec[itemName]]);
+        Object.keys(rec).forEach(itemId => {
+          const salesItem = salesItems.find(it => it.id === itemId);
+          const itemName = salesItem ? salesItem.name : itemId;
+          rows.push([dateStr, itemName, rec[itemId]]);
         });
       });
       downloadCsvFile('販売実績表_全期間.csv', [headers, ...rows]);
@@ -9299,7 +9321,7 @@ window.addEventListener('pagehide', function() {
 
       let bodyHtml = '';
       const cumulative = {};
-      salesItems.forEach(item => { cumulative[item.name] = 0; });
+      salesItems.forEach(item => { cumulative[item.id] = 0; });
 
       for (let d = 1; d <= days; d++) {
         const date = new Date(year, month, d);
@@ -9315,15 +9337,15 @@ window.addEventListener('pagehide', function() {
 
         bodyHtml += `<tr${isToday ? ' class="sales-today"' : ''}><td class="sales-day-col${dayColorClass}" style="cursor:pointer;" onclick="enterSalesDayView(${d})" title="この日の全営業所一覧を見る">${d}（${week}）</td>`;
         salesItems.forEach((item, itemIndex) => {
-          const val = dayRecord[item.name];
-          cumulative[item.name] += (typeof val === 'number') ? val : 0;
+          const val = dayRecord[item.id];
+          cumulative[item.id] += (typeof val === 'number') ? val : 0;
           bodyHtml += `<td class="sales-daily-col"><input type="text" inputmode="decimal" class="sales-daily-input" data-day="${d}" data-item-index="${itemIndex}" data-committed="true" value="${val !== undefined ? val : ''}"
             onfocus="this.select()"
             oninput="this.dataset.committed='false'"
             onkeydown="handleSalesInputKeydown(event, ${d}, ${itemIndex})"></td>`;
           if (item.mode !== 'dailyOnly') {
             // その日の日計入力が無い場合は累計も表示しない
-            const cumDisplay = (typeof val === 'number') ? cumulative[item.name] : '';
+            const cumDisplay = (typeof val === 'number') ? cumulative[item.id] : '';
             bodyHtml += `<td class="sales-cumulative-col"><span class="sales-cumulative-value">${cumDisplay}</span></td>`;
           }
         });
@@ -9366,7 +9388,7 @@ window.addEventListener('pagehide', function() {
         const dayRecord = branchRecords[recordKey] || {};
         bodyHtml += `<tr><td class="sales-day-col">${escapeHtml(branch.name)}</td>`;
         salesItems.forEach(item => {
-          const val = dayRecord[item.name];
+          const val = dayRecord[item.id];
           bodyHtml += `<td class="sales-daily-col">${typeof val === 'number' ? val : ''}</td>`;
           if (item.mode !== 'dailyOnly') {
             // その日の日計入力が無い場合は累計も表示しない
@@ -9375,7 +9397,7 @@ window.addEventListener('pagehide', function() {
               let cum = 0;
               for (let d = 1; d <= day; d++) {
                 const rec = branchRecords[`${year}-${month + 1}-${d}`] || {};
-                const v = rec[item.name];
+                const v = rec[item.id];
                 cum += (typeof v === 'number') ? v : 0;
               }
               cumDisplay = cum;
