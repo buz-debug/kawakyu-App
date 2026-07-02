@@ -4185,6 +4185,11 @@
   }
 }
 
+  /* パスワード入力欄：IMEを無効化して半角入力を強制 */
+  input[type="password"] {
+    ime-mode: disabled;
+    -webkit-ime-mode: disabled;
+  }
   </style>
 </head>
 <body>
@@ -4233,6 +4238,14 @@
       </div>
     </div>
   </header>
+
+  <!-- GAS未設定警告バナー -->
+  <div id="gasWarningBanner" style="display:none;background:#dc2626;color:#fff;padding:10px 18px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-size:18px;">⚠️</span>
+    <span id="gasWarningText"></span>
+    <button type="button" onclick="openGasModal();document.getElementById('gasWarningBanner').style.display='none';" style="margin-left:auto;padding:5px 14px;background:#fff;color:#dc2626;border:none;border-radius:4px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">今すぐ設定する</button>
+    <button type="button" onclick="this.parentElement.style.display='none';" style="padding:5px 10px;background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">閉じる</button>
+  </div>
 
   <!-- 下段：コンテンツエリア -->
   <div class="app-row">
@@ -5748,7 +5761,7 @@ window.addEventListener('pagehide', function() {
                 <button onclick="sfChangeMonth(-1)">前月</button>
                 <div id="editMonthLabel" style="font-weight:bold; font-size:15px; margin:0 4px;"></div>
                 <button onclick="sfChangeMonth(1)">次月</button>
-                <span id="shiftSaveWrap" style="display:none;align-items:center;gap:6px;">
+                <span style="display:flex;align-items:center;gap:6px;">
                   <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
                   <button type="button" onclick="shiftSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
                 </span>
@@ -7013,7 +7026,7 @@ window.addEventListener('pagehide', function() {
         if (!m.senderBranch) { m.legacyBranches = branchNamesAtMigration.slice(); }
       });
       state.legacyMessagesMigrated = true;
-      saveState();
+      window._noSaveToast = true; saveState(); window._noSaveToast = false;
     }
 
     let currentRoom = 'all';
@@ -7272,7 +7285,7 @@ window.addEventListener('pagehide', function() {
       const msgs = roomMessages(roomId);
       if (msgs.length) state.lastRead[roomId] = msgs[msgs.length - 1].ts;
       else state.lastRead[roomId] = Date.now();
-      saveState();
+      window._noSaveToast = true; saveState(); window._noSaveToast = false;
     }
 
     function renderRoomList() {
@@ -9735,7 +9748,7 @@ window.addEventListener('pagehide', function() {
         return;
       }
       state.currentBranch = branchSel.value;
-      saveState();
+      window._noSaveToast = true; saveState(); window._noSaveToast = false;
       try { localStorage.setItem('kawakyu_logged_in', '1'); } catch (e) {}
       if (errorEl) errorEl.style.display = 'none';
       passInput.value = '';
@@ -10641,6 +10654,21 @@ window.addEventListener('pagehide', function() {
     document.getElementById('loginSubmitBtn').addEventListener('click', attemptLogin);
     document.getElementById('loginPasswordInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); attemptLogin(); }
+    });
+
+    // 全パスワード欄に半角入力を強制（inputmode + 全角→半角変換）
+    document.querySelectorAll('input[type="password"]').forEach(el => {
+      el.setAttribute('inputmode', 'latin');
+      el.addEventListener('input', function() {
+        const pos = this.selectionStart;
+        const converted = this.value.replace(/[Ａ-Ｚａ-ｚ０-９]/g, c =>
+          String.fromCharCode(c.charCodeAt(0) - 0xFEE0)
+        );
+        if (converted !== this.value) {
+          this.value = converted;
+          try { this.setSelectionRange(pos, pos); } catch(e) {}
+        }
+      });
     });
     document.getElementById('btnLogout').addEventListener('click', () => {
       try { localStorage.removeItem('kawakyu_logged_in'); } catch (e) {}
@@ -13124,6 +13152,31 @@ function updateTabSaveBtnVisibility() {
 // 起動時と設定変更時に表示を更新
 updateTabSaveBtnVisibility();
 
+// GAS未設定警告バナーの表示制御
+function updateGasWarningBanner() {
+  const banner = document.getElementById('gasWarningBanner');
+  const textEl = document.getElementById('gasWarningText');
+  if (!banner || !textEl) return;
+  const isLoggedIn = localStorage.getItem('kawakyu_logged_in') === '1';
+  if (!isLoggedIn) { banner.style.display = 'none'; return; }
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  const hasGasUrl = !!getGasUrl();
+  const hasSheetId = !!(branchName && getSpreadsheetId(branchName));
+  if (!hasGasUrl && !hasSheetId) {
+    textEl.textContent = 'GAS URL・スプレッドシートIDが未設定のため、データはこの端末にのみ保存されます。設定しないとデータが失われる可能性があります。';
+    banner.style.display = 'flex';
+  } else if (!hasGasUrl) {
+    textEl.textContent = 'GAS URLが未設定です。設定しないとスプレッドシートへの同期ができません。';
+    banner.style.display = 'flex';
+  } else if (!hasSheetId) {
+    textEl.textContent = `スプレッドシートIDが未設定です（現在の営業所：${branchName}）。設定しないとスプレッドシートへの同期ができません。`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+updateGasWarningBanner();
+
 // ── 起動時：ログイン済みなら自動読み込み ──
 (function autoLoadOnStartup() {
   const isLoggedIn = localStorage.getItem('kawakyu_logged_in') === '1';
@@ -13144,6 +13197,7 @@ document.getElementById('gasUrlSaveBtn').addEventListener('click', () => {
   const st = document.getElementById('gasUrlStatus');
   st.textContent = url ? '✓ GAS URLを保存しました' : 'GAS URLをクリアしました';
   if (typeof updateTabSaveBtnVisibility === 'function') updateTabSaveBtnVisibility();
+  if (typeof updateGasWarningBanner === 'function') updateGasWarningBanner();
   st.style.color = 'var(--cw-green)';
 });
 
@@ -13159,11 +13213,14 @@ document.getElementById('gasUploadBtn').addEventListener('click', async () => {
     if (result.ok) {
       const ts = new Date().toLocaleString('ja-JP');
       showGasSyncStatus(`✓ 保存完了（${result.saved}件）\n${ts}`, false);
+      appToast(`シートへ保存完了（${result.saved}件）`);
     } else {
       showGasSyncStatus(`エラー: ${result.error}`, true);
+      appToast(`シート保存エラー: ${result.error}`);
     }
   } catch(e) {
     showGasSyncStatus(`エラー: ${e.message}`, true);
+    appToast(`シート保存エラー: ${e.message}`);
   }
 
   btn.disabled = false;
