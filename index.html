@@ -6000,11 +6000,11 @@ window.addEventListener('pagehide', function() {
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(-1)">前月</button>
           <div id="dailyMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(1)">次月</button>
-          <button type="button" class="sales-settings-btn" onclick="openDailySettingsMenu()">設定</button>
           <span id="dailySaveWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
             <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
             <button type="button" onclick="dailySaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
           </span>
+          <button type="button" class="sales-settings-btn" onclick="openDailySettingsMenu()">設定</button>
         </div>
         <div class="daily-table-wrapper" style="flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:6px;">
           <table id="dailyTable"></table>
