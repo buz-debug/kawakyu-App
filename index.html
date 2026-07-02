@@ -6846,7 +6846,7 @@ window.addEventListener('pagehide', function() {
 
     const SYSTEM_MEMBER_ID = 'system-all';
     const ALL_MEMBER_NAME = '全員';
-    const DEFAULT_MEMBER_NAMES = ['店長','副店長','スタッフA','スタッフB','スタッフC','事務'];
+    const DEFAULT_MEMBER_NAMES = [];
     const DEFAULT_BOOKMARK_CATEGORIES = ['重要', '確認待ち'];
 
     const ROOMS = [
@@ -6931,6 +6931,18 @@ window.addEventListener('pagehide', function() {
     if (!state.currentBranch || !state.branches.some(b => b.name === state.currentBranch)) {
       state.currentBranch = state.branches[0].name;
     }
+
+    // ID未登録のデフォルトメンバー（m1〜m6）を既存stateから削除する（旧データからの移行）
+    (function removeDefaultMembers() {
+      const defaultIds = new Set(['m1','m2','m3','m4','m5','m6']);
+      const defaultNames = new Set(['店長','副店長','スタッフA','スタッフB','スタッフC','事務']);
+      if (Array.isArray(state.members)) {
+        state.members = state.members.filter(m => {
+          if (isSystemMember(m)) return true;
+          return !(defaultIds.has(m.id) && defaultNames.has(m.name));
+        });
+      }
+    })();
 
     // 営業所ID（00=本社固定、以降01〜）が無い営業所には、順番に補ってあげる（旧データからの移行）
     (function migrateBranchIds() {
@@ -9516,8 +9528,18 @@ window.addEventListener('pagehide', function() {
       return `${base}_${state.currentBranch}`;
     }
 
+    function normalizeDailyTaskItems(raw) {
+      if (!Array.isArray(raw)) return [];
+      const usedIds = new Set(raw.filter(it => it && it.id).map(it => it.id));
+      return raw.filter(it => it && it.name).map(it => {
+        if (it.id) return it;
+        const newId = generateDailyItemId(usedIds);
+        return { ...it, id: newId };
+      });
+    }
+
     function loadDailyTaskData() {
-      try { dailyTaskItems = JSON.parse(localStorage.getItem(dailyKey('dailyTaskItems'))) || []; } catch (e) { dailyTaskItems = []; }
+      try { dailyTaskItems = normalizeDailyTaskItems(JSON.parse(localStorage.getItem(dailyKey('dailyTaskItems')))); } catch (e) { dailyTaskItems = []; }
       try { dailyTaskRecords = JSON.parse(localStorage.getItem(dailyKey('dailyTaskRecords'))) || {}; } catch (e) { dailyTaskRecords = {}; }
     }
 
