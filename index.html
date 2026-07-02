@@ -9752,6 +9752,7 @@ window.addEventListener('pagehide', function() {
         if (errorEl) errorEl.style.display = 'block';
         return;
       }
+      const enteredPassword = passInput.value;
       state.currentBranch = branchSel.value;
       window._noSaveToast = true; saveState(); window._noSaveToast = false;
       try { localStorage.setItem('kawakyu_logged_in', '1'); } catch (e) {}
@@ -9759,6 +9760,21 @@ window.addEventListener('pagehide', function() {
       passInput.value = '';
       hideLoginGate();
       renderCurrentBranchLabel();
+      // 仮パスワードでログインした場合に変更を促す
+      if (enteredPassword === '1234') {
+        setTimeout(() => {
+          openModal(
+            '⚠️ 仮パスワードのままです',
+            'セキュリティのため、仮パスワード「1234」から変更してください。「今すぐ変更」を押すとパスワード変更画面が開きます。',
+            () => { openSettings(); }
+          );
+          // OKボタンのラベルを変更
+          const okBtn = document.querySelector('#confirmModal .modal-actions .primary');
+          if (okBtn) okBtn.textContent = '今すぐ変更';
+          const cancelBtn = document.querySelector('#confirmModal .modal-actions button:not(.primary)');
+          if (cancelBtn) cancelBtn.textContent = '後で変更する';
+        }, 500);
+      }
       // シフトタブの閲覧営業所を、ログインした営業所に合わせ直す（ログイン時は通知を出さない）
       if (typeof switchShiftViewBranch === 'function') {
         shiftViewBranch = null;
