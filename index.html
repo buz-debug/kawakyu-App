@@ -4405,8 +4405,10 @@
         <!-- キャンセルボタン -->
         <button class="top-cancel-btn" onclick="cancelInput()">キャンセル</button>
 
-        <!-- 保存ボタン -->
-        <button class="top-save-btn" onclick="saveRecord()">保 存</button>
+        <!-- 保存ボタン（記録追加＋スプレッドシート保存） -->
+        <span id="kasimeSaveWrap" style="display:none;align-items:center;gap:6px;">
+          <button type="button" onclick="saveRecordToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
+        </span>
 
         <!-- 画面切替（左右2カラム⇔1カラム、タブレット対応） -->
         <button id="kasimeLayoutToggle" class="kasime-top-extra-btn" onclick="toggleKasimeLayout()">画面切替：1カラム</button>
@@ -4608,6 +4610,7 @@ const LONG_PRESS_SPEEDS = [
 ];
 
 function persist() {
+  window._hasUnsyncedTabChanges = true;
   try { localStorage.setItem(kasimeKey('仮締め記録'), JSON.stringify(records)); } catch(e){}
 }
 function persistDraft() {
@@ -4999,7 +5002,7 @@ function recalc() {
 /* ===== SAVE ===== */
 function saveRecord() {
   const person = document.getElementById('personSelect').value.trim();
-  if (!person) { showToast('担当者名を入力してください'); return; }
+  if (!person) { showToast('担当者名を入力してください'); return false; }
 
   const h = document.getElementById('timeHour').value;
   const m = document.getElementById('timeMin').value;
@@ -5036,6 +5039,12 @@ function saveRecord() {
     initCounters();
     buildInputForm();
   }, 800);
+  return true;
+}
+
+function saveRecordToSheet() {
+  if (saveRecord() === false) return;
+  kasimeSaveToSheet();
 }
 
 function cancelInput() {
@@ -5765,7 +5774,7 @@ window.addEventListener('pagehide', function() {
                 <button onclick="sfChangeMonth(-1)">前月</button>
                 <div id="editMonthLabel" style="font-weight:bold; font-size:15px; margin:0 4px;"></div>
                 <button onclick="sfChangeMonth(1)">次月</button>
-                <span style="display:flex;align-items:center;gap:6px;">
+                <span id="shiftSaveWrap" style="display:none;align-items:center;gap:6px;">
                   <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
                   <button type="button" onclick="shiftSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
                 </span>
@@ -5961,6 +5970,19 @@ window.addEventListener('pagehide', function() {
         <div style="display:flex; gap:12px; justify-content:center; margin-top:18px;">
             <button onclick="cancelShiftUnsavedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">編集に戻る</button>
             <button class="sf-danger-btn" onclick="confirmShiftDiscardAndClose()" style="padding:10px 18px; font-size:14px;">保存せずに閉じる</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 仮締め未保存警告モーダル ===== -->
+<div id="kasimeUnsavedWarningModal" class="sf-modal sf-unsaved-warning-modal">
+    <div class="sf-unsaved-warning-box">
+        <div class="sf-unsaved-warning-icon">⚠️</div>
+        <div class="sf-unsaved-warning-title">仮締めが保存されていません！</div>
+        <div class="sf-unsaved-warning-text">「保存」ボタンを押してください。<br>このまま閉じるとスプレッドシートにデータが保存されません。</div>
+        <div style="display:flex; gap:12px; justify-content:center; margin-top:18px;">
+            <button onclick="cancelKasimeUnsavedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">編集に戻る</button>
+            <button class="sf-danger-btn" onclick="confirmKasimeDiscardAndClose()" style="padding:10px 18px; font-size:14px;">保存せずに閉じる</button>
         </div>
     </div>
 </div>
@@ -10370,7 +10392,17 @@ window.addEventListener('pagehide', function() {
 
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        currentTab = tab.dataset.tab;
+        const targetTab = tab.dataset.tab;
+        if (currentTab === 'kasime' && targetTab !== 'kasime' && window._hasUnsyncedTabChanges) {
+          attemptLeaveKasime(() => applyTabSwitch(targetTab));
+          return;
+        }
+        applyTabSwitch(targetTab);
+      });
+    });
+
+    function applyTabSwitch(targetTab) {
+        currentTab = targetTab;
         document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === currentTab));
         document.getElementById('panelChat').classList.toggle('active', currentTab === 'chat');
         document.getElementById('panelTasks').classList.toggle('active', currentTab === 'tasks');
@@ -10447,8 +10479,7 @@ window.addEventListener('pagehide', function() {
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = '';
         }
-      });
-    });
+    }
 
     document.getElementById('editCancel').addEventListener('click', closeEditModal);
     document.getElementById('editSave').addEventListener('click', saveEdit);
@@ -12407,6 +12438,27 @@ function confirmShiftDiscardAndClose(){
     if(pendingShiftCloseAction){ pendingShiftCloseAction(); pendingShiftCloseAction = null; }
 }
 
+/* ======================
+仮締め：スプレッドシート未保存チェック
+====================== */
+let pendingKasimeCloseAction = null;
+
+function attemptLeaveKasime(closeFn){
+    if(!window._hasUnsyncedTabChanges){ closeFn(); return; }
+    pendingKasimeCloseAction = closeFn;
+    document.getElementById("kasimeUnsavedWarningModal").style.display = "flex";
+}
+
+function cancelKasimeUnsavedWarning(){
+    document.getElementById("kasimeUnsavedWarningModal").style.display = "none";
+    pendingKasimeCloseAction = null;
+}
+
+function confirmKasimeDiscardAndClose(){
+    document.getElementById("kasimeUnsavedWarningModal").style.display = "none";
+    if(pendingKasimeCloseAction){ pendingKasimeCloseAction(); pendingKasimeCloseAction = null; }
+}
+
 function discardSettingsDrafts(){
     const saved = JSON.parse(localStorage.getItem(shiftKey("calcConditions"))) || { holidaySymbols: [], paidLeaveSymbols: [] };
     calcConditions.holidaySymbols = saved.holidaySymbols || [];
@@ -13273,12 +13325,13 @@ function _tabSaveToSheet(tabBtnId) {
 function shiftSaveToSheet() { _tabSaveToSheet('shift'); }
 function salesSaveToSheet() { _tabSaveToSheet('sales'); }
 function dailySaveToSheet() { _tabSaveToSheet('daily'); }
+function kasimeSaveToSheet() { _tabSaveToSheet('kasime'); }
 
 // GAS設定済みの場合のみ保存ボタンを表示
 function updateTabSaveBtnVisibility() {
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
   const show = !!(branchName && getGasUrl() && getSpreadsheetId(branchName));
-  ['shiftSaveWrap', 'salesSaveWrap', 'dailySaveWrap'].forEach(id => {
+  ['shiftSaveWrap', 'salesSaveWrap', 'dailySaveWrap', 'kasimeSaveWrap'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? 'flex' : 'none';
   });
