@@ -12447,7 +12447,9 @@ function confirmShiftDiscardAndClose(){
 let pendingKasimeCloseAction = null;
 
 function attemptLeaveKasime(closeFn){
-    if(!window._hasUnsyncedTabChanges){ closeFn(); return; }
+    const hasUnsaved = window._hasUnsyncedTabChanges ||
+        (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
+    if(!hasUnsaved){ closeFn(); return; }
     pendingKasimeCloseAction = closeFn;
     document.getElementById("kasimeUnsavedWarningModal").style.display = "flex";
 }
