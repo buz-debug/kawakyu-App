@@ -13171,10 +13171,29 @@ async function syncFromSheet(branchName) {
   const keys = getSyncKeys(branchName);
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
-    if (keys.includes(k) && v !== undefined && v !== null && v !== '') {
+    if (!keys.includes(k) || v === undefined || v === null || v === '') return;
+    if (k === 'kawakyu-chatwork-v5') {
+      // branches・membersはローカルを優先してマージ（シートの古いデータで上書きされないよう）
+      try {
+        const sheetState = typeof v === 'string' ? JSON.parse(v) : v;
+        const localRaw = localStorage.getItem(k);
+        if (localRaw) {
+          const localState = JSON.parse(localRaw);
+          if (Array.isArray(localState.branches) && localState.branches.length) {
+            sheetState.branches = localState.branches;
+          }
+          if (Array.isArray(localState.members) && localState.members.length) {
+            sheetState.members = localState.members;
+          }
+        }
+        localStorage.setItem(k, JSON.stringify(sheetState));
+      } catch(e) {
+        localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+      }
+    } else {
       localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
-      count++;
     }
+    count++;
   });
   return { ok: true, count };
 }
