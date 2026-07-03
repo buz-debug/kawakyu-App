@@ -5033,7 +5033,6 @@ function saveRecord() {
   });
   persist();
   clearDraft();
-  showToast('✓ 保存しました');
   setTimeout(() => {
     renderList();
     initCounters();
@@ -8938,6 +8937,15 @@ window.addEventListener('pagehide', function() {
       }
     }
 
+    // マウスクリックでセルを離れた場合など、キー操作を経ずにフォーカスが外れた時も入力内容を確定する
+    function handleSalesInputBlur(event, day, itemIndex) {
+      const input = event.target;
+      if (input.dataset.committed === "false") {
+        const item = salesItems[itemIndex].id;
+        onSalesDailyInput(day, item, input.value.trim(), input);
+      }
+    }
+
     let salesDayViewDate = null; // null=月表示、数値=その日の全営業所一覧表示
 
     function enterSalesDayView(day) {
@@ -9333,7 +9341,8 @@ window.addEventListener('pagehide', function() {
           bodyHtml += `<td class="sales-daily-col"><input type="text" inputmode="decimal" class="sales-daily-input" data-day="${d}" data-item-index="${itemIndex}" data-committed="true" value="${val !== undefined ? val : ''}"
             onfocus="this.select()"
             oninput="this.dataset.committed='false'"
-            onkeydown="handleSalesInputKeydown(event, ${d}, ${itemIndex})"></td>`;
+            onkeydown="handleSalesInputKeydown(event, ${d}, ${itemIndex})"
+            onblur="handleSalesInputBlur(event, ${d}, ${itemIndex})"></td>`;
           if (item.mode !== 'dailyOnly') {
             // その日の日計入力が無い場合は累計も表示しない
             const cumDisplay = (typeof val === 'number') ? cumulative[item.id] : '';
@@ -11651,6 +11660,14 @@ function handleShiftInputKeydown(event, day, staffIdx) {
     moveToNextShiftCell(day, staffIdx);
 }
 
+// マウスクリックでセルを離れた場合など、キー操作を経ずにフォーカスが外れた時も入力内容を確定する
+function handleShiftInputBlur(event, day, staffIdx) {
+    const input = event.target;
+    if (input.dataset.committed === "false") {
+        saveShift(getShiftKeyFor(day, staffIdx), input.value.trim());
+    }
+}
+
 document.addEventListener("keydown", function(e) {
     const isArrow = SHIFT_ARROW_KEYS.includes(e.key);
     if (e.key !== "Enter" && !isArrow) { return; }
@@ -12203,7 +12220,8 @@ function renderEditTable(){
                 <input type="text" class="sf-shift-input" value="${value}" data-day="${d}" data-staff-idx="${staffIdx}" data-committed="true"
                     onfocus="selectShiftCellByCoord(${d}, ${staffIdx})"
                     oninput="this.dataset.committed='false'"
-                    onkeydown="handleShiftInputKeydown(event, ${d}, ${staffIdx})">
+                    onkeydown="handleShiftInputKeydown(event, ${d}, ${staffIdx})"
+                    onblur="handleShiftInputBlur(event, ${d}, ${staffIdx})">
             </td>`;
         }
         const stats = getStaffStats(staff, year, month, days);
