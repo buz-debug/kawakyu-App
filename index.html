@@ -10392,14 +10392,18 @@ window.addEventListener('pagehide', function() {
 
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        const targetTab = tab.dataset.tab;
-        const kasimeHasUnsaved = window._hasUnsyncedTabChanges ||
-          (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
-        if (currentTab === 'kasime' && targetTab !== 'kasime' && kasimeHasUnsaved) {
-          attemptLeaveKasime(() => applyTabSwitch(targetTab));
-          return;
+        try {
+          const targetTab = tab.dataset.tab;
+          const kasimeHasUnsaved = window._hasUnsyncedTabChanges ||
+            (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
+          if (currentTab === 'kasime' && targetTab !== 'kasime' && kasimeHasUnsaved) {
+            attemptLeaveKasime(() => applyTabSwitch(targetTab));
+            return;
+          }
+          applyTabSwitch(targetTab);
+        } catch (e) {
+          alert('DEBUG tab click error: ' + e + '\n' + (e && e.stack));
         }
-        applyTabSwitch(targetTab);
       });
     });
 
@@ -12461,7 +12465,11 @@ function cancelKasimeUnsavedWarning(){
 
 function confirmKasimeDiscardAndClose(){
     document.getElementById("kasimeUnsavedWarningModal").style.display = "none";
-    if(pendingKasimeCloseAction){ pendingKasimeCloseAction(); pendingKasimeCloseAction = null; }
+    try {
+        if(pendingKasimeCloseAction){ pendingKasimeCloseAction(); pendingKasimeCloseAction = null; }
+    } catch (e) {
+        alert('DEBUG confirmKasimeDiscardAndClose error: ' + e + '\n' + (e && e.stack));
+    }
 }
 
 function discardSettingsDrafts(){
