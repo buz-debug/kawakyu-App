@@ -27,6 +27,15 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ── ボタン押下アニメーション（全ボタン共通） ── */
+    button {
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    button:active {
+      transform: scale(0.93);
+      box-shadow: none;
+    }
+
     body {
       font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
       font-size: 13px;
@@ -5502,11 +5511,6 @@ buildInputForm();
 // 保存せずにアプリ（ページ）を閉じようとした場合に確認を表示し、
 // それでも閉じた場合は入力していた金額をリセットする
 window.addEventListener('beforeunload', function(e) {
-  if (hasUnsavedKasimeAmounts()) {
-    e.preventDefault();
-    e.returnValue = '保存していませんが、アプリを閉じてもよろしいですか？';
-    return e.returnValue;
-  }
 });
 window.addEventListener('pagehide', function() {
   if (hasUnsavedKasimeAmounts()) {
@@ -9844,6 +9848,15 @@ window.addEventListener('pagehide', function() {
       renderRoomList();
       renderMessages();
       renderDetail();
+      // ログイン後にシートからデータを読み込み、stateを正しく反映するためリロード
+      if (typeof syncFromSheet === 'function' && getGasUrl() && getSpreadsheetId(state.currentBranch)) {
+        syncFromSheet(state.currentBranch).then(result => {
+          if (result && result.ok) {
+            sessionStorage.setItem('kawakyu_startup_loaded', '1');
+            window.location.reload();
+          }
+        }).catch(() => {});
+      }
     }
 
     function closeSettings() {
@@ -11237,7 +11250,7 @@ window.addEventListener('pagehide', function() {
       return !!(text || vehicle || customer || note);
     }
     window.addEventListener('beforeunload', function(e) {
-      if (hasUnsavedScheduleInput() || window._hasUnsyncedTabChanges) {
+      if (window._hasUnsyncedTabChanges) {
         e.preventDefault();
         e.returnValue = '保存を完了しないとスプレッドシートにデータが反映されません。アプリを閉じてもよろしいですか？';
         return e.returnValue;
@@ -13271,9 +13284,12 @@ updateGasWarningBanner();
   if (!isLoggedIn) return;
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
   if (!branchName || !getGasUrl() || !getSpreadsheetId(branchName)) return;
+  // 同一セッション内で既にリロード済みならスキップ（無限ループ防止）
+  if (sessionStorage.getItem('kawakyu_startup_loaded') === '1') return;
   syncFromSheet(branchName).then(result => {
     if (result && result.ok) {
-      appToast(`スプレッドシートからデータを読み込みました（${result.count}件）`);
+      sessionStorage.setItem('kawakyu_startup_loaded', '1');
+      window.location.reload(); // stateをlocalStorageから再読込するためリロード
     }
   }).catch(() => {}); // 接続できない場合は無視
 })();
