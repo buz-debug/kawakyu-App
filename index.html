@@ -7081,6 +7081,11 @@ window.addEventListener('pagehide', function() {
             const s = JSON.parse(raw);
             return {
               userName: s.userName || '',
+              branches: Array.isArray(s.branches) && s.branches.length ? s.branches : undefined,
+              branchData: s.branchData || undefined,
+              currentBranch: s.currentBranch || undefined,
+              adminPassword: s.adminPassword || undefined,
+              legacyMessagesMigrated: s.legacyMessagesMigrated || false,
               members: normalizeMembers(s.members),
               messages: Array.isArray(s.messages) ? s.messages : [],
               tasks: Array.isArray(s.tasks) ? s.tasks : [],
