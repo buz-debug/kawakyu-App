@@ -6669,8 +6669,6 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openChatSettingsSubPanel('adminPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">管理者パスワード</button>
         <button type="button" onclick="openAdminStaffIdModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スタッフID管理</button>
         <button type="button" onclick="openGasModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スプレッドシート連携（GAS）</button>
-        <hr style="border:none;border-top:1px solid var(--border);margin:4px 0;">
-        <button type="button" onclick="initializeAppData()" style="padding:10px 14px;border:1px solid var(--danger);border-radius:4px;font-size:13px;background:var(--surface);color:var(--danger);cursor:pointer;text-align:left;font-weight:600;">アプリデータ初期化</button>
       </div>
 
       <div class="modal-actions" style="margin-top:16px;justify-content:space-between;">
@@ -8391,88 +8389,6 @@ window.addEventListener('pagehide', function() {
     }
 
     let adminDirty = false;
-
-    function initializeAppData() {
-      if (!confirm('アプリのデータを初期化します。\n\n【クリア対象】\n・営業所（本社以外）\n・メンバー管理\n・連絡ノート・予定\n・仮締め履歴\n・販売実績データ\n・日常業務項目・履歴\n・シフト入力セル\n\n【保持】シフト時間枠（×/有給等）\n\nよろしいですか？')) return;
-      if (!confirm('本当に初期化しますか？\nこの操作は元に戻せません。')) return;
-
-      // 全営業所名を取得
-      let branchNames = ['本社'];
-      try {
-        const raw = localStorage.getItem('kawakyu-chatwork-v5');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed.branches)) branchNames = parsed.branches.map(b => b.name);
-        }
-      } catch(e) {}
-
-      // デフォルト時間枠（×/有給/会議/応援/A/B/C）
-      const DEFAULT_TF = {
-        '×':   { start:'00:00', end:'00:00', break:0, color:'' },
-        '/':   { start:'00:00', end:'00:00', break:0, color:'' },
-        '有給': { start:'00:00', end:'00:00', break:0, color:'#fff9db' },
-        '会議': { start:'00:00', end:'00:00', break:0, color:'#e0f0ff' },
-        '応援': { start:'00:00', end:'00:00', break:0, color:'#e0ffe0' },
-        'A':   { start:'09:00', end:'12:00', break:0,  color:'#d9ecff' },
-        'B':   { start:'12:00', end:'17:00', break:60, color:'#dfffe0' },
-        'C':   { start:'17:00', end:'22:00', break:60, color:'#ffe0e0' },
-      };
-      const DEFAULT_TF_ORDER = ['×','/', '有給','会議','応援','A','B','C'];
-
-      // 各営業所のデータをクリア／リセット
-      branchNames.forEach(branch => {
-        localStorage.removeItem(`shifts_${branch}`);
-        localStorage.setItem(`timeFrames_${branch}`, JSON.stringify(DEFAULT_TF));
-        localStorage.setItem(`timeFrameOrder_${branch}`, JSON.stringify(DEFAULT_TF_ORDER));
-        localStorage.removeItem(`businessHours_${branch}`);
-        localStorage.removeItem(`calcConditions_${branch}`);
-        localStorage.removeItem(`shiftDeadline_${branch}`);
-        localStorage.removeItem(`仮締め記録_${branch}`);
-        localStorage.removeItem(`仮締め入力下書き_${branch}`);
-        localStorage.removeItem(`salesRecords_${branch}`);
-        localStorage.removeItem(`dailyTaskItems_${branch}`);
-        localStorage.removeItem(`dailyTaskRecords_${branch}`);
-      });
-
-      // 販売実績グローバル項目・旧データ
-      localStorage.removeItem('salesItems_GLOBAL');
-      localStorage.removeItem('salesItems_本社');
-
-      // 旧バージョンのチャットデータ
-      ['kawakyu-chatwork-v4','kawakyu-chatwork-v3','kawakyu-chatwork-v2','kawakyu-internal-chat-v1'].forEach(k => localStorage.removeItem(k));
-
-      // 全パスワードを初期値'1234'にリセット
-      localStorage.setItem('settingsPassword', '1234');
-
-      const newState = {
-        userName: '',
-        members: [],
-        messages: [],
-        tasks: [],
-        lastRead: {},
-        bookmarkCategories: ['重要','確認待ち','参考'],
-        bookmarks: [],
-        sidebarTasks: [],
-        schedules: [],
-        schedulePresets: [
-          { name:'朝礼',    duration:30,  color:'#4a7fb5' },
-          { name:'夕礼',    duration:30,  color:'#0ea5e9' },
-          { name:'ミーティング', duration:60, color:'#6366f1' },
-          { name:'休憩',    duration:15,  color:'#f59e0b' },
-          { name:'清掃',    duration:30,  color:'#22c55e' },
-        ],
-        timeUnit: 30,
-        scheduleTimeStart: '09:00',
-        scheduleTimeEnd: '18:00',
-        branches: [{ name:'本社', branchId:'00', spreadsheetId:'', password:'1234', shiftSettingsPassword:'1234' }],
-        adminPassword: 'admin1234',
-        currentBranch: '本社',
-      };
-      localStorage.setItem('kawakyu-chatwork-v5', JSON.stringify(newState));
-
-      alert('初期化が完了しました。ページをリロードします。');
-      location.reload();
-    }
 
     function openAdminPage() {
       if (!adminUnlocked) {
