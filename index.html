@@ -6457,7 +6457,6 @@ window.addEventListener('pagehide', function() {
 
       <div id="kasimeSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
         <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
-        <button type="button" onclick="openChatSettingsSubPanel('speedSettingModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">入力ボタン速度設定</button>
         <button type="button" onclick="openChatSettingsSubPanel('kasimePdfModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ダウンロード/印刷</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
       </div>
@@ -6538,11 +6537,6 @@ window.addEventListener('pagehide', function() {
         </div>
       </div>
 
-      <div id="settingsSpeedSection" data-settings-section="kasime">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">入力ボタン速度設定</h3>
-        <p class="settings-note">数字入力欄の+/-ボタンを長押ししたときの変化速度を5段階から選べます。</p>
-        <div id="longPressSpeedOptions" style="display:flex;flex-direction:column;gap:6px;max-width:320px;"></div>
-      </div>
 
       <div id="settingsPdfSection" data-settings-section="kasime">
         <h3 style="font-size:12px;color:#888;margin-bottom:8px;">ダウンロード/印刷</h3>
@@ -6642,14 +6636,6 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
-  <div class="modal-overlay settings-modal" id="speedSettingModal" role="dialog" aria-modal="true">
-    <div class="modal">
-      <div id="speedSettingMount"></div>
-      <div class="modal-actions" style="margin-top:8px;">
-        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('speedSettingModal'))">閉じる</button>
-      </div>
-    </div>
-  </div>
 
   <div class="modal-overlay settings-modal" id="kasimePdfModal" role="dialog" aria-modal="true">
     <div class="modal">
