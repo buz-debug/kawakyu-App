@@ -10393,7 +10393,9 @@ window.addEventListener('pagehide', function() {
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
-        if (currentTab === 'kasime' && targetTab !== 'kasime' && window._hasUnsyncedTabChanges) {
+        const kasimeHasUnsaved = window._hasUnsyncedTabChanges ||
+          (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
+        if (currentTab === 'kasime' && targetTab !== 'kasime' && kasimeHasUnsaved) {
           attemptLeaveKasime(() => applyTabSwitch(targetTab));
           return;
         }
@@ -11252,7 +11254,8 @@ window.addEventListener('pagehide', function() {
 
     // シフトなど保存中のデータがある状態でアプリ（ブラウザタブ）を閉じようとした場合の警告
     window.addEventListener('beforeunload', function(e) {
-      if (window._hasUnsyncedTabChanges) {
+      const kasimeHasUnsaved = typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts();
+      if (window._hasUnsyncedTabChanges || kasimeHasUnsaved) {
         e.preventDefault();
         e.returnValue = '保存を完了しないとスプレッドシートにデータが反映されません。アプリを閉じてもよろしいですか？';
         return e.returnValue;
