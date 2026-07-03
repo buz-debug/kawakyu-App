@@ -6449,6 +6449,32 @@ window.addEventListener('pagehide', function() {
       </div>
   </div>
 
+  <!-- ===== 販売実績未保存警告モーダル ===== -->
+  <div id="salesUnsavedWarningModal" class="sf-modal sf-unsaved-warning-modal">
+      <div class="sf-unsaved-warning-box">
+          <div class="sf-unsaved-warning-icon">⚠️</div>
+          <div class="sf-unsaved-warning-title">販売実績が保存されていません！</div>
+          <div class="sf-unsaved-warning-text">「保存」ボタンを押してください。<br>このまま閉じるとスプレッドシートにデータが保存されません。</div>
+          <div style="display:flex; gap:12px; justify-content:center; margin-top:18px;">
+              <button onclick="cancelSyncedTabUnsavedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">編集に戻る</button>
+              <button class="sf-danger-btn" onclick="confirmSyncedTabDiscardAndClose()" style="padding:10px 18px; font-size:14px;">保存せずに閉じる</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- ===== 日常業務未保存警告モーダル ===== -->
+  <div id="dailyUnsavedWarningModal" class="sf-modal sf-unsaved-warning-modal">
+      <div class="sf-unsaved-warning-box">
+          <div class="sf-unsaved-warning-icon">⚠️</div>
+          <div class="sf-unsaved-warning-title">日常業務が保存されていません！</div>
+          <div class="sf-unsaved-warning-text">「保存」ボタンを押してください。<br>このまま閉じるとスプレッドシートにデータが保存されません。</div>
+          <div style="display:flex; gap:12px; justify-content:center; margin-top:18px;">
+              <button onclick="cancelSyncedTabUnsavedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">編集に戻る</button>
+              <button class="sf-danger-btn" onclick="confirmSyncedTabDiscardAndClose()" style="padding:10px 18px; font-size:14px;">保存せずに閉じる</button>
+          </div>
+      </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModal" role="dialog" aria-modal="true">
     <div class="modal">
       <h2 id="modalTitle">確認</h2>
@@ -10393,18 +10419,26 @@ window.addEventListener('pagehide', function() {
 
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        try {
-          const targetTab = tab.dataset.tab;
-          const kasimeHasUnsaved = window._hasUnsyncedTabChanges ||
-            (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
-          if (currentTab === 'kasime' && targetTab !== 'kasime' && kasimeHasUnsaved) {
-            attemptLeaveKasime(() => applyTabSwitch(targetTab));
-            return;
-          }
-          applyTabSwitch(targetTab);
-        } catch (e) {
-          alert('DEBUG tab click error: ' + e + '\n' + (e && e.stack));
+        const targetTab = tab.dataset.tab;
+        const kasimeHasUnsaved = window._hasUnsyncedTabChanges ||
+          (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
+        if (currentTab === 'kasime' && targetTab !== 'kasime' && kasimeHasUnsaved) {
+          attemptLeaveKasime(() => applyTabSwitch(targetTab));
+          return;
         }
+        if (currentTab === 'shift' && targetTab !== 'shift' && window._hasUnsyncedTabChanges) {
+          attemptCloseShiftEdit(() => applyTabSwitch(targetTab));
+          return;
+        }
+        if (currentTab === 'sales' && targetTab !== 'sales' && window._hasUnsyncedTabChanges) {
+          attemptLeaveSyncedTab('salesUnsavedWarningModal', () => applyTabSwitch(targetTab));
+          return;
+        }
+        if (currentTab === 'daily' && targetTab !== 'daily' && window._hasUnsyncedTabChanges) {
+          attemptLeaveSyncedTab('dailyUnsavedWarningModal', () => applyTabSwitch(targetTab));
+          return;
+        }
+        applyTabSwitch(targetTab);
       });
     });
 
@@ -12466,11 +12500,34 @@ function cancelKasimeUnsavedWarning(){
 
 function confirmKasimeDiscardAndClose(){
     document.getElementById("kasimeUnsavedWarningModal").style.display = "none";
-    try {
-        if(pendingKasimeCloseAction){ pendingKasimeCloseAction(); pendingKasimeCloseAction = null; }
-    } catch (e) {
-        alert('DEBUG confirmKasimeDiscardAndClose error: ' + e + '\n' + (e && e.stack));
-    }
+    if(pendingKasimeCloseAction){ pendingKasimeCloseAction(); pendingKasimeCloseAction = null; }
+}
+
+/* ======================
+販売実績・日常業務：スプレッドシート未保存チェック
+====================== */
+let pendingSyncedTabCloseAction = null;
+let pendingSyncedTabModalId = null;
+
+function attemptLeaveSyncedTab(modalId, closeFn){
+    if(!window._hasUnsyncedTabChanges){ closeFn(); return; }
+    pendingSyncedTabCloseAction = closeFn;
+    pendingSyncedTabModalId = modalId;
+    document.getElementById(modalId).style.display = "flex";
+}
+
+function cancelSyncedTabUnsavedWarning(){
+    if(pendingSyncedTabModalId){ document.getElementById(pendingSyncedTabModalId).style.display = "none"; }
+    pendingSyncedTabCloseAction = null;
+    pendingSyncedTabModalId = null;
+}
+
+function confirmSyncedTabDiscardAndClose(){
+    if(pendingSyncedTabModalId){ document.getElementById(pendingSyncedTabModalId).style.display = "none"; }
+    const action = pendingSyncedTabCloseAction;
+    pendingSyncedTabCloseAction = null;
+    pendingSyncedTabModalId = null;
+    if(action){ action(); }
 }
 
 function discardSettingsDrafts(){
