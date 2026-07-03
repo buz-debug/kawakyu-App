@@ -6578,7 +6578,16 @@ window.addEventListener('pagehide', function() {
         </div>
       </div>
 
-      <div style="margin-top:28px;text-align:right;" id="settingsAdminRow">
+      <div id="settingsSheetSyncSection" style="display:none;margin-top:24px;border-top:1px solid var(--border);padding-top:16px;">
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">スプレッドシート同期</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" id="settingsSheetUploadBtn" style="flex:1;padding:10px 8px;border:1px solid var(--cw-green);border-radius:4px;background:var(--cw-green);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">↑ シートへ保存</button>
+          <button type="button" id="settingsSheetDownloadBtn" style="flex:1;padding:10px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;">↓ シートから読込</button>
+        </div>
+        <p id="settingsSheetSyncStatus" style="font-size:11px;color:var(--muted);margin-top:6px;min-height:16px;"></p>
+      </div>
+
+      <div style="margin-top:16px;text-align:right;" id="settingsAdminRow">
         <button type="button" id="btnOpenAdminPage" style="padding:3px 8px;background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;text-decoration:underline;">保守・管理</button>
       </div>
 
@@ -8229,6 +8238,14 @@ window.addEventListener('pagehide', function() {
         sec.style.display = sec.dataset.settingsSectionExclude === currentTab ? 'none' : '';
       });
       applySettingsMenuLayout(currentTab);
+      // GAS設定済みの場合のみシート同期セクションを表示
+      const syncSection = document.getElementById('settingsSheetSyncSection');
+      if (syncSection) {
+        const hasGas = !!(getGasUrl && getGasUrl() && getSpreadsheetId && getSpreadsheetId(state.currentBranch));
+        syncSection.style.display = hasGas ? '' : 'none';
+        const statusEl = document.getElementById('settingsSheetSyncStatus');
+        if (statusEl) statusEl.textContent = '';
+      }
       openOverlay(document.getElementById('settingsModal'));
     }
 
@@ -10624,6 +10641,45 @@ window.addEventListener('pagehide', function() {
 
     document.getElementById('btnSettings').addEventListener('click', openSettings);
     document.getElementById('settingsModalClose').addEventListener('click', closeSettings);
+
+    document.getElementById('settingsSheetUploadBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('settingsSheetUploadBtn');
+      const statusEl = document.getElementById('settingsSheetSyncStatus');
+      btn.disabled = true;
+      btn.textContent = '保存中…';
+      statusEl.textContent = '';
+      try {
+        const result = await syncToSheet(state.currentBranch);
+        statusEl.style.color = 'var(--cw-green)';
+        statusEl.textContent = `シートへ保存完了（${result.saved}件）`;
+      } catch(e) {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = '保存失敗: ' + e.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '↑ シートへ保存';
+    });
+
+    document.getElementById('settingsSheetDownloadBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('settingsSheetDownloadBtn');
+      const statusEl = document.getElementById('settingsSheetSyncStatus');
+      btn.disabled = true;
+      btn.textContent = '読込中…';
+      statusEl.textContent = '';
+      try {
+        const result = await syncFromSheet(state.currentBranch);
+        if (result && result.ok) {
+          statusEl.style.color = 'var(--cw-green)';
+          statusEl.textContent = `読込完了（${result.count}件）。ページをリロードして反映します…`;
+          setTimeout(() => { sessionStorage.setItem('kawakyu_startup_loaded', '1'); window.location.reload(); }, 1200);
+        }
+      } catch(e) {
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = '読込失敗: ' + e.message;
+      }
+      btn.disabled = false;
+      btn.textContent = '↓ シートから読込';
+    });
     document.getElementById('settingsModal').addEventListener('click', e => {
       if (e.target.id === 'settingsModal') closeSettings();
     });
@@ -13184,11 +13240,27 @@ async function syncFromSheet(branchName) {
         const localRaw = localStorage.getItem(k);
         if (localRaw) {
           const localState = JSON.parse(localRaw);
-          if (Array.isArray(localState.branches) && localState.branches.length) {
-            sheetState.branches = localState.branches;
-          }
-          if (Array.isArray(localState.members) && localState.members.length) {
-            sheetState.members = localState.members;
+          // 営業所：件数が多い方を採用（ローカルが初期値のみの場合はシートを優先）
+          const localBranches = Array.isArray(localState.branches) ? localState.branches : [];
+          const sheetBranches = Array.isArray(sheetState.branches) ? sheetState.branches : [];
+          sheetState.branches = localBranches.length >= sheetBranches.length
+            ? localBranches
+            : sheetBranches;
+          // メンバー：同様に件数が多い方を採用
+          const localMembers = Array.isArray(localState.members) ? localState.members : [];
+          const sheetMembers = Array.isArray(sheetState.members) ? sheetState.members : [];
+          sheetState.members = localMembers.length >= sheetMembers.length
+            ? localMembers
+            : sheetMembers;
+          // branchDataはシートを優先しつつローカルの新しいバケットを補完
+          if (localState.branchData && sheetState.branchData) {
+            Object.keys(localState.branchData).forEach(bn => {
+              if (!sheetState.branchData[bn]) {
+                sheetState.branchData[bn] = localState.branchData[bn];
+              }
+            });
+          } else if (localState.branchData && !sheetState.branchData) {
+            sheetState.branchData = localState.branchData;
           }
         }
         localStorage.setItem(k, JSON.stringify(sheetState));
