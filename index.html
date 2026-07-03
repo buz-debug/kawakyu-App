@@ -8273,7 +8273,7 @@ window.addEventListener('pagehide', function() {
       taskPresetSection.style.display = (tab === 'tasks') ? '' : 'none';
       taskTimeSection.style.display = (tab === 'tasks') ? '' : 'none';
       chatSection.style.display = (tab === 'chat') ? '' : 'none';
-      speedSection.style.display = (tab === 'kasime') ? '' : 'none';
+      if (speedSection) speedSection.style.display = (tab === 'kasime') ? '' : 'none';
       pdfSection.style.display = (tab === 'kasime') ? '' : 'none';
       loginSection.style.display = (tab === 'chat' || tab === 'tasks' || tab === 'kasime') ? '' : 'none';
 
@@ -8290,7 +8290,8 @@ window.addEventListener('pagehide', function() {
         tasksMenu.style.display = 'flex';
       } else if (tab === 'kasime') {
         document.getElementById('memberManageMount').appendChild(memberSection);
-        document.getElementById('speedSettingMount').appendChild(speedSection);
+        const speedMount = document.getElementById('speedSettingMount');
+        if (speedMount && speedSection) speedMount.appendChild(speedSection);
         document.getElementById('kasimePdfMount').appendChild(pdfSection);
         document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
         renderLongPressSpeedOptions();
@@ -8303,7 +8304,7 @@ window.addEventListener('pagehide', function() {
         modalBody.insertBefore(taskPresetSection, adminRow);
         modalBody.insertBefore(taskTimeSection, adminRow);
         modalBody.insertBefore(chatSection, adminRow);
-        modalBody.insertBefore(speedSection, adminRow);
+        if (speedSection) modalBody.insertBefore(speedSection, adminRow);
         modalBody.insertBefore(pdfSection, adminRow);
         modalBody.insertBefore(loginSection, adminRow);
       }
