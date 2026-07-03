@@ -11301,6 +11301,15 @@ window.addEventListener('pagehide', function() {
       const note = (document.getElementById('taskNote').value || '').trim();
       return !!(text || vehicle || customer || note);
     }
+
+    // シフトなど保存中のデータがある状態でアプリ（ブラウザタブ）を閉じようとした場合の警告
+    window.addEventListener('beforeunload', function(e) {
+      if (window._hasUnsyncedTabChanges) {
+        e.preventDefault();
+        e.returnValue = '保存を完了しないとスプレッドシートにデータが反映されません。アプリを閉じてもよろしいですか？';
+        return e.returnValue;
+      }
+    });
   </script>
 
 
