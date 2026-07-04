@@ -5100,7 +5100,7 @@ function deleteCurrentRecord() {
   persist();
   closeDetail();
   renderList();
-  showToast('記録を削除しました');
+  kasimeSaveToSheet();
 }
 
 /* ===== SETTINGS ===== */
@@ -7143,6 +7143,9 @@ window.addEventListener('pagehide', function() {
         console.error(err);
         storageAvailable = false;
       }
+      // ユーザーの編集操作ではない内部処理（ログイン処理・起動時の初期化など）からの
+      // 呼び出しは _noSaveToast で明示された場合のみ、シートへの自動送信をスキップする
+      if (window._noSaveToast) return;
       // 編集のたびにスプレッドシートへ自動同期（1.5秒デバウンス）
       if (typeof autoSyncToSheet === 'function') autoSyncToSheet();
     }
@@ -7220,7 +7223,8 @@ window.addEventListener('pagehide', function() {
       const msgs = roomMessages(roomId);
       if (msgs.length) state.lastRead[roomId] = msgs[msgs.length - 1].ts;
       else state.lastRead[roomId] = Date.now();
-      window._noSaveToast = true; saveState(); window._noSaveToast = false;
+      // 既読状態は「保存」ボタンを介さず、既読にした時点で即シートへ反映する
+      saveState();
     }
 
     function renderRoomList() {
@@ -8588,6 +8592,8 @@ window.addEventListener('pagehide', function() {
 
     function saveSalesItems() {
       localStorage.setItem(SALES_ITEMS_GLOBAL_KEY, JSON.stringify(salesItems));
+      window._hasUnsyncedTabChanges = true;
+      salesSaveToSheet();
     }
 
     function saveSalesRecords() {
@@ -9291,8 +9297,8 @@ window.addEventListener('pagehide', function() {
           delete rec[oldName];
         }
       });
-      saveSalesItems();
       saveSalesRecords();
+      saveSalesItems();
       closeSalesItemEditModal();
       renderSalesItemsList();
       renderSalesTable();
@@ -9380,6 +9386,8 @@ window.addEventListener('pagehide', function() {
 
     function saveDailyTaskItems() {
       localStorage.setItem(dailyKey('dailyTaskItems'), JSON.stringify(dailyTaskItems));
+      window._hasUnsyncedTabChanges = true;
+      dailySaveToSheet();
     }
 
     function saveDailyTaskRecords() {
@@ -11068,7 +11076,8 @@ window.addEventListener('pagehide', function() {
       }
     });
     if (!state.bookmarks) state.bookmarks = [];
-    saveState();
+    // 起動時の初期化処理であり、ユーザーの編集操作ではないためシートへは送信しない
+    window._noSaveToast = true; saveState(); window._noSaveToast = false;
     updateMeUI();
     initToPicker();
     renderMemberSelects();
@@ -11587,8 +11596,9 @@ function saveCalcConditions() {
     localStorage.setItem(shiftKey("calcConditions"), JSON.stringify(calcConditions));
     renderViewTable();
     renderEditTable();
-    sfShowToast("集計条件設定の変更が保存されました");
     settingsDirty = false;
+    window._hasUnsyncedTabChanges = true;
+    shiftSaveToSheet();
 }
 
 function saveBusinessHours() {
@@ -11596,13 +11606,14 @@ function saveBusinessHours() {
     const end = document.getElementById("businessEndInput").value || "18:00";
     businessHours = { start, end };
     localStorage.setItem(shiftKey("businessHours"), JSON.stringify(businessHours));
-    
+
     renderEditTable();
     if(document.getElementById("dailyPopupModal").style.display === "block") {
         renderTimelineStructure();
     }
-    sfShowToast("営業時間設定の変更が保存されました");
     settingsDirty = false;
+    window._hasUnsyncedTabChanges = true;
+    shiftSaveToSheet();
 }
 
 function getStaffStats(staff, year, month, days) {
@@ -12090,8 +12101,9 @@ function saveDeadlineSettings(){
     }
     shiftDeadline = { day, time };
     localStorage.setItem(shiftKey("shiftDeadline"), JSON.stringify(shiftDeadline));
-    sfShowToast("希望休日締め切り設定の変更が保存されました");
     settingsDirty = false;
+    window._hasUnsyncedTabChanges = true;
+    shiftSaveToSheet();
 }
 
 function getCurrentBranchShiftPassword(){
@@ -12450,6 +12462,8 @@ function moveTimeFrameDown(index){ if(index===timeFrameOrder.length-1){ return; 
 function saveTimeFrameOrder(){
     localStorage.setItem(shiftKey("timeFrameOrder"), JSON.stringify(timeFrameOrder));
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderMultiselectDropdowns();
+    window._hasUnsyncedTabChanges = true;
+    shiftSaveToSheet();
 }
 
 function saveFixedTimeFrameColor(code){
@@ -12457,8 +12471,9 @@ function saveFixedTimeFrameColor(code){
     timeFrames[code].color = selectedColorsTemp[code];
     localStorage.setItem(shiftKey("timeFrames"), JSON.stringify(timeFrames));
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable();
-    sfShowToast(`「${code}」の変更が保存されました`);
     settingsDirty = false;
+    window._hasUnsyncedTabChanges = true;
+    shiftSaveToSheet();
 }
 
 function updateTimeFrame(oldCode){
@@ -12482,9 +12497,8 @@ function updateTimeFrame(oldCode){
         localStorage.setItem(shiftKey("calcConditions"), JSON.stringify(calcConditions));
     }
     Object.keys(shifts).forEach(key=>{ if(shifts[key]===oldCode){ shifts[key]=newCode; } });
-    saveTimeFrames();
-    sfShowToast(`「${newCode}」の変更が保存されました`);
     settingsDirty = false;
+    saveTimeFrames();
 }
 
 function addTimeFrame(){
@@ -12494,9 +12508,8 @@ function addTimeFrame(){
     if(timeFrames[trimCode]){ alert("既に存在します"); return; }
     timeFrames[trimCode] = { start:"09:00", end:"18:00", "break":60, color:"#cccccc" };
     timeFrameOrder.push(trimCode);
-    saveTimeFrames();
-    sfShowToast(`「${trimCode}」が追加されました`);
     settingsDirty = false;
+    saveTimeFrames();
 }
 
 function deleteTimeFrame(code){
@@ -12507,9 +12520,8 @@ function deleteTimeFrame(code){
     calcConditions.paidLeaveSymbols = calcConditions.paidLeaveSymbols.filter(item => item !== code);
     localStorage.setItem(shiftKey("calcConditions"), JSON.stringify(calcConditions));
     Object.keys(shifts).forEach(key=>{ if(shifts[key]===code){ shifts[key]=""; } });
-    saveTimeFrames();
-    sfShowToast(`「${code}」が削除されました`);
     settingsDirty = false;
+    saveTimeFrames();
 }
 
 function saveTimeFrames(){
@@ -12517,6 +12529,8 @@ function saveTimeFrames(){
     localStorage.setItem(shiftKey("timeFrameOrder"), JSON.stringify(timeFrameOrder));
     localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable(); renderMultiselectDropdowns();
+    window._hasUnsyncedTabChanges = true;
+    shiftSaveToSheet();
 }
 
 function renderTimeframeList(){
@@ -13154,8 +13168,15 @@ async function syncBranchListFromGas() {
 }
 syncBranchListFromGas();
 
+// シートからのダウンロード中は、空・古いローカルデータで上書きしてしまう競合を防ぐためのフラグ
+let _sheetDownloadInProgress = false;
+
 // アプリ → スプレッドシートへ保存
 async function syncToSheet(branchName) {
+  // シートからのダウンロード中は、空・古いローカルデータで上書きしてしまうため保存しない
+  if (typeof _sheetDownloadInProgress !== 'undefined' && _sheetDownloadInProgress) {
+    throw new Error('スプレッドシートから読込中のため、少し待ってから保存してください');
+  }
   const spreadsheetId = getSpreadsheetId(branchName);
   const keys = getSyncKeys(branchName);
   const data = {};
@@ -13168,51 +13189,26 @@ async function syncToSheet(branchName) {
 
 // スプレッドシート → アプリへ読込
 async function syncFromSheet(branchName) {
+  _sheetDownloadInProgress = true;
+  try {
+    return await doSyncFromSheet(branchName);
+  } finally {
+    _sheetDownloadInProgress = false;
+  }
+}
+
+async function doSyncFromSheet(branchName) {
   const spreadsheetId = getSpreadsheetId(branchName);
   const result = await gasRequest('load', spreadsheetId);
   if (!result.ok) return result;
 
+  // 「保存」「削除」ボタンを押した時点でスプレッドシートに反映済みという前提のため、
+  // 読込時はローカルとの比較・マージはせず、常にスプレッドシートの内容をそのまま採用する。
   const keys = getSyncKeys(branchName);
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     if (!keys.includes(k) || v === undefined || v === null || v === '') return;
-    if (k === 'kawakyu-chatwork-v5') {
-      // branches・membersはローカルを優先してマージ（シートの古いデータで上書きされないよう）
-      try {
-        const sheetState = typeof v === 'string' ? JSON.parse(v) : v;
-        const localRaw = localStorage.getItem(k);
-        if (localRaw) {
-          const localState = JSON.parse(localRaw);
-          // 営業所：件数が多い方を採用（ローカルが初期値のみの場合はシートを優先）
-          const localBranches = Array.isArray(localState.branches) ? localState.branches : [];
-          const sheetBranches = Array.isArray(sheetState.branches) ? sheetState.branches : [];
-          sheetState.branches = localBranches.length >= sheetBranches.length
-            ? localBranches
-            : sheetBranches;
-          // メンバー：同様に件数が多い方を採用
-          const localMembers = Array.isArray(localState.members) ? localState.members : [];
-          const sheetMembers = Array.isArray(sheetState.members) ? sheetState.members : [];
-          sheetState.members = localMembers.length >= sheetMembers.length
-            ? localMembers
-            : sheetMembers;
-          // branchDataはシートを優先しつつローカルの新しいバケットを補完
-          if (localState.branchData && sheetState.branchData) {
-            Object.keys(localState.branchData).forEach(bn => {
-              if (!sheetState.branchData[bn]) {
-                sheetState.branchData[bn] = localState.branchData[bn];
-              }
-            });
-          } else if (localState.branchData && !sheetState.branchData) {
-            sheetState.branchData = localState.branchData;
-          }
-        }
-        localStorage.setItem(k, JSON.stringify(sheetState));
-      } catch(e) {
-        localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
-      }
-    } else {
-      localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
-    }
+    localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
     count++;
   });
   return { ok: true, count };
@@ -13246,6 +13242,12 @@ function autoSyncToSheet(msg) {
   if (msg) _autoSyncMsg = msg;
   clearTimeout(_autoSyncTimer);
   _autoSyncTimer = setTimeout(() => {
+    // シートからのダウンロード中は、空・古いローカルデータで上書きしてしまわないよう
+    // アップロードを見送り、少し待ってから再度試みる
+    if (typeof _sheetDownloadInProgress !== 'undefined' && _sheetDownloadInProgress) {
+      autoSyncToSheet();
+      return;
+    }
     const toastMsg = _autoSyncMsg;
     _autoSyncMsg = 'スプレッドシートに保存しました'; // リセット
     const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
