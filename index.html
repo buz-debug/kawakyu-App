@@ -4567,18 +4567,6 @@ let safeCounts = {};
 let viewMonth = new Date();
 let historyMoreExpanded = false;
 let currentDetailId = null;
-let longPressTimer = null;
-let longPressInterval = null;
-let longPressTriggered = false;
-let longPressSpeedMode = 'fast';
-const LONG_PRESS_SPEEDS = [
-  { id: 'fastest', label: '最速', interval: 50,  counterInterval: 8  },
-  { id: 'fast',    label: '速い', interval: 75,  counterInterval: 13 },
-  { id: 'normal',  label: '普通', interval: 100, counterInterval: 18 },
-  { id: 'slow',    label: '遅い', interval: 142, counterInterval: 24 },
-  { id: 'slowest', label: '最遅', interval: 200, counterInterval: 32 },
-];
-
 function persist() {
   window._hasUnsyncedTabChanges = true;
   try { localStorage.setItem(kasimeKey('仮締め記録'), JSON.stringify(records)); } catch(e){}
@@ -4615,45 +4603,6 @@ function hasUnsavedKasimeAmounts() {
     return el && Number(el.value) > 0;
   });
 }
-function getLongPressSpeedConfig() {
-  return LONG_PRESS_SPEEDS.find(s => s.id === longPressSpeedMode) || LONG_PRESS_SPEEDS[1];
-}
-function persistLongPressSpeed() {
-  try { localStorage.setItem('長押し速度', longPressSpeedMode); } catch(e){}
-}
-function loadLongPressSpeed() {
-  try {
-    const val = localStorage.getItem('長押し速度');
-    if (LONG_PRESS_SPEEDS.some(s => s.id === val)) longPressSpeedMode = val;
-  } catch(e){}
-}
-function getLongPressIntervalMs() {
-  return getLongPressSpeedConfig().interval;
-}
-function getCounterIntervalMs(val, store) {
-  if (store === 'safe' && (val === 10000 || val === 5000 || val === 1000)) {
-    return getLongPressSpeedConfig().counterInterval;
-  }
-  return getLongPressIntervalMs();
-}
-function setLongPressSpeed(id) {
-  if (!LONG_PRESS_SPEEDS.some(s => s.id === id)) return;
-  longPressSpeedMode = id;
-  persistLongPressSpeed();
-  renderLongPressSpeedOptions();
-  showToast('入力ボタン速度: ' + getLongPressSpeedConfig().label);
-}
-function renderLongPressSpeedOptions() {
-  const wrap = document.getElementById('longPressSpeedOptions');
-  if (!wrap) return;
-  wrap.innerHTML = LONG_PRESS_SPEEDS.map(s => {
-    const active = s.id === longPressSpeedMode;
-    const bg = active ? 'var(--cw-green)' : 'var(--surface)';
-    const color = active ? '#fff' : 'inherit';
-    return `<button type="button" onclick="setLongPressSpeed('${s.id}')" style="padding:8px 12px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:${bg};color:${color};cursor:pointer;text-align:left;">${s.label}</button>`;
-  }).join('');
-}
-
 /* ===== FORMATTERS ===== */
 function fmtAbs(n) { return '¥' + Math.abs(Math.round(n)).toLocaleString('ja-JP'); }
 function fmtDiff(n) {
@@ -4696,18 +4645,6 @@ function initCounters() {
   SAFE_DENOMS.forEach(d => safeCounts[d.val] = 0);
 }
 
-function adj(val, store, delta) {
-  if (store === 'drawer') {
-    drawerCounts[val] = Math.max(0, (drawerCounts[val]||0) + delta);
-    document.getElementById('cv_d_'+val).value = drawerCounts[val];
-  } else {
-    safeCounts[val] = Math.max(0, (safeCounts[val]||0) + delta);
-    document.getElementById('cv_s_'+val).value = safeCounts[val];
-  }
-  recalc();
-  persistDraft();
-}
-
 function onCounterInput(val, store, input) {
   // 入力中はフィールドの値を書き戻さない（手打ちで消して打ち直す操作を妨げないため）
   const n = input.value === '' ? 0 : Math.max(0, parseInt(input.value, 10) || 0);
@@ -4745,38 +4682,6 @@ function onCounterEnterKey(e, input) {
     next.select();
   } else {
     input.blur();
-  }
-}
-
-function onCounterPressStart(val, store, delta) {
-  clearCounterPress();
-  longPressTriggered = false;
-  longPressTimer = setTimeout(() => {
-    longPressTriggered = true;
-    longPressInterval = setInterval(() => adj(val, store, delta), getCounterIntervalMs(val, store));
-  }, 500);
-}
-
-function onCounterPressEnd() {
-  clearCounterPress();
-}
-
-function onCounterClick(val, store, delta) {
-  if (longPressTriggered) {
-    longPressTriggered = false;
-    return;
-  }
-  adj(val, store, delta);
-}
-
-function clearCounterPress() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-  if (longPressInterval) {
-    clearInterval(longPressInterval);
-    longPressInterval = null;
   }
 }
 
@@ -5481,7 +5386,6 @@ function downloadPDF(year, month, mode) {
 /* ===== INIT ===== */
 renderList();
 renderPersonSelect();
-loadLongPressSpeed();
 // 2カラム版：仮締めタブを開いた時に即入力できるよう初期化
 initCounters();
 buildInputForm();
@@ -6697,18 +6601,7 @@ window.addEventListener('pagehide', function() {
   <div class="modal-overlay settings-modal" id="gasModal" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:460px;">
       <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">スプレッドシート連携（GAS）</h3>
-      <p class="settings-note" style="margin-bottom:12px;">GAS URLは全営業所で共通です。スプレッドシートIDは営業所ごとに管理画面で設定してください。</p>
-
-      <div style="margin-bottom:14px;">
-        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">GAS URL（ウェブアプリのURL）</label>
-        <div style="display:flex;gap:6px;">
-          <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/..." style="flex:1;border:1px solid var(--border);border-radius:4px;padding:7px 8px;font-size:12px;outline:none;min-width:0;">
-          <button type="button" id="gasUrlSaveBtn" class="primary" style="white-space:nowrap;padding:7px 14px;font-size:12px;">保存</button>
-        </div>
-        <div id="gasUrlStatus" style="font-size:11px;margin-top:4px;min-height:16px;"></div>
-      </div>
-
-      <hr style="border:none;border-top:1px solid var(--border);margin:0 0 14px;">
+      <p class="settings-note" style="margin-bottom:12px;">GAS URLは全営業所・全端末で共通です。</p>
 
       <div>
         <div id="gasBranchInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
@@ -8225,7 +8118,6 @@ window.addEventListener('pagehide', function() {
       const taskPresetSection = document.getElementById('settingsTaskPresetSection');
       const taskTimeSection = document.getElementById('settingsTaskTimeSection');
       const chatSection = document.getElementById('settingsChatSection');
-      const speedSection = document.getElementById('settingsSpeedSection');
       const pdfSection = document.getElementById('settingsPdfSection');
       const loginSection = document.getElementById('settingsLoginPwdSection');
       const chatMenu = document.getElementById('chatSettingsMenu');
@@ -8245,7 +8137,6 @@ window.addEventListener('pagehide', function() {
       taskPresetSection.style.display = (tab === 'tasks') ? '' : 'none';
       taskTimeSection.style.display = (tab === 'tasks') ? '' : 'none';
       chatSection.style.display = (tab === 'chat') ? '' : 'none';
-      if (speedSection) speedSection.style.display = (tab === 'kasime') ? '' : 'none';
       pdfSection.style.display = (tab === 'kasime') ? '' : 'none';
       loginSection.style.display = (tab === 'chat' || tab === 'tasks' || tab === 'kasime') ? '' : 'none';
 
@@ -8262,11 +8153,8 @@ window.addEventListener('pagehide', function() {
         tasksMenu.style.display = 'flex';
       } else if (tab === 'kasime') {
         document.getElementById('memberManageMount').appendChild(memberSection);
-        const speedMount = document.getElementById('speedSettingMount');
-        if (speedMount && speedSection) speedMount.appendChild(speedSection);
         document.getElementById('kasimePdfMount').appendChild(pdfSection);
         document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
-        renderLongPressSpeedOptions();
         initKasimePdfPicker();
         kasimeMenu.style.display = 'flex';
       } else {
@@ -8276,7 +8164,6 @@ window.addEventListener('pagehide', function() {
         modalBody.insertBefore(taskPresetSection, adminRow);
         modalBody.insertBefore(taskTimeSection, adminRow);
         modalBody.insertBefore(chatSection, adminRow);
-        if (speedSection) modalBody.insertBefore(speedSection, adminRow);
         modalBody.insertBefore(pdfSection, adminRow);
         modalBody.insertBefore(loginSection, adminRow);
       }
@@ -11277,6 +11164,7 @@ function switchShiftViewBranch(name, silent) {
     if (typeof renderTimeFrameEditor === "function") renderTimeFrameEditor();
     if (typeof renderTimeframeList === "function") renderTimeframeList();
     if (typeof renderMultiselectDropdowns === "function") renderMultiselectDropdowns();
+    syncBranchListFromGas();
 
     const startEl = document.getElementById("businessStartInput");
     if (startEl) startEl.value = businessHours.start;
@@ -13146,11 +13034,12 @@ if(isMobileDevice()){
 /* ============================================================
    スプレッドシート連携（GAS）
    ============================================================ */
-const GAS_URL_KEY = 'kawakyu_gas_url';
+// 全営業所・全端末で共通のGAS URL（配布前にここを書き換える）
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxaX-yixD-v54kq_WaPh5PuZIV4FFSTKglc3a5Ri2h7iedFunwM6Qqu7D-Tk-yHen5I/exec';
 const SHEET_IDS_KEY = 'kawakyu_spreadsheet_ids';
 
 function getGasUrl() {
-  return localStorage.getItem(GAS_URL_KEY) || '';
+  return DEFAULT_GAS_URL;
 }
 
 function getSheetIds() {
@@ -13211,6 +13100,58 @@ async function gasRequest(action, spreadsheetId, data) {
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
+}
+
+// GASに登録済みの営業所一覧（spreadsheetIdを必要としないリクエスト）
+async function fetchRegisteredBranches() {
+  const gasUrl = getGasUrl();
+  if (!gasUrl) throw new Error('GAS URLが設定されていません');
+  const resp = await fetch(gasUrl, {
+    method: 'POST',
+    redirect: 'follow',
+    body: JSON.stringify({ action: 'listBranches' }),
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+// 起動時にGASの営業所一覧を取り込み、この端末にまだ無い営業所を自動追加する
+// （既にある営業所はパスワード変更済みの可能性があるため上書きしない。スプレッドシートIDのみ最新化する）
+async function syncBranchListFromGas() {
+  if (typeof state === 'undefined' || !Array.isArray(state.branches)) return;
+  try {
+    const result = await fetchRegisteredBranches();
+    if (!result || !result.ok || !Array.isArray(result.branches)) return;
+    let changed = false;
+    result.branches.forEach(rb => {
+      if (!rb.name || !rb.spreadsheetId) return;
+      const existing = state.branches.find(b => b.name === rb.name);
+      if (existing) {
+        if (existing.spreadsheetId !== rb.spreadsheetId) {
+          existing.spreadsheetId = rb.spreadsheetId;
+          changed = true;
+        }
+      } else {
+        const usedIds = new Set(state.branches.map(b => b.branchId).filter(Boolean));
+        let n = 1, branchId;
+        do { branchId = String(n).padStart(2, '0'); n++; } while (usedIds.has(branchId));
+        state.branches.push({
+          name: rb.name,
+          branchId: branchId,
+          spreadsheetId: rb.spreadsheetId,
+          password: rb.initialPassword || '1234',
+          shiftSettingsPassword: rb.initialPassword || '1234',
+        });
+        changed = true;
+      }
+    });
+    if (changed) {
+      window._noSaveToast = true; saveState(); window._noSaveToast = false;
+      if (typeof renderLoginBranchSelect === 'function') renderLoginBranchSelect();
+    }
+  } catch (e) {
+    // 通信できない場合は静かに諦める（この端末に既にある営業所での利用は継続できる）
+  }
 }
 
 // アプリ → スプレッドシートへ保存
@@ -13279,8 +13220,6 @@ async function syncFromSheet(branchName) {
 
 // モーダルを開く
 function openGasModal() {
-  document.getElementById('gasUrlInput').value = getGasUrl();
-  document.getElementById('gasUrlStatus').textContent = '';
   document.getElementById('gasSyncStatus').textContent = '';
 
   // 現在の営業所・スプレッドシートID表示
@@ -13394,16 +13333,6 @@ updateGasWarningBanner();
 })();
 
 // ── イベントリスナー ──
-document.getElementById('gasUrlSaveBtn').addEventListener('click', () => {
-  const url = document.getElementById('gasUrlInput').value.trim();
-  localStorage.setItem(GAS_URL_KEY, url);
-  const st = document.getElementById('gasUrlStatus');
-  st.textContent = url ? '✓ GAS URLを保存しました' : 'GAS URLをクリアしました';
-  if (typeof updateTabSaveBtnVisibility === 'function') updateTabSaveBtnVisibility();
-  if (typeof updateGasWarningBanner === 'function') updateGasWarningBanner();
-  st.style.color = 'var(--cw-green)';
-});
-
 document.getElementById('gasUploadBtn').addEventListener('click', async () => {
   const btn = document.getElementById('gasUploadBtn');
   btn.disabled = true;
