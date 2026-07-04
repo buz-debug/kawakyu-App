@@ -13117,34 +13117,20 @@ async function fetchRegisteredBranches() {
 // 起動時にGASの営業所一覧を取り込み、この端末にまだ無い営業所を自動追加する
 // （既にある営業所はパスワード変更済みの可能性があるため上書きしない。スプレッドシートIDのみ最新化する）
 async function syncBranchListFromGas() {
-  console.log('DEBUG syncBranchListFromGas: start, typeof state =', typeof state);
-  if (typeof state === 'undefined' || !Array.isArray(state.branches)) {
-    console.log('DEBUG syncBranchListFromGas: bailing out early, state.branches =', typeof state !== 'undefined' ? state.branches : 'N/A');
-    return;
-  }
+  if (typeof state === 'undefined' || !Array.isArray(state.branches)) return;
   try {
     const result = await fetchRegisteredBranches();
-    console.log('DEBUG syncBranchListFromGas: fetchRegisteredBranches result =', JSON.stringify(result));
-    if (!result || !result.ok || !Array.isArray(result.branches)) {
-      console.log('DEBUG syncBranchListFromGas: bad result shape, bailing out');
-      return;
-    }
+    if (!result || !result.ok || !Array.isArray(result.branches)) return;
     let changed = false;
     result.branches.forEach(rb => {
-      console.log('DEBUG syncBranchListFromGas: processing branch', JSON.stringify(rb));
-      if (!rb.name || !rb.spreadsheetId) {
-        console.log('DEBUG syncBranchListFromGas: skipping, missing name/spreadsheetId');
-        return;
-      }
+      if (!rb.name || !rb.spreadsheetId) return;
       const existing = state.branches.find(b => b.name === rb.name);
       if (existing) {
-        console.log('DEBUG syncBranchListFromGas: branch already exists locally:', rb.name);
         if (existing.spreadsheetId !== rb.spreadsheetId) {
           existing.spreadsheetId = rb.spreadsheetId;
           changed = true;
         }
       } else {
-        console.log('DEBUG syncBranchListFromGas: adding new branch:', rb.name);
         const usedIds = new Set(state.branches.map(b => b.branchId).filter(Boolean));
         let n = 1, branchId;
         do { branchId = String(n).padStart(2, '0'); n++; } while (usedIds.has(branchId));
@@ -13158,14 +13144,12 @@ async function syncBranchListFromGas() {
         changed = true;
       }
     });
-    console.log('DEBUG syncBranchListFromGas: changed =', changed, 'state.branches =', JSON.stringify(state.branches));
     if (changed) {
       window._noSaveToast = true; saveState(); window._noSaveToast = false;
       if (typeof renderLoginBranchSelect === 'function') renderLoginBranchSelect();
-      console.log('DEBUG syncBranchListFromGas: saved + re-rendered login select');
     }
   } catch (e) {
-    console.log('DEBUG syncBranchListFromGas: ERROR CAUGHT:', e, e && e.stack);
+    // 通信できない場合は静かに諦める（この端末に既にある営業所での利用は継続できる）
   }
 }
 syncBranchListFromGas();
