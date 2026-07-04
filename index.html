@@ -2181,7 +2181,7 @@
 #kasime-wrap .input-top-row > .top-cancel-btn {
   height: auto;
   min-width: 0;
-  padding: 7px 34px;
+  padding: 5px 34px;
 }
 #kasime-wrap /* 上段ボタン */
 .top-cancel-btn {
@@ -5743,7 +5743,6 @@ window.addEventListener('pagehide', function() {
                 <div id="editMonthLabel" style="font-weight:bold; font-size:15px; margin:0 4px;"></div>
                 <button onclick="sfChangeMonth(1)">次月</button>
                 <span id="shiftSaveWrap" style="display:none;align-items:center;gap:6px;">
-                  <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
                   <button type="button" onclick="shiftSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
                 </span>
                 <button class="sf-close-btn" onclick="closeSubPanel(null,'panelShiftEdit')">閉じる</button>
@@ -5960,7 +5959,6 @@ window.addEventListener('pagehide', function() {
           <button type="button" id="salesDayViewBackBtn" class="sales-nav-btn" onclick="exitSalesDayView()" style="display:none;">戻る</button>
           <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
             <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;">
-              <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
               <button type="button" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
             </span>
             <button type="button" class="sales-settings-btn" style="background:#555;" onclick="openSalesPdfModal()">ダウンロード/印刷</button>
@@ -5996,7 +5994,6 @@ window.addEventListener('pagehide', function() {
           <div id="dailyMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(1)">次月</button>
           <span id="dailySaveWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
-            <span style="font-size:11px;color:var(--danger);white-space:nowrap;">保存しないデータは失われます</span>
             <button type="button" onclick="dailySaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
           </span>
           <button type="button" class="sales-settings-btn" onclick="openDailySettingsMenu()">設定</button>
