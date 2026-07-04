@@ -13021,7 +13021,6 @@ function isMobileDevice(){
 renderViewTable();
 renderShiftBranchSwitcher();
 checkHolidayListExpiry();
-syncBranchListFromGas();
 
 if(isMobileDevice()){
     // スマホでは「シフト」タブに固定し、他タブへの切り替えUIを隠して「マイシフト」画面を開く
@@ -13169,6 +13168,7 @@ async function syncBranchListFromGas() {
     console.log('DEBUG syncBranchListFromGas: ERROR CAUGHT:', e, e && e.stack);
   }
 }
+syncBranchListFromGas();
 
 // アプリ → スプレッドシートへ保存
 async function syncToSheet(branchName) {
