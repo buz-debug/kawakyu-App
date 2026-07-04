@@ -11164,7 +11164,6 @@ function switchShiftViewBranch(name, silent) {
     if (typeof renderTimeFrameEditor === "function") renderTimeFrameEditor();
     if (typeof renderTimeframeList === "function") renderTimeframeList();
     if (typeof renderMultiselectDropdowns === "function") renderMultiselectDropdowns();
-    syncBranchListFromGas();
 
     const startEl = document.getElementById("businessStartInput");
     if (startEl) startEl.value = businessHours.start;
@@ -13022,6 +13021,7 @@ function isMobileDevice(){
 renderViewTable();
 renderShiftBranchSwitcher();
 checkHolidayListExpiry();
+syncBranchListFromGas();
 
 if(isMobileDevice()){
     // スマホでは「シフト」タブに固定し、他タブへの切り替えUIを隠して「マイシフト」画面を開く
