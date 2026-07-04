@@ -5100,7 +5100,7 @@ function deleteCurrentRecord() {
   persist();
   closeDetail();
   renderList();
-  kasimeSaveToSheet();
+  kasimeSaveToSheet('スプレッドシートから削除しました');
 }
 
 /* ===== SETTINGS ===== */
@@ -7249,7 +7249,7 @@ window.addEventListener('pagehide', function() {
         if (delBtn) delBtn.addEventListener('click', e => {
           e.stopPropagation();
           state.bookmarks = state.bookmarks.filter(b => b.id !== item.dataset.bmid);
-          if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+          if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
           saveState();
           renderRoomList();
           renderMessages();
@@ -8045,7 +8045,7 @@ window.addEventListener('pagehide', function() {
           const i = parseInt(btn.dataset.presetDel);
           if (!confirm(`「${state.schedulePresets[i].name}」を削除しますか？`)) return;
           state.schedulePresets.splice(i, 1);
-          if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+          if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
           saveState();
           renderSettingsPresets();
           renderSchedulePresetList();
@@ -8219,7 +8219,7 @@ window.addEventListener('pagehide', function() {
           if (!confirm(`「${cat}」を削除しますか？\nこのカテゴリのブックマークは「未分類」になります。`)) return;
           (state.bookmarks || []).forEach(b => { if (b.category === cat) b.category = ''; });
           state.bookmarkCategories.splice(i, 1);
-          if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+          if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
           saveState();
           renderSettingsBmCats();
           renderRoomList();
@@ -9780,7 +9780,7 @@ window.addEventListener('pagehide', function() {
       openModal('メンバー削除', `「${m.name}」を削除しますか？`, () => {
         const deletedName = m.name;
         state.members = state.members.filter(x => x.id !== id);
-        if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+        if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
         saveState();
         renderMemberSelects();
         renderDetail();
@@ -9860,7 +9860,7 @@ window.addEventListener('pagehide', function() {
     function confirmDelete(id) {
       openModal('削除', 'このメッセージを削除しますか？', () => {
         state.messages = state.messages.filter(m => m.id !== id);
-        if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+        if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
         saveState();
         renderRoomList();
         renderMessages();
@@ -9873,7 +9873,7 @@ window.addEventListener('pagehide', function() {
       openModal('履歴削除', `「${room?.name}」のメッセージをすべて削除しますか？`, () => {
         state.messages = state.messages.filter(m => (m.room || m.channel) !== currentRoom);
         state.tasks = state.tasks.filter(t => t.room !== currentRoom);
-        if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+        if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
         saveState();
         renderRoomList();
         renderMessages();
@@ -9951,7 +9951,7 @@ window.addEventListener('pagehide', function() {
 
     function removeBookmark(bmId) {
       state.bookmarks = (state.bookmarks || []).filter(b => b.id !== bmId);
-      if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+      if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
       saveState();
       renderRoomList();
       renderMessages();
@@ -9959,11 +9959,10 @@ window.addEventListener('pagehide', function() {
 
     function removeBookmarksForMessage(msgId) {
       state.bookmarks = (state.bookmarks || []).filter(b => b.msgId !== msgId);
-      if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+      if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートからブックマークを外しました');
       saveState();
       renderRoomList();
       renderMessages();
-      showToast('ブックマークをはずしました');
     }
 
     // ── 日別詳細モーダル ──
@@ -10079,11 +10078,10 @@ window.addEventListener('pagehide', function() {
       openModal('予定を削除', 'この予定を削除しますか？', () => {
         const deleted = (state.schedules || []).find(x => x.id === editingScheduleId);
         state.schedules = (state.schedules || []).filter(x => x.id !== editingScheduleId);
-        if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+        if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
         saveState();
         closeScheduleModal();
         renderTaskCalendar();
-        showToast('予定を削除しました');
         if (deleted) showScheduleResultPopup('削除', deleted);
       });
     }
@@ -10839,7 +10837,7 @@ window.addEventListener('pagehide', function() {
     document.getElementById('btnClearDoneTasks').addEventListener('click', () => {
       openModal('完了タスクを全て削除', '完了済みのタスクをすべて削除しますか？', () => {
         state.sidebarTasks = state.sidebarTasks.filter(t => !t.done);
-        if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+        if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
         saveState();
         closeOverlay(document.getElementById('doneTasksModal'));
         render4ColTasks();
@@ -10961,7 +10959,7 @@ window.addEventListener('pagehide', function() {
     document.getElementById('taskEditDelete').addEventListener('click', () => {
       openModal('タスクを削除', 'このタスクを削除しますか？', () => {
         state.sidebarTasks = (state.sidebarTasks || []).filter(x => x.id !== editingTaskId);
-        if(typeof autoSyncToSheet==='function') autoSyncToSheet('削除しました');
+        if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
         saveState();
         closeTaskEditModal();
         render4ColTasks();
@@ -13252,7 +13250,11 @@ function autoSyncToSheet(msg) {
     _autoSyncMsg = 'スプレッドシートに保存しました'; // リセット
     const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
     if (!branchName) return;
-    if (!getGasUrl() || !getSpreadsheetId(branchName)) return;
+    if (!getGasUrl() || !getSpreadsheetId(branchName)) {
+      // スプレッドシートに未接続のため、ローカル保存のみ完了したことを伝える
+      appToast(toastMsg.includes('削除') ? '削除しました' : '保存しました');
+      return;
+    }
     syncToSheet(branchName).then(() => {
       appToast(toastMsg);
     }).catch(err => {
@@ -13262,7 +13264,7 @@ function autoSyncToSheet(msg) {
 }
 
 // ── タブ別保存ボタン（シフト・販売実績・日常業務） ──
-function _tabSaveToSheet(tabBtnId) {
+function _tabSaveToSheet(tabBtnId, successMsg) {
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
   if (!branchName) { appToast('ログインしてください'); return; }
   if (!getGasUrl() || !getSpreadsheetId(branchName)) {
@@ -13271,7 +13273,7 @@ function _tabSaveToSheet(tabBtnId) {
   }
   syncToSheet(branchName).then(() => {
     window._hasUnsyncedTabChanges = false;
-    appToast('スプレッドシートに保存しました');
+    appToast(successMsg || 'スプレッドシートに保存しました');
   }).catch(err => {
     appToast('シート保存に失敗: ' + err.message);
   });
@@ -13279,7 +13281,7 @@ function _tabSaveToSheet(tabBtnId) {
 function shiftSaveToSheet() { _tabSaveToSheet('shift'); }
 function salesSaveToSheet() { _tabSaveToSheet('sales'); }
 function dailySaveToSheet() { _tabSaveToSheet('daily'); }
-function kasimeSaveToSheet() { _tabSaveToSheet('kasime'); }
+function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
 
 // GAS設定済みの場合のみ保存ボタンを表示
 function updateTabSaveBtnVisibility() {
