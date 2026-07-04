@@ -2156,26 +2156,6 @@
   white-space: nowrap;
   padding: 0 14px;
 }
-#kasime-wrap .input-top-row > .kasime-top-extra-btn {
-  height: auto;
-  min-width: 0;
-  padding: 7px 14px;
-}
-#kasime-wrap .kasime-top-extra-btn {
-  background: #555;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-#kasime-wrap .kasime-top-extra-btn:hover { opacity: 0.9; }
-#kasime-wrap .input-top-row > #kasimeSettingsBtnTop {
-  height: auto;
-  min-width: 0;
-  padding: 7px 14px;
-}
 #kasime-wrap /* 下段：3カラム */
 .input-bottom-cols {
   display: grid;
@@ -2234,7 +2214,7 @@
   .input-top-row .person-card, .input-top-row .time-card {
     flex-basis: 100%;
   }
-#kasime-wrap .input-top-row .top-cancel-btn, #kasime-wrap .input-top-row .top-save-btn, #kasime-wrap .input-top-row .kasime-top-extra-btn {
+#kasime-wrap .input-top-row .top-cancel-btn, #kasime-wrap .input-top-row .top-save-btn {
     height: 44px;
     flex: 1 1 auto;
   }
@@ -2539,11 +2519,6 @@
   overflow: hidden;
 }
 
-/* 1カラム表示（タブレット対応）：履歴カラムを隠し、入力エリアを画面いっぱいに広げる */
-#kasime-app.kasime-layout-single > #kasime-history-col {
-  display: none;
-}
-
 /* 左：履歴カラム */
 #kasime-history-col {
   width: 22%;
@@ -2687,8 +2662,6 @@
       flex-shrink: 0;
     }
 #kasime-history-col .hist-settings-btn:hover { opacity: 0.9; }
-/* 仮締め履歴ポップアップ内には設定ボタンを表示しない（1カラム時は上段の設定ボタンを使用） */
-#kasimeHistoryModalBody .hist-settings-btn { display: none; }
 
 /* 右：入力メインエリア */
 #kasime-input-col {
@@ -4359,15 +4332,6 @@
 
   <!-- CSV MODAL -->
 
-  <!-- 仮締め履歴ポップアップ（1カラム表示時用） -->
-  <div class="modal-overlay" id="kasimeHistoryModal" role="dialog" aria-modal="true">
-    <div class="modal" id="kasimeHistoryModalBody" style="width:min(320px, 92vw);max-height:85vh;overflow-y:auto;padding:0;background:#e8f0fe;display:flex;flex-direction:column;">
-      <div class="modal-actions" style="padding:8px;margin:0;flex-shrink:0;background:#fff;">
-        <button type="button" class="sf-close-btn" onclick="closeKasimeHistoryPopup()">閉じる</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ========== 左カラム：履歴一覧 ========== -->
   <div id="kasime-history-col">
     <div class="sidebar-header">
@@ -4388,7 +4352,6 @@
     <div class="hist-body" id="histRecordList"></div>
     <button class="hist-settings-btn" onclick="openSettings()">設定</button>
   </div>
-  <div id="kasimeHistoryColAnchor" style="display:none;"></div>
 
   <!-- ========== 右カラム：入力メインエリア ========== -->
   <div id="kasime-input-col">
@@ -4421,11 +4384,6 @@
           <button type="button" onclick="saveRecordToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
         </span>
 
-        <!-- 画面切替（左右2カラム⇔1カラム、タブレット対応） -->
-        <button id="kasimeLayoutToggle" class="kasime-top-extra-btn" onclick="toggleKasimeLayout()">画面切替：1カラム</button>
-        <!-- 1カラム時のみ表示：仮締め履歴・設定 -->
-        <button id="kasimeHistoryBtnTop" class="kasime-top-extra-btn" style="display:none;" onclick="openKasimeHistoryPopup()">仮締め履歴</button>
-        <button id="kasimeSettingsBtnTop" class="sales-settings-btn" style="display:none;" onclick="openSettings()">設定</button>
       </div>
 
       <!-- ===== 下段：3カラム ===== -->
@@ -8213,49 +8171,6 @@ window.addEventListener('pagehide', function() {
 
     function closeMemberAddColorDropdown() {
       document.getElementById('memberAddColorPalette').classList.remove('open');
-    }
-
-    // ── 仮締めタブのレイアウト切替（左右2カラム／1カラム、端末ごとの表示設定） ──
-    const KASIME_LAYOUT_KEY = 'kasimeLayoutMode';
-
-    function applyKasimeLayoutMode(mode) {
-      const app = document.getElementById('kasime-app');
-      const toggleBtn = document.getElementById('kasimeLayoutToggle');
-      const historyBtn = document.getElementById('kasimeHistoryBtnTop');
-      const settingsBtnTop = document.getElementById('kasimeSettingsBtnTop');
-      if (!app) return;
-      const isSingle = mode === 'single';
-      app.classList.toggle('kasime-layout-single', isSingle);
-      if (toggleBtn) toggleBtn.textContent = isSingle ? '画面切替：左右' : '画面切替：1カラム';
-      if (historyBtn) historyBtn.style.display = isSingle ? '' : 'none';
-      if (settingsBtnTop) settingsBtnTop.style.display = isSingle ? '' : 'none';
-    }
-
-    function toggleKasimeLayout() {
-      const current = localStorage.getItem(KASIME_LAYOUT_KEY) === 'single' ? 'single' : 'side';
-      const next = current === 'single' ? 'side' : 'single';
-      localStorage.setItem(KASIME_LAYOUT_KEY, next);
-      applyKasimeLayoutMode(next);
-      // 左右に戻した時、履歴ポップアップが開いていれば一緒に閉じる
-      if (next === 'side') closeKasimeHistoryPopup();
-    }
-
-    (function initKasimeLayoutMode() {
-      applyKasimeLayoutMode(localStorage.getItem(KASIME_LAYOUT_KEY) === 'single' ? 'single' : 'side');
-    })();
-
-    function openKasimeHistoryPopup() {
-      const col = document.getElementById('kasime-history-col');
-      const modalBody = document.getElementById('kasimeHistoryModalBody');
-      if (col && modalBody) modalBody.appendChild(col);
-      openOverlay(document.getElementById('kasimeHistoryModal'));
-    }
-
-    function closeKasimeHistoryPopup() {
-      const col = document.getElementById('kasime-history-col');
-      const anchor = document.getElementById('kasimeHistoryColAnchor');
-      if (col && anchor && anchor.parentElement) anchor.parentElement.insertBefore(col, anchor.nextSibling);
-      closeOverlay(document.getElementById('kasimeHistoryModal'));
     }
 
     function openSettings() {
