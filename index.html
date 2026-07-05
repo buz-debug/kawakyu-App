@@ -11,7 +11,7 @@
       --cw-green-dark: #3a6694;
       --cw-sidebar: #e8f0fe;
       --cw-sidebar-hover: #bfdbfe;
-      --cw-sidebar-active: #93c5fd;a
+      --cw-sidebar-active: #93c5fd;
       --bg-chat: #f5f6f8;
       --surface: #fff;
       --border: #dce1e6;
@@ -1274,6 +1274,7 @@
       padding: 4px;
       min-width: 0;
       overflow: hidden;
+      position: relative;
     }
 
     .task-cal-cell.other-month { background: #f9fafb; opacity: .6; }
@@ -1385,6 +1386,30 @@
       text-decoration: line-through;
       color: #666;
     }
+
+    /* 終日予定入力不可：セルの縦幅いっぱいに表示するバー */
+    .task-cal-allday-bar {
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 24px;
+      bottom: 4px;
+      border-radius: 3px;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1.3;
+      padding: 2px;
+      cursor: pointer;
+      overflow: hidden;
+      word-break: break-all;
+      transition: opacity .1s;
+    }
+    .task-cal-allday-bar:hover { opacity: .85; }
 
     .detail {
       width: var(--detail-w);
@@ -8115,7 +8140,10 @@ window.addEventListener('pagehide', function() {
         const dow = date.getDay();
         const daySchedules = state.schedules.filter(s => s.date === iso)
           .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-        const chips = daySchedules.map(s => {
+        const blockEntry = daySchedules.find(s => s.text === ALL_DAY_BLOCK_PRESET_NAME);
+        const chips = blockEntry
+          ? `<div class="task-cal-allday-bar" data-sid="${blockEntry.id}" title="${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}" style="background:${ALL_DAY_BLOCK_PRESET_COLOR};">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</div>`
+          : daySchedules.map(s => {
           const parts = [];
           if (s.time) parts.push(s.time);
           parts.push(s.text);
@@ -8123,7 +8151,7 @@ window.addEventListener('pagehide', function() {
           if (s.customer) parts.push(`${s.customer}様`);
           const label = parts.join(' ');
           const preset = (state.schedulePresets || []).find(p => p.name === s.text);
-          const chipColor = s.text === ALL_DAY_BLOCK_PRESET_NAME ? ALL_DAY_BLOCK_PRESET_COLOR : (preset?.color || '#4a7fb5');
+          const chipColor = preset?.color || '#4a7fb5';
           const isOverlap = checkOverlap(iso, s.time, s.text, s.id) !== null;
           const bgColor = isOverlap ? '#f97316' : chipColor;
           return `<div class="task-cal-chip" data-sid="${s.id}" title="${escapeHtml(label)}${isOverlap ? ' ⚠重複' : ''}" style="background:${bgColor};">${escapeHtml(label)}${isOverlap ? ' ⚠' : ''}</div>`;
@@ -8137,7 +8165,7 @@ window.addEventListener('pagehide', function() {
       }).join('');
 
       // チップクリックで編集・削除モーダルを開く
-      grid.querySelectorAll('.task-cal-chip[data-sid]').forEach(chip => {
+      grid.querySelectorAll('.task-cal-chip[data-sid], .task-cal-allday-bar[data-sid]').forEach(chip => {
         chip.addEventListener('click', e => {
           e.stopPropagation();
           openScheduleModal(chip.dataset.sid);
@@ -8248,6 +8276,9 @@ window.addEventListener('pagehide', function() {
       if (!modal) return;
       if (title) modal.querySelector('.sf-unsaved-warning-title').textContent = title;
       if (text) modal.querySelector('.sf-unsaved-warning-text').innerHTML = text;
+      // 「予定を追加する」ウインドウなど、他のオーバーレイより必ず手前に表示されるようz-indexを更新する
+      overlayZIndex += 1;
+      modal.style.zIndex = overlayZIndex;
       modal.style.display = 'flex';
     }
 
@@ -10983,7 +11014,7 @@ window.addEventListener('pagehide', function() {
 
     function shakeScheduleChip(id) {
       if (!id) return;
-      const chip = document.querySelector(`.task-cal-chip[data-sid="${id}"]`);
+      const chip = document.querySelector(`.task-cal-chip[data-sid="${id}"], .task-cal-allday-bar[data-sid="${id}"]`);
       if (!chip) return;
       chip.classList.add('chip-shake');
       setTimeout(() => chip.classList.remove('chip-shake'), 2000);
