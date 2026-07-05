@@ -8005,7 +8005,7 @@ window.addEventListener('pagehide', function() {
               const nextDue = nextRecurOccurrence(task.recur, nextFrom, task.due);
               state.sidebarTasks.push({
                 id: uid(), text: task.text, due: nextDue, author: task.author,
-                ts: Date.now(), done: false, recur: task.recur,
+                ts: Date.now(), done: false, recur: task.recur, generatedFrom: task.id,
               });
               appToast(`次回：${nextDue}`);
             }
@@ -10995,6 +10995,10 @@ window.addEventListener('pagehide', function() {
             const task = state.sidebarTasks.find(x => x.id === cb.dataset.donetask);
             if (task) {
               task.done = false;
+              // 繰り返しタスクを未完了に戻す場合、完了時に生成された次回分は不要なため削除する
+              if (task.recur) {
+                state.sidebarTasks = state.sidebarTasks.filter(x => x.generatedFrom !== task.id);
+              }
               saveState();
               if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
               openDoneTasksModal(); render4ColTasks();
