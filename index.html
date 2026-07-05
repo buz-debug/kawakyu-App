@@ -7253,6 +7253,7 @@ window.addEventListener('pagehide', function() {
         const delBtn = item.querySelector('.bm-del');
         if (delBtn) delBtn.addEventListener('click', e => {
           e.stopPropagation();
+          if (!confirm('このブックマークを削除しますか？')) return;
           state.bookmarks = state.bookmarks.filter(b => b.id !== item.dataset.bmid);
           if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
           saveState();
@@ -9697,7 +9698,8 @@ window.addEventListener('pagehide', function() {
       // 同姓同名はスタッフIDで区別できるため、名前の重複チェックは行わない
       const color = document.getElementById('memberAddColor').value || '';
       state.members.push({ id: uid(), name: trimmed, color, staffCode: paddedCode });
-      saveState();
+      window._noSaveToast = true; saveState(); window._noSaveToast = false;
+      if (typeof memberSaveToSheet === 'function') memberSaveToSheet();
       document.getElementById('memberAddColor').value = '';
       setMemberAddColorPreview('');
       closeMemberAddColorDropdown();
@@ -9752,7 +9754,8 @@ window.addEventListener('pagehide', function() {
       m.name = newName;
       m.color = document.getElementById('memberEditColor').value || '';
       renameMemberInData(oldName, newName);
-      saveState();
+      window._noSaveToast = true; saveState(); window._noSaveToast = false;
+      if (typeof memberSaveToSheet === 'function') memberSaveToSheet();
       closeMemberModal();
       renderMemberSelects();
       renderDetail();
@@ -9774,8 +9777,8 @@ window.addEventListener('pagehide', function() {
       openModal('メンバー削除', `「${m.name}」を削除しますか？`, () => {
         const deletedName = m.name;
         state.members = state.members.filter(x => x.id !== id);
-        if(typeof autoSyncToSheet==='function') autoSyncToSheet('スプレッドシートから削除しました');
-        saveState();
+        window._noSaveToast = true; saveState(); window._noSaveToast = false;
+        if (typeof memberSaveToSheet === 'function') memberSaveToSheet('スプレッドシートから削除しました');
         renderMemberSelects();
         renderDetail();
         renderSettingsMembers();
@@ -9908,7 +9911,8 @@ window.addEventListener('pagehide', function() {
             state.messages = data.messages;
             state.tasks = data.tasks || [];
             state.lastRead = data.lastRead || {};
-            saveState();
+            window._noSaveToast = true; saveState(); window._noSaveToast = false;
+            if (typeof memberSaveToSheet === 'function') memberSaveToSheet();
             updateMeUI();
             selectRoom(currentRoom);
           });
@@ -13216,6 +13220,7 @@ function shiftSaveToSheet() { _tabSaveToSheet('shift'); }
 function salesSaveToSheet() { _tabSaveToSheet('sales'); }
 function dailySaveToSheet() { _tabSaveToSheet('daily'); }
 function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
+function memberSaveToSheet(successMsg) { _tabSaveToSheet('member', successMsg); }
 
 // GAS設定済みの場合のみ保存ボタンを表示
 function updateTabSaveBtnVisibility() {
