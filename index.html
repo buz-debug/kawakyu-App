@@ -5692,7 +5692,7 @@ window.addEventListener('pagehide', function() {
             <h2 style="margin:0; font-size:18px; flex-shrink:0;">シフト作成</h2>
             <div style="flex:1; min-width:80px; overflow:hidden;">
                 <input type="text" id="shiftEditMemoInput" placeholder="備考（このシフト作成メモ用・手入力のみ）"
-                    style="width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:4px; padding:6px 8px; font-size:11px; background:#fff; outline:none;">
+                    style="width:100%; box-sizing:border-box; border:1px solid var(--border); border-radius:4px; padding:6px 8px; font-size:13px; background:#fff; outline:none;">
             </div>
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex-shrink:0;">
                 <button onclick="sfChangeMonth(-1)">前月</button>
@@ -11455,8 +11455,7 @@ function shiftKey(base) {
 
 // ── シフト作成ウインドウ専用の備考欄（メインのシフト表示・スマホ表示には出さない） ──
 // 営業所・年月ごとにメモを保存する。あくまで作成作業のメモであり、手入力のみ。
-let shiftMemoMarqueeRAF = null;
-
+// 文字が枠に入りきらない場合は、入力欄内を手動でドラッグ（カーソル移動）すれば見える（自動スクロールはしない）。
 function getShiftEditMemoMap() {
     try { return JSON.parse(localStorage.getItem(shiftKey("editMemo"))) || {}; } catch (e) { return {}; }
 }
@@ -11465,39 +11464,11 @@ function shiftEditMemoMonthKey(year, month) { // month: 0-11
     return `${year}-${month + 1}`;
 }
 
-function stopShiftMemoMarquee() {
-    if (shiftMemoMarqueeRAF) { cancelAnimationFrame(shiftMemoMarqueeRAF); shiftMemoMarqueeRAF = null; }
-}
-
-// 文字が枠に収まらない場合、編集中でなければゆっくり左右にスライド表示する
-function startShiftMemoMarquee() {
-    stopShiftMemoMarquee();
-    const el = document.getElementById("shiftEditMemoInput");
-    if (!el || document.activeElement === el) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    if (maxScroll <= 2) { el.scrollLeft = 0; return; }
-    let pos = 0, dir = 1, pause = 40;
-    const step = () => {
-        if (document.activeElement === el) { shiftMemoMarqueeRAF = null; return; }
-        if (pause > 0) {
-            pause--;
-        } else {
-            pos += dir * 0.6;
-            if (pos >= maxScroll) { pos = maxScroll; dir = -1; pause = 40; }
-            else if (pos <= 0) { pos = 0; dir = 1; pause = 40; }
-        }
-        el.scrollLeft = pos;
-        shiftMemoMarqueeRAF = requestAnimationFrame(step);
-    };
-    shiftMemoMarqueeRAF = requestAnimationFrame(step);
-}
-
 function loadShiftEditMemo() {
     const el = document.getElementById("shiftEditMemoInput");
     if (!el) return;
     const map = getShiftEditMemoMap();
     el.value = map[shiftEditMemoMonthKey(currentDate.getFullYear(), currentDate.getMonth())] || "";
-    startShiftMemoMarquee();
 }
 
 function saveShiftEditMemo() {
@@ -11515,8 +11486,6 @@ function saveShiftEditMemo() {
     const el = document.getElementById("shiftEditMemoInput");
     if (!el) return;
     el.addEventListener("input", saveShiftEditMemo);
-    el.addEventListener("focus", stopShiftMemoMarquee);
-    el.addEventListener("blur", startShiftMemoMarquee);
 })();
 
 // 本社ログイン時のみ：閲覧する営業所を切り替える
