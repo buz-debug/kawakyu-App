@@ -6980,7 +6980,9 @@ window.addEventListener('pagehide', function() {
           const name = (typeof m === 'string' ? m : m.name || '').trim();
           if (!name || name === ALL_MEMBER_NAME) return;
           const id = typeof m === 'object' && m.id && m.id !== SYSTEM_MEMBER_ID ? m.id : uid();
-          if (!editable.some(x => x.name === name)) editable.push({ id, name });
+          const color = (typeof m === 'object' && m.color) ? m.color : '';
+          const staffCode = (typeof m === 'object' && m.staffCode) ? m.staffCode : '';
+          if (!editable.some(x => x.name === name)) editable.push({ id, name, color, staffCode });
         });
       }
       if (!editable.length) {
