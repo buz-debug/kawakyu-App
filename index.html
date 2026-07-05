@@ -6333,6 +6333,18 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
+  <!-- ===== 終日予定入力不可の警告モーダル ===== -->
+  <div id="scheduleBlockedWarningModal" class="sf-modal sf-unsaved-warning-modal">
+    <div class="sf-unsaved-warning-box">
+      <div class="sf-unsaved-warning-icon">⚠️</div>
+      <div class="sf-unsaved-warning-title">この日は予定を追加できません！</div>
+      <div class="sf-unsaved-warning-text">「終日予定入力不可」に設定されている日です。<br>予定を追加するには、まずその設定を削除してください。</div>
+      <div style="display:flex; justify-content:center; margin-top:18px;">
+        <button onclick="closeScheduleBlockedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 編集モーダル -->
   <div class="edit-modal-overlay" id="editModal" role="dialog" aria-modal="true">
     <div class="edit-modal">
@@ -8111,7 +8123,7 @@ window.addEventListener('pagehide', function() {
           if (s.customer) parts.push(`${s.customer}様`);
           const label = parts.join(' ');
           const preset = (state.schedulePresets || []).find(p => p.name === s.text);
-          const chipColor = preset?.color || '#4a7fb5';
+          const chipColor = s.text === ALL_DAY_BLOCK_PRESET_NAME ? ALL_DAY_BLOCK_PRESET_COLOR : (preset?.color || '#4a7fb5');
           const isOverlap = checkOverlap(iso, s.time, s.text, s.id) !== null;
           const bgColor = isOverlap ? '#f97316' : chipColor;
           return `<div class="task-cal-chip" data-sid="${s.id}" title="${escapeHtml(label)}${isOverlap ? ' ⚠重複' : ''}" style="background:${bgColor};">${escapeHtml(label)}${isOverlap ? ' ⚠' : ''}</div>`;
@@ -8218,23 +8230,55 @@ window.addEventListener('pagehide', function() {
       if (editSel) editSel.innerHTML = buildOpts(editSel?.value || '');
     }
 
+    // 「終日予定入力不可」は編集・削除ができない固定メニュー。state.schedulePresetsには含めず、
+    // プルダウン・管理画面には常にこの名前を追加で表示する。
+    const ALL_DAY_BLOCK_PRESET_NAME = '終日予定入力不可';
+    const ALL_DAY_BLOCK_PRESET_COLOR = '#6b7280';
+
+    function isDayBlocked(dateISO, excludeId) {
+      return (state.schedules || []).some(s => s.date === dateISO && s.text === ALL_DAY_BLOCK_PRESET_NAME && s.id !== excludeId);
+    }
+
+    function dayHasOtherSchedules(dateISO, excludeId) {
+      return (state.schedules || []).some(s => s.date === dateISO && s.text !== ALL_DAY_BLOCK_PRESET_NAME && s.id !== excludeId);
+    }
+
+    function showScheduleBlockedWarning(title, text) {
+      const modal = document.getElementById('scheduleBlockedWarningModal');
+      if (!modal) return;
+      if (title) modal.querySelector('.sf-unsaved-warning-title').textContent = title;
+      if (text) modal.querySelector('.sf-unsaved-warning-text').innerHTML = text;
+      modal.style.display = 'flex';
+    }
+
+    function closeScheduleBlockedWarning() {
+      const modal = document.getElementById('scheduleBlockedWarningModal');
+      if (modal) modal.style.display = 'none';
+    }
+
     function renderSchedulePresetList() {
       const sel = document.getElementById('taskInput');
       if (!sel) return;
       const presets = state.schedulePresets || [];
       sel.innerHTML = '<option value="">-- 予定を選択してください --</option>' +
-        presets.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+        presets.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('') +
+        `<option value="${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</option>`;
     }
 
     function renderSettingsPresets() {
       const list = document.getElementById('settingsPresetList');
       if (!list) return;
       const presets = state.schedulePresets || [];
+      const durationLabel = d => d >= 60 ? `${d/60}時間${d%60 ? d%60+'分' : ''}` : `${d}分`;
+      const fixedRowHtml = `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${ALL_DAY_BLOCK_PRESET_COLOR};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></span>
+        <span style="flex:1;font-size:12px;">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</span>
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap;">🔒固定メニュー</span>
+      </li>`;
       if (!presets.length) {
-        list.innerHTML = '<li style="font-size:12px;color:var(--muted);padding:6px 0;">項目がありません</li>';
+        list.innerHTML = fixedRowHtml;
         return;
       }
-      const durationLabel = d => d >= 60 ? `${d/60}時間${d%60 ? d%60+'分' : ''}` : `${d}分`;
       list.innerHTML = presets.map((p, i) => `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
         <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.color || '#4a7fb5'};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></span>
         <span style="flex:1;font-size:12px;">${escapeHtml(p.name)}</span>
@@ -8243,7 +8287,7 @@ window.addEventListener('pagehide', function() {
           <button type="button" data-preset-edit="${i}">編集</button>
           <button type="button" data-preset-del="${i}" class="del">削除</button>
         </span>
-      </li>`).join('');
+      </li>`).join('') + fixedRowHtml;
 
       list.querySelectorAll('[data-preset-edit]').forEach(btn => {
         btn.addEventListener('click', () => openPresetEditModal(parseInt(btn.dataset.presetEdit)));
@@ -10239,7 +10283,8 @@ window.addEventListener('pagehide', function() {
       renderSchedulePresetList(); // プルダウン候補を最新に更新
       const presets = state.schedulePresets || [];
       const schedEditSel = document.getElementById('schedEditText');
-      schedEditSel.innerHTML = presets.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('');
+      schedEditSel.innerHTML = presets.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join('') +
+        `<option value="${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</option>`;
       schedEditSel.value = s.text;
       document.getElementById('schedEditVehicle').value = s.vehicle || '';
       document.getElementById('schedEditCustomer').value = s.customer || '';
@@ -10260,6 +10305,16 @@ window.addEventListener('pagehide', function() {
       const date = document.getElementById('schedEditDate').value;
       const time = document.getElementById('schedEditTime').value || '';
       if (!text || !date) { alert('予定と日付を入力してください。'); return; }
+
+      // 「終日予定入力不可」の日には他の予定を入れられない／既に予定がある日は「終日予定入力不可」にできない
+      if (text !== ALL_DAY_BLOCK_PRESET_NAME && isDayBlocked(date, editingScheduleId)) {
+        showScheduleBlockedWarning('この日は予定を追加できません！', '「終日予定入力不可」に設定されている日です。<br>予定を追加するには、まずその設定を削除してください。');
+        return;
+      }
+      if (text === ALL_DAY_BLOCK_PRESET_NAME && dayHasOtherSchedules(date, editingScheduleId)) {
+        showScheduleBlockedWarning('終日予定入力不可に設定できません！', 'この日には既に他の予定が入っています。<br>「終日予定入力不可」にするには、先に他の予定を削除してください。');
+        return;
+      }
 
       // 重複禁止チェック（自分自身は除外）
       const conflicts = checkOverlap(date, time, text, editingScheduleId);
@@ -10951,6 +11006,16 @@ window.addEventListener('pagehide', function() {
       const vehicle = document.getElementById('taskVehicle').value.trim();
       const note = document.getElementById('taskNote').value.trim();
       if (!text || !date) { alert('予定と日付を入力してください。'); return; }
+
+      // 「終日予定入力不可」の日には他の予定を入れられない／既に予定がある日は「終日予定入力不可」にできない
+      if (text !== ALL_DAY_BLOCK_PRESET_NAME && isDayBlocked(date, null)) {
+        showScheduleBlockedWarning('この日は予定を追加できません！', '「終日予定入力不可」に設定されている日です。<br>予定を追加するには、まずその設定を削除してください。');
+        return;
+      }
+      if (text === ALL_DAY_BLOCK_PRESET_NAME && dayHasOtherSchedules(date, null)) {
+        showScheduleBlockedWarning('終日予定入力不可に設定できません！', 'この日には既に他の予定が入っています。<br>「終日予定入力不可」にするには、先に他の予定を削除してください。');
+        return;
+      }
 
       // 重複禁止チェック
       const conflicts = checkOverlap(date, time, text, null);
