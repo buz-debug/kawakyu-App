@@ -2434,10 +2434,20 @@
 }
 #kasime-wrap #detailModal.open { display: flex; }
 #kasime-wrap .modal-sheet {
-  background: #fff; width: 100%; max-width: 560px;
+  background: #fff; width: 100%; max-width: 920px;
   border-radius: 4px 8px 0 0;
   padding: 8px 20px 40px;
-  max-height: 80vh; overflow-y: auto;
+  max-height: 85vh; overflow-y: auto;
+}
+#kasime-wrap .modal-sheet .input-top-row,
+#kasime-wrap .modal-sheet .input-bottom-cols {
+  padding-left: 0;
+  padding-right: 0;
+}
+@media (max-width: 700px) {
+#kasime-wrap .modal-sheet .input-bottom-cols {
+    grid-template-columns: 1fr;
+  }
 }
 #kasime-wrap .modal-handle { width: 40px; height: 4px; background: #DDD; border-radius: 2px; margin: 12px auto 16px; }
 #kasime-wrap .modal-title { font-size: 17px; font-weight: 800; color: var(--cw-green-dark); margin-bottom: 16px; }
@@ -5026,63 +5036,72 @@ function openDetail(r) {
   const dc = r.diff===0?'diff-zero':r.diff>0?'diff-pos':'diff-neg';
   let html = '';
 
-  // 担当者・確認時刻
+  // 上段：担当者・確認時刻（通常の入力画面と同じレイアウト）
   html += `
-    <div class="person-card" style="margin:0 0 10px;">
-      <span class="person-label">担当者</span>
-      <span style="font-size:16px;font-weight:700;">${r.person || '-'}</span>
-    </div>
-    <div class="card time-card" style="margin:0 0 10px;">
-      <div class="card-header">確認時刻</div>
-      <div style="padding:14px 16px;font-size:22px;font-weight:800;color:#1a1a1a;">${r.time || '--:--'}</div>
+    <div class="input-top-row">
+      <div class="person-card">
+        <span class="person-label">担当者</span>
+        <span style="flex:1;font-size:14px;font-weight:700;">${r.person || '-'}</span>
+      </div>
+      <div class="person-card time-card">
+        <span class="person-label">時刻</span>
+        <span style="flex:1;font-size:14px;font-weight:700;">${r.time || '--:--'}</span>
+      </div>
     </div>
   `;
 
-  // ドロア
+  // 下段：3カラム（ドロア／金庫／その他・計算結果）
+  html += `<div class="input-bottom-cols">`;
+
+  // 左：ドロア現金
   html += `
-    <div class="card" style="margin:0 0 10px;">
-      <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">ドロア現金</span><span>（枚数）</span></div></div>
-      ${DRAWER_DENOMS.map(dn => {
-        const cnt = r.drawer ? (r.drawer[dn.val] || 0) : 0;
-        return `<div class="counter-row"><div class="counter-label"><div class="counter-name">${dn.label}</div></div><div class="counter-controls"><span class="cnt-val">${cnt}</span></div></div>`;
-      }).join('')}
+    <div class="input-col">
+      <div class="card">
+        <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">ドロア現金</span><span>（枚数）</span></div></div>
+        ${DRAWER_DENOMS.map(dn => {
+          const cnt = r.drawer ? (r.drawer[dn.val] || 0) : 0;
+          return `<div class="counter-row"><div class="counter-label"><div class="counter-name">${dn.label}</div></div><div class="counter-controls"><span class="cnt-val">${cnt}</span></div></div>`;
+        }).join('')}
+      </div>
     </div>
   `;
 
-  // 金庫
+  // 中央：金庫
   html += `
-    <div class="card" style="margin:0 0 10px;">
-      <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">金庫</span><span class="card-note">※硬貨は1本＝50枚で計算</span></div></div>
-      ${SAFE_DENOMS.map(dn => {
-        const cnt = r.safe ? (r.safe[dn.val] || 0) : 0;
-        return `<div class="counter-row"><div class="counter-label"><div class="counter-name">${dn.label}</div>${dn.sub ? '<div class="counter-sub">'+dn.sub+'</div>' : ''}</div><div class="counter-controls"><span class="cnt-val">${cnt}</span></div></div>`;
-      }).join('')}
+    <div class="input-col">
+      <div class="card">
+        <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">金庫</span><span class="card-note">※硬貨は1本＝50枚で計算</span></div></div>
+        ${SAFE_DENOMS.map(dn => {
+          const cnt = r.safe ? (r.safe[dn.val] || 0) : 0;
+          return `<div class="counter-row"><div class="counter-label"><div class="counter-name">${dn.label}</div>${dn.sub ? '<div class="counter-sub">'+dn.sub+'</div>' : ''}</div><div class="counter-controls"><span class="cnt-val">${cnt}</span></div></div>`;
+        }).join('')}
+      </div>
     </div>
   `;
 
-  // その他
+  // 右：機器・その他 ＋ 計算有高 ＋ 差額
   html += `
-    <div class="card" style="margin:0 0 10px;">
-      <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">機器・その他</span><span>（金額入力）</span></div></div>
-      ${OTHER_LABELS.map(lbl => {
-        const v = r.other ? (r.other[lbl] || 0) : 0;
-        return `<div class="other-row"><span class="other-label">${lbl}</span><div style="font-size:16px;font-weight:700;">${fmtAbs(v)}</div></div>`;
-      }).join('')}
+    <div class="input-col">
+      <div class="card">
+        <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">機器・その他</span><span>（金額入力）</span></div></div>
+        ${OTHER_LABELS.map(lbl => {
+          const v = r.other ? (r.other[lbl] || 0) : 0;
+          return `<div class="other-row"><span class="other-label">${lbl}</span><div style="font-size:16px;font-weight:700;">${fmtAbs(v)}</div></div>`;
+        }).join('')}
+      </div>
+      <div class="yudaka-card">
+        <span class="yudaka-label">計算有高</span>
+        <div style="font-size:20px;font-weight:800;color:#3a6694;">${fmtAbs(r.yudaka || 0)}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-row"><span class="result-row-label">現金金額（計算合計）</span><span class="result-row-val">${fmtAbs(r.genkin || 0)}</span></div>
+        <div class="result-row"><span class="result-row-label">計算有高（入力値）</span><span class="result-row-val">${fmtAbs(r.yudaka || 0)}</span></div>
+        <div class="diff-result-row"><span class="diff-result-label">差額</span><span class="diff-result-val ${dc}">${fmtDiff(r.diff || 0)}</span></div>
+      </div>
     </div>
   `;
 
-  // 計算有高・結果
-  html += `
-    <div class="yudaka-card" style="margin:0 0 10px;">
-      <span class="yudaka-label">計算有高</span>
-      <div style="font-size:20px;font-weight:800;color:#3a6694;">${fmtAbs(r.yudaka || 0)}</div>
-    </div>
-    <div class="result-card" style="margin:0;">
-      <div class="result-row"><span class="result-row-label">現金金額（計算合計）</span><span class="result-row-val">${fmtAbs(r.genkin || 0)}</span></div>
-      <div class="result-row"><span class="result-row-label">計算有高（入力値）</span><span class="result-row-val">${fmtAbs(r.yudaka || 0)}</span></div>
-      <div class="diff-result-row"><span class="diff-result-label">差額</span><span class="diff-result-val ${dc}">${fmtDiff(r.diff || 0)}</span></div>
-    </div>
-  `;
+  html += `</div>`; // /input-bottom-cols
 
   if (r.savedAt) html += `<div style="font-size:11px;color:#bbb;padding:10px 0 0;">保存: ${new Date(r.savedAt).toLocaleString('ja-JP')}</div>`;
 
@@ -9642,6 +9661,7 @@ window.addEventListener('pagehide', function() {
         syncFromSheet(state.currentBranch).then(result => {
           if (result && result.ok) {
             sessionStorage.setItem('kawakyu_startup_loaded', '1');
+            sessionStorage.setItem('kawakyu_show_load_toast', '1');
             window.location.reload();
           }
         }).catch(() => {});
@@ -13245,10 +13265,17 @@ updateGasWarningBanner();
   syncFromSheet(branchName).then(result => {
     if (result && result.ok) {
       sessionStorage.setItem('kawakyu_startup_loaded', '1');
+      sessionStorage.setItem('kawakyu_show_load_toast', '1');
       window.location.reload(); // stateをlocalStorageから再読込するためリロード
     }
   }).catch(() => {}); // 接続できない場合は無視
 })();
+
+// リロード直後、直前の読込が成功していれば通知する
+if (sessionStorage.getItem('kawakyu_show_load_toast') === '1') {
+  sessionStorage.removeItem('kawakyu_show_load_toast');
+  if (typeof appToast === 'function') appToast('スプレッドシートを読み込みました');
+}
 
   </script>
 </body>
