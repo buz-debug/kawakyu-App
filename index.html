@@ -1462,6 +1462,9 @@
     .member-actions button:hover { background: var(--bg-chat); }
     .member-actions button.del { color: var(--danger); border-color: #fcc; }
 
+    /* タスクの繰り返し設定：毎月の日付ボタン */
+    .recur-day-selected { background: var(--cw-green) !important; color: #fff !important; border-color: var(--cw-green) !important; }
+
     .member-add-form {
       display: flex;
       gap: 6px;
@@ -6155,6 +6158,23 @@ window.addEventListener('pagehide', function() {
           <input type="date" id="taskEditDate"
             style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
         </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">繰り返し</label>
+          <select id="taskEditRecurType" style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+            <option value="none">繰り返さない</option>
+            <option value="weekly">毎週</option>
+            <option value="monthly">毎月</option>
+            <option value="yearly">毎年</option>
+          </select>
+        </div>
+        <div id="taskEditRecurWeekly" style="display:none;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">曜日（複数選択可）</label>
+          <div id="taskEditRecurWeekdays" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+        </div>
+        <div id="taskEditRecurMonthly" style="display:none;">
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">日付（複数選択可）</label>
+          <div id="taskEditRecurMonthDays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" id="taskEditDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
@@ -6179,6 +6199,23 @@ window.addEventListener('pagehide', function() {
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">期日</label>
             <input type="date" id="stTaskDate" required
               style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">繰り返し</label>
+            <select id="stTaskRecurType" style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+              <option value="none">繰り返さない</option>
+              <option value="weekly">毎週</option>
+              <option value="monthly">毎月</option>
+              <option value="yearly">毎年</option>
+            </select>
+          </div>
+          <div id="stTaskRecurWeekly" style="display:none;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">曜日（複数選択可）</label>
+            <div id="stTaskRecurWeekdays" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+          </div>
+          <div id="stTaskRecurMonthly" style="display:none;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">日付（複数選択可）</label>
+            <div id="stTaskRecurMonthDays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
           </div>
         </div>
         <div class="modal-actions">
@@ -7755,6 +7792,147 @@ window.addEventListener('pagehide', function() {
     let calYear = new Date().getFullYear();
     let calMonth = new Date().getMonth();
 
+    // ── タスクの繰り返し設定 ──
+    const TASK_WEEKDAY_LABELS = ['日', '月', '火', '水', '木', '金', '土'];
+
+    function isoDateYMD(y, m, d) { // m: 0-11
+      return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    // 指定した年月の日数を超える日付は、その月の末日に丸める（例：2月31日→2月28/29日）
+    function clampMonthDay(y, m, day) { // m: 0-11
+      const last = new Date(y, m + 1, 0).getDate();
+      return Math.min(day, last);
+    }
+
+    // fromISO以降（当日を含む）で、繰り返しルールに合致する最も早い日付を返す
+    function nextRecurOccurrence(recur, fromISO, anchorISO) {
+      if (!recur || !recur.type) return fromISO;
+      const [fy, fm, fd] = fromISO.split('-').map(Number);
+
+      if (recur.type === 'weekly') {
+        const days = recur.weekdays || [];
+        if (!days.length) return fromISO;
+        let cursor = new Date(fy, fm - 1, fd);
+        for (let i = 0; i < 7; i++) {
+          if (days.includes(cursor.getDay())) return isoDateYMD(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+          cursor.setDate(cursor.getDate() + 1);
+        }
+        return fromISO;
+      }
+
+      if (recur.type === 'monthly') {
+        const days = (recur.monthDays || []).slice().sort((a, b) => a - b);
+        if (!days.length) return fromISO;
+        let y = fy, m = fm - 1;
+        for (let i = 0; i < 24; i++) {
+          for (const md of days) {
+            const day = clampMonthDay(y, m, md);
+            const candIso = isoDateYMD(y, m, day);
+            if (candIso >= fromISO) return candIso;
+          }
+          m++;
+          if (m > 11) { m = 0; y++; }
+        }
+        return fromISO;
+      }
+
+      if (recur.type === 'yearly') {
+        const [, am, ad] = (anchorISO || fromISO).split('-').map(Number);
+        let y = fy;
+        let day = clampMonthDay(y, am - 1, ad);
+        let candIso = isoDateYMD(y, am - 1, day);
+        if (candIso < fromISO) {
+          y += 1;
+          day = clampMonthDay(y, am - 1, ad);
+          candIso = isoDateYMD(y, am - 1, day);
+        }
+        return candIso;
+      }
+
+      return fromISO;
+    }
+
+    function taskRecurLabel(recur) {
+      if (!recur || !recur.type) return '';
+      if (recur.type === 'weekly') {
+        const days = (recur.weekdays || []).slice().sort((a, b) => a - b).map(d => TASK_WEEKDAY_LABELS[d]);
+        return days.length ? `🔁毎週${days.join('・')}` : '';
+      }
+      if (recur.type === 'monthly') {
+        const days = (recur.monthDays || []).slice().sort((a, b) => a - b);
+        return days.length ? `🔁毎月${days.join('・')}日` : '';
+      }
+      if (recur.type === 'yearly') return '🔁毎年';
+      return '';
+    }
+
+    // 繰り返し設定UI（曜日チェックボックス・日付ボタン）を初回のみ組み立てる
+    function initRecurEditor(prefix) {
+      const wkContainer = document.getElementById(`${prefix}RecurWeekdays`);
+      if (wkContainer && !wkContainer.dataset.built) {
+        wkContainer.innerHTML = TASK_WEEKDAY_LABELS.map((d, i) => `
+          <label style="display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--muted);cursor:pointer;">
+            <input type="checkbox" data-recur-weekday="${i}" style="accent-color:var(--cw-green);">
+            <span>${d}</span>
+          </label>`).join('');
+        wkContainer.dataset.built = '1';
+      }
+      const moContainer = document.getElementById(`${prefix}RecurMonthDays`);
+      if (moContainer && !moContainer.dataset.built) {
+        moContainer.innerHTML = Array.from({ length: 31 }, (_, i) => i + 1).map(d => `
+          <button type="button" data-recur-monthday="${d}" style="padding:5px 0;border:1px solid var(--border);border-radius:4px;background:#fff;font-size:11px;cursor:pointer;">${d}</button>`).join('');
+        moContainer.querySelectorAll('[data-recur-monthday]').forEach(btn => {
+          btn.addEventListener('click', () => btn.classList.toggle('recur-day-selected'));
+        });
+        moContainer.dataset.built = '1';
+      }
+      const typeSel = document.getElementById(`${prefix}RecurType`);
+      if (typeSel && !typeSel.dataset.bound) {
+        typeSel.addEventListener('change', () => {
+          const type = typeSel.value;
+          document.getElementById(`${prefix}RecurWeekly`).style.display = type === 'weekly' ? 'block' : 'none';
+          document.getElementById(`${prefix}RecurMonthly`).style.display = type === 'monthly' ? 'block' : 'none';
+        });
+        typeSel.dataset.bound = '1';
+      }
+    }
+
+    // 繰り返し設定オブジェクトをUIに反映する
+    function setRecurEditor(prefix, recur) {
+      initRecurEditor(prefix);
+      const type = (recur && recur.type) || 'none';
+      document.getElementById(`${prefix}RecurType`).value = type;
+      document.getElementById(`${prefix}RecurWeekly`).style.display = type === 'weekly' ? 'block' : 'none';
+      document.getElementById(`${prefix}RecurMonthly`).style.display = type === 'monthly' ? 'block' : 'none';
+
+      const weekdays = (recur && recur.weekdays) || [];
+      document.querySelectorAll(`#${prefix}RecurWeekdays [data-recur-weekday]`).forEach(cb => {
+        cb.checked = weekdays.includes(parseInt(cb.dataset.recurWeekday));
+      });
+      const monthDays = (recur && recur.monthDays) || [];
+      document.querySelectorAll(`#${prefix}RecurMonthDays [data-recur-monthday]`).forEach(btn => {
+        btn.classList.toggle('recur-day-selected', monthDays.includes(parseInt(btn.dataset.recurMonthday)));
+      });
+    }
+
+    // UIから繰り返し設定オブジェクトを取得する。未選択・不備がある場合はnullを返す。
+    function getRecurFromEditor(prefix) {
+      const type = document.getElementById(`${prefix}RecurType`).value;
+      if (type === 'weekly') {
+        const weekdays = Array.from(document.querySelectorAll(`#${prefix}RecurWeekdays [data-recur-weekday]:checked`))
+          .map(cb => parseInt(cb.dataset.recurWeekday));
+        return weekdays.length ? { type: 'weekly', weekdays } : null;
+      }
+      if (type === 'monthly') {
+        const monthDays = Array.from(document.querySelectorAll(`#${prefix}RecurMonthDays .recur-day-selected`))
+          .map(btn => parseInt(btn.dataset.recurMonthday));
+        return monthDays.length ? { type: 'monthly', monthDays } : null;
+      }
+      if (type === 'yearly') return { type: 'yearly' };
+      return null;
+    }
+
     function render4ColTasks() {
       if (!state.sidebarTasks) state.sidebarTasks = [];
 
@@ -7795,12 +7973,13 @@ window.addEventListener('pagehide', function() {
 
       const cardHtml = (t) => {
         const overdueCls = !t.done && t.due && t.due < todayISO;
+        const recurLabel = taskRecurLabel(t.recur);
         return `<div style="padding:6px 14px;display:flex;align-items:flex-start;gap:8px;">
           <input type="checkbox" data-stask="${t.id}" ${t.done ? 'checked' : ''}
             style="margin-top:2px;accent-color:var(--cw-green);flex-shrink:0;">
           <div style="flex:1;min-width:0;cursor:pointer;" data-edittask="${t.id}">
             <div style="font-size:12px;color:${t.done ? '#94a3b8' : '#1e293b'};text-decoration:${t.done ? 'line-through' : 'none'};word-break:break-word;line-height:1.4;">${escapeHtml(t.text)}</div>
-            ${t.due ? `<div style="font-size:10px;color:${overdueCls ? '#d97706' : '#64748b'};margin-top:2px;">${t.due}</div>` : ''}
+            ${t.due ? `<div style="font-size:10px;color:${overdueCls ? '#d97706' : '#64748b'};margin-top:2px;">${t.due}${recurLabel ? `　${recurLabel}` : ''}</div>` : ''}
           </div>
         </div>`;
       };
@@ -7816,12 +7995,21 @@ window.addEventListener('pagehide', function() {
         el.querySelectorAll('input[type=checkbox]').forEach(cb => {
           cb.addEventListener('change', () => {
             const task = state.sidebarTasks.find(x => x.id === cb.dataset.stask);
-            if (task) {
+            if (!task) return;
+            // 繰り返しタスクは「完了」にはせず、次回の日付へ自動的に繰り越す
+            if (task.recur && cb.checked) {
+              const base = task.due || todayISO;
+              const nextDay = new Date(base.split('-')[0], base.split('-')[1] - 1, Number(base.split('-')[2]) + 1);
+              const nextFrom = isoDateYMD(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate());
+              task.due = nextRecurOccurrence(task.recur, nextFrom, task.due);
+              task.done = false;
+              appToast(`次回：${task.due}`);
+            } else {
               task.done = cb.checked;
-              saveState();
-              if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
-              render4ColTasks();
             }
+            saveState();
+            if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+            render4ColTasks();
           });
         });
         el.querySelectorAll('[data-edittask]').forEach(div => {
@@ -10924,6 +11112,7 @@ window.addEventListener('pagehide', function() {
       editingTaskId = id;
       document.getElementById('taskEditText').value = task.text;
       document.getElementById('taskEditDate').value = task.due || '';
+      setRecurEditor('taskEdit', task.recur);
       openOverlay(document.getElementById('taskEditModal'));
       setTimeout(() => document.getElementById('taskEditText').focus(), 50);
     }
@@ -10938,8 +11127,13 @@ window.addEventListener('pagehide', function() {
       if (!text) { alert('タスク名を入力してください。'); return; }
       const task = (state.sidebarTasks || []).find(x => x.id === editingTaskId);
       if (!task) { closeTaskEditModal(); return; }
+      const recur = getRecurFromEditor('taskEdit');
+      let due = document.getElementById('taskEditDate').value || '';
+      if (recur && !due) { alert('繰り返し設定を使う場合は期日を入力してください。'); return; }
+      if (recur) due = nextRecurOccurrence(recur, due, due);
       task.text = text;
-      task.due = document.getElementById('taskEditDate').value || '';
+      task.due = due;
+      task.recur = recur;
       saveState();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
       closeTaskEditModal();
@@ -11002,6 +11196,7 @@ window.addEventListener('pagehide', function() {
     document.getElementById('btnAddTask').addEventListener('click', () => {
       document.getElementById('stTaskText').value = '';
       document.getElementById('stTaskDate').value = '';
+      setRecurEditor('stTask', null);
       openOverlay(document.getElementById('addTaskModal'));
       setTimeout(() => document.getElementById('stTaskText').focus(), 50);
     });
@@ -11017,11 +11212,13 @@ window.addEventListener('pagehide', function() {
     document.getElementById('sidebarTaskFormNew').addEventListener('submit', e => {
       e.preventDefault();
       const text = document.getElementById('stTaskText').value.trim();
-      const due = document.getElementById('stTaskDate').value;
+      let due = document.getElementById('stTaskDate').value;
       if (!text) { alert('タスク名を入力してください。'); return; }
       if (!due) { alert('期日を入力してください。'); return; }
+      const recur = getRecurFromEditor('stTask');
+      if (recur) due = nextRecurOccurrence(recur, due, due);
       if (!state.sidebarTasks) state.sidebarTasks = [];
-      state.sidebarTasks.push({ id: uid(), text, due, author: getUserName(), ts: Date.now(), done: false });
+      state.sidebarTasks.push({ id: uid(), text, due, author: getUserName(), ts: Date.now(), done: false, recur });
       saveState();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
       document.getElementById('stTaskText').value = '';
