@@ -6504,15 +6504,6 @@ window.addEventListener('pagehide', function() {
         </div>
       </div>
 
-      <div id="settingsSheetSyncSection" style="display:none;margin-top:24px;border-top:1px solid var(--border);padding-top:16px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">スプレッドシート同期</h3>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" id="settingsSheetUploadBtn" style="flex:1;padding:10px 8px;border:1px solid var(--cw-green);border-radius:4px;background:var(--cw-green);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">↑ シートへ保存</button>
-          <button type="button" id="settingsSheetDownloadBtn" style="flex:1;padding:10px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;">↓ シートから読込</button>
-        </div>
-        <p id="settingsSheetSyncStatus" style="font-size:11px;color:var(--muted);margin-top:6px;min-height:16px;"></p>
-      </div>
-
       <div style="margin-top:16px;text-align:right;" id="settingsAdminRow">
         <button type="button" id="btnOpenAdminPage" style="padding:3px 8px;background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;text-decoration:underline;">保守・管理</button>
       </div>
@@ -6605,11 +6596,6 @@ window.addEventListener('pagehide', function() {
 
       <div>
         <div id="gasBranchInfo" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button type="button" id="gasUploadBtn" style="padding:12px 8px;border:1px solid var(--cw-green);border-radius:4px;background:var(--cw-green);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">↑ シートへ保存</button>
-          <button type="button" id="gasDownloadBtn" style="padding:12px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;">↓ シートから読込</button>
-        </div>
-        <div id="gasSyncStatus" style="margin-top:10px;font-size:12px;min-height:18px;line-height:1.5;white-space:pre-line;"></div>
       </div>
 
       <div class="modal-actions" style="margin-top:16px;">
@@ -8104,14 +8090,6 @@ window.addEventListener('pagehide', function() {
         sec.style.display = sec.dataset.settingsSectionExclude === currentTab ? 'none' : '';
       });
       applySettingsMenuLayout(currentTab);
-      // GAS設定済みの場合のみシート同期セクションを表示
-      const syncSection = document.getElementById('settingsSheetSyncSection');
-      if (syncSection) {
-        const hasGas = !!(getGasUrl && getGasUrl() && getSpreadsheetId && getSpreadsheetId(state.currentBranch));
-        syncSection.style.display = hasGas ? '' : 'none';
-        const statusEl = document.getElementById('settingsSheetSyncStatus');
-        if (statusEl) statusEl.textContent = '';
-      }
       openOverlay(document.getElementById('settingsModal'));
     }
 
@@ -8385,7 +8363,6 @@ window.addEventListener('pagehide', function() {
           members[i].staffCode = paddedCode;
           input.value = paddedCode;
           saveState();
-          showToast('スタッフコードを保存しました');
         });
       });
     }
@@ -8474,7 +8451,6 @@ window.addEventListener('pagehide', function() {
           renderCurrentBranchLabel();
           adminDirty = false;
           if (typeof updateTabSaveBtnVisibility === 'function') updateTabSaveBtnVisibility();
-          showToast('営業所情報を保存しました');
         });
       });
       list.querySelectorAll('[data-branchdel]').forEach(btn => {
@@ -9302,7 +9278,6 @@ window.addEventListener('pagehide', function() {
       closeSalesItemEditModal();
       renderSalesItemsList();
       renderSalesTable();
-      showToast('項目名を変更しました');
     }
 
     function renderSalesItemsList() {
@@ -9598,7 +9573,6 @@ window.addEventListener('pagehide', function() {
       closeDailyItemEditModal();
       renderDailyItemsList();
       renderDailyTable();
-      showToast('項目名を変更しました');
     }
 
     function openDailyItemsModal() {
@@ -9845,7 +9819,6 @@ window.addEventListener('pagehide', function() {
 
         document.getElementById('messageInput').value = '';
         setComposerOpen(false);
-        showToast('投稿しました');
       } catch (err) {
         console.error(err);
         alert('投稿中にエラーが発生しました: ' + err.message);
@@ -9946,7 +9919,6 @@ window.addEventListener('pagehide', function() {
       saveState();
       renderRoomList();
       renderMessages();
-      showToast('ブックマークしました');
     }
 
     function removeBookmark(bmId) {
@@ -10070,7 +10042,6 @@ window.addEventListener('pagehide', function() {
       saveState();
       closeScheduleModal();
       renderTaskCalendar();
-      showToast('予定を更新しました');
       showScheduleResultPopup('変更', s);
     }
 
@@ -10124,7 +10095,6 @@ window.addEventListener('pagehide', function() {
       closeEditModal();
       renderMessages();
       renderRoomList();
-      showToast('編集しました');
     }
 
     // ── 返信モーダル ──
@@ -10188,7 +10158,6 @@ window.addEventListener('pagehide', function() {
       renderRoomList();
       renderMessages();
       renderDetail();
-      showToast('返信しました');
     }
 
     // ── タブの並び順をドラッグで変更できるようにする（端末ごとの表示設定・全アカウント共通仕様） ──
@@ -10425,7 +10394,6 @@ window.addEventListener('pagehide', function() {
       state.timeUnit = parseInt(sel.value);
       saveState();
       renderTimeSelect();
-      showToast(`時間単位を${state.timeUnit}分に変更しました`);
     });
 
     document.getElementById('bmCatAddBtn').addEventListener('click', () => {
@@ -10448,44 +10416,6 @@ window.addEventListener('pagehide', function() {
     document.getElementById('btnSettings').addEventListener('click', openSettings);
     document.getElementById('settingsModalClose').addEventListener('click', closeSettings);
 
-    document.getElementById('settingsSheetUploadBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('settingsSheetUploadBtn');
-      const statusEl = document.getElementById('settingsSheetSyncStatus');
-      btn.disabled = true;
-      btn.textContent = '保存中…';
-      statusEl.textContent = '';
-      try {
-        const result = await syncToSheet(state.currentBranch);
-        statusEl.style.color = 'var(--cw-green)';
-        statusEl.textContent = `シートへ保存完了（${result.saved}件）`;
-      } catch(e) {
-        statusEl.style.color = 'var(--danger)';
-        statusEl.textContent = '保存失敗: ' + e.message;
-      }
-      btn.disabled = false;
-      btn.textContent = '↑ シートへ保存';
-    });
-
-    document.getElementById('settingsSheetDownloadBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('settingsSheetDownloadBtn');
-      const statusEl = document.getElementById('settingsSheetSyncStatus');
-      btn.disabled = true;
-      btn.textContent = '読込中…';
-      statusEl.textContent = '';
-      try {
-        const result = await syncFromSheet(state.currentBranch);
-        if (result && result.ok) {
-          statusEl.style.color = 'var(--cw-green)';
-          statusEl.textContent = `読込完了（${result.count}件）。ページをリロードして反映します…`;
-          setTimeout(() => { sessionStorage.setItem('kawakyu_startup_loaded', '1'); window.location.reload(); }, 1200);
-        }
-      } catch(e) {
-        statusEl.style.color = 'var(--danger)';
-        statusEl.textContent = '読込失敗: ' + e.message;
-      }
-      btn.disabled = false;
-      btn.textContent = '↓ シートから読込';
-    });
     document.getElementById('settingsModal').addEventListener('click', e => {
       if (e.target.id === 'settingsModal') closeSettings();
     });
@@ -10520,7 +10450,6 @@ window.addEventListener('pagehide', function() {
       saveState();
       document.getElementById('branchPasswordCurrentInput').value = '';
       document.getElementById('branchPasswordNewInput').value = '';
-      showToast('ログインパスワードを変更しました');
     });
     document.getElementById('adminModalClose').addEventListener('click', closeAdminPage);
     document.getElementById('adminLogoutBtn').addEventListener('click', adminLogout);
@@ -10605,7 +10534,6 @@ window.addEventListener('pagehide', function() {
       document.getElementById('adminCurrentAdminPasswordInput').value = '';
       document.getElementById('adminNewAdminPasswordInput').value = '';
       adminDirty = false;
-      showToast('管理者パスワードを変更しました');
     });
     document.getElementById('adminCurrentAdminPasswordInput').addEventListener('input', () => { adminDirty = true; });
     document.getElementById('adminNewAdminPasswordInput').addEventListener('input', () => { adminDirty = true; });
@@ -10951,7 +10879,6 @@ window.addEventListener('pagehide', function() {
       saveState();
       closeTaskEditModal();
       render4ColTasks();
-      showToast('タスクを更新しました');
     });
 
     document.getElementById('taskEditCancel').addEventListener('click', closeTaskEditModal);
@@ -11004,7 +10931,6 @@ window.addEventListener('pagehide', function() {
       state.scheduleTimeEnd = end;
       saveState();
       renderTimeSelect();
-      showToast(`予約時間範囲を ${start} 〜 ${end} に設定しました`);
     });
 
     document.getElementById('btnAddTask').addEventListener('click', () => {
@@ -12223,7 +12149,6 @@ function changeBranchLoginPasswordFromShift(){
     saveState();
     document.getElementById("sfBranchPasswordCurrentInput").value = "";
     document.getElementById("sfBranchPasswordNewInput").value = "";
-    sfShowToast("ログインパスワードを変更しました");
 }
 
 function changeSettingsPassword(){
@@ -12248,7 +12173,6 @@ function changeSettingsPassword(){
     document.getElementById("currentPasswordInput").value = "";
     document.getElementById("newPasswordInput").value = "";
     document.getElementById("newPasswordConfirmInput").value = "";
-    sfShowToast("パスワードが変更されました");
 }
 
 function closeSubPanel(e, id){
@@ -13214,8 +13138,6 @@ async function doSyncFromSheet(branchName) {
 
 // モーダルを開く
 function openGasModal() {
-  document.getElementById('gasSyncStatus').textContent = '';
-
   // 現在の営業所・スプレッドシートID表示
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : '本社';
   const ssId = getSpreadsheetId(branchName);
@@ -13223,14 +13145,6 @@ function openGasModal() {
   infoEl.innerHTML = `現在の営業所: <strong>${branchName}</strong>　スプレッドシートID: <span style="color:${ssId ? 'var(--text)' : 'var(--danger)'};">${ssId || '未設定'}</span>`;
 
   openOverlay(document.getElementById('gasModal'));
-}
-
-// ステータス表示
-function showGasSyncStatus(msg, isError) {
-  const el = document.getElementById('gasSyncStatus');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color = isError ? 'var(--danger)' : '#1a7a3c';
 }
 
 // ── サイレント自動同期（デバウンス：連続保存でも1.5秒後に1回だけ実行） ──
@@ -13335,60 +13249,6 @@ updateGasWarningBanner();
     }
   }).catch(() => {}); // 接続できない場合は無視
 })();
-
-// ── イベントリスナー ──
-document.getElementById('gasUploadBtn').addEventListener('click', async () => {
-  const btn = document.getElementById('gasUploadBtn');
-  btn.disabled = true;
-  btn.textContent = '保存中…';
-  showGasSyncStatus('', false);
-
-  try {
-    const branchName = (typeof state !== 'undefined') ? state.currentBranch : '本社';
-    const result = await syncToSheet(branchName);
-    if (result.ok) {
-      const ts = new Date().toLocaleString('ja-JP');
-      showGasSyncStatus(`✓ 保存完了（${result.saved}件）\n${ts}`, false);
-      appToast(`シートへ保存完了（${result.saved}件）`);
-    } else {
-      showGasSyncStatus(`エラー: ${result.error}`, true);
-      appToast(`シート保存エラー: ${result.error}`);
-    }
-  } catch(e) {
-    showGasSyncStatus(`エラー: ${e.message}`, true);
-    appToast(`シート保存エラー: ${e.message}`);
-  }
-
-  btn.disabled = false;
-  btn.textContent = '↑ シートへ保存';
-});
-
-document.getElementById('gasDownloadBtn').addEventListener('click', async () => {
-  if (!confirm('スプレッドシートのデータをアプリに読み込みます。\n現在のローカルデータが上書きされます。\n続けますか？')) return;
-
-  const btn = document.getElementById('gasDownloadBtn');
-  btn.disabled = true;
-  btn.textContent = '読込中…';
-  showGasSyncStatus('', false);
-
-  try {
-    const branchName = (typeof state !== 'undefined') ? state.currentBranch : '本社';
-    const result = await syncFromSheet(branchName);
-    if (result.ok) {
-      const ts = new Date().toLocaleString('ja-JP');
-      showGasSyncStatus(`✓ 読込完了（${result.count}件）\n${ts}\nページをリロードして反映します…`, false);
-      setTimeout(() => location.reload(), 2000);
-    } else {
-      showGasSyncStatus(`エラー: ${result.error}`, true);
-    }
-  } catch(e) {
-    showGasSyncStatus(`エラー: ${e.message}`, true);
-  }
-
-  btn.disabled = false;
-  btn.textContent = '↓ シートから読込';
-});
-
 
   </script>
 </body>
