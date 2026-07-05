@@ -6153,6 +6153,12 @@ window.addEventListener('pagehide', function() {
             <option value="150">2時間30分</option>
             <option value="165">2時間45分</option>
             <option value="180">3時間</option>
+            <option value="210">3時間30分</option>
+            <option value="240">4時間</option>
+            <option value="270">4時間30分</option>
+            <option value="300">5時間</option>
+            <option value="330">5時間30分</option>
+            <option value="360">6時間</option>
           </select>
         </div>
         <div>
@@ -6522,6 +6528,12 @@ window.addEventListener('pagehide', function() {
             <option value="150">2時間30分</option>
             <option value="165">2時間45分</option>
             <option value="180">3時間</option>
+            <option value="210">3時間30分</option>
+            <option value="240">4時間</option>
+            <option value="270">4時間30分</option>
+            <option value="300">5時間</option>
+            <option value="330">5時間30分</option>
+            <option value="360">6時間</option>
           </select>
           <button type="button" id="presetAddBtn">追加</button>
         </div>
@@ -8300,7 +8312,7 @@ window.addEventListener('pagehide', function() {
       const list = document.getElementById('settingsPresetList');
       if (!list) return;
       const presets = state.schedulePresets || [];
-      const durationLabel = d => d >= 60 ? `${d/60}時間${d%60 ? d%60+'分' : ''}` : `${d}分`;
+      const durationLabel = d => d >= 60 ? `${Math.floor(d/60)}時間${d%60 ? d%60+'分' : ''}` : `${d}分`;
       const fixedRowHtml = `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
         <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${ALL_DAY_BLOCK_PRESET_COLOR};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></span>
         <span style="flex:1;font-size:12px;">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</span>
