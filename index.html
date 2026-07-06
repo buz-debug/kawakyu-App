@@ -5630,6 +5630,16 @@ window.addEventListener('pagehide', function() {
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <div style="color:white; font-size:16px; font-weight:bold;">マイシフト</div>
                     <div style="display:flex; align-items:center; gap:8px;">
+                        <button onclick="smartphoneLogout()" style="
+                            background: rgba(255,255,255,0.25);
+                            color: white;
+                            border: none;
+                            border-radius: 20px;
+                            padding: 4px 12px;
+                            font-size: 12px;
+                            font-weight: bold;
+                            cursor: pointer;
+                        ">ログアウト</button>
                         <button onclick="document.getElementById('smartphoneModal').style.display='none'" style="
                             background: rgba(255,255,255,0.25);
                             color: white;
@@ -13170,6 +13180,13 @@ function closeSmartphoneView(e) {
     if (e.target.id === "smartphoneModal") {
         document.getElementById("smartphoneModal").style.display = "none";
     }
+}
+
+// スマホ表示のまま（サイドバーの設定画面に戻れないため）ログアウトできるようにする
+function smartphoneLogout() {
+    document.getElementById("smartphoneModal").style.display = "none";
+    try { localStorage.removeItem("kawakyu_logged_in"); } catch (e) {}
+    if (typeof showLoginGate === "function") showLoginGate();
 }
 
 function renderSmartphoneSchedule() {
