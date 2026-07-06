@@ -5627,38 +5627,41 @@ window.addEventListener('pagehide', function() {
                 padding: 16px 16px 12px;
                 flex-shrink: 0;
             ">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:6px; margin-bottom:10px;">
                     <div style="color:white; font-size:16px; font-weight:bold;">マイシフト</div>
-                    <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
                         <button onclick="smartphoneLogout()" style="
                             background: rgba(255,255,255,0.25);
                             color: white;
                             border: none;
                             border-radius: 20px;
-                            padding: 4px 12px;
+                            padding: 4px 10px;
                             font-size: 12px;
                             font-weight: bold;
                             cursor: pointer;
+                            white-space: nowrap;
                         ">ログアウト</button>
                         <button onclick="document.getElementById('smartphoneModal').style.display='none'" style="
                             background: rgba(255,255,255,0.25);
                             color: white;
                             border: none;
                             border-radius: 20px;
-                            padding: 4px 12px;
+                            padding: 4px 10px;
                             font-size: 12px;
                             font-weight: bold;
                             cursor: pointer;
+                            white-space: nowrap;
                         ">PC表示</button>
                         <button onclick="document.getElementById('smartphoneModal').style.display='none'" style="
                             background: rgba(255,255,255,0.25);
                             color: white;
                             border: none;
                             border-radius: 20px;
-                            padding: 4px 12px;
+                            padding: 4px 10px;
                             font-size: 12px;
                             font-weight: bold;
                             cursor: pointer;
+                            white-space: nowrap;
                         ">✕ 閉じる</button>
                     </div>
                 </div>
