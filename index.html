@@ -13389,11 +13389,13 @@ renderShiftBranchSwitcher();
 checkHolidayListExpiry();
 
 if(isMobileDevice()){
-    // スマホでは「シフト」タブに固定し、他タブへの切り替えUIを隠して「マイシフト」画面を開く
+    // スマホでは「シフト」タブに固定し、他タブへの切り替えUIを隠す
+    // （「マイシフト」画面自体を開く処理は、GAS関連の定義が済んだ後で行う。
+    //   起動時の自動読込より前にここで呼ぶと、DEFAULT_GAS_URL等の初期化前に
+    //   参照してしまいエラーになるため。）
     document.body.classList.add('mobile-lock-shift');
     const shiftTabBtn = document.querySelector('.tab[data-tab="shift"]');
     if (shiftTabBtn) { shiftTabBtn.click(); }
-    openSmartphoneView();
 }
 
 /* ============================================================
@@ -13654,21 +13656,40 @@ function updateGasWarningBanner() {
 updateGasWarningBanner();
 
 // ── 起動時：ログイン済みなら自動読み込み ──
-(function autoLoadOnStartup() {
+// 呼び出し側（下記のスマホ自動起動処理を含む）が複数箇所から呼んでも二重に同期
+// リクエストを送らないよう、一度呼ばれたら結果（Promiseまたはnull）を使い回す。
+let _autoLoadOnStartupCalled = false;
+let _autoLoadOnStartupResult = null;
+function autoLoadOnStartup() {
+  if (_autoLoadOnStartupCalled) return _autoLoadOnStartupResult;
+  _autoLoadOnStartupCalled = true;
   const isLoggedIn = localStorage.getItem('kawakyu_logged_in') === '1';
-  if (!isLoggedIn) return;
+  if (!isLoggedIn) return null;
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
-  if (!branchName || !getGasUrl() || !getSpreadsheetId(branchName)) return;
+  if (!branchName || !getGasUrl() || !getSpreadsheetId(branchName)) return null;
   // 同一セッション内で既にリロード済みならスキップ（無限ループ防止）
-  if (sessionStorage.getItem('kawakyu_startup_loaded') === '1') return;
-  syncFromSheet(branchName).then(result => {
+  if (sessionStorage.getItem('kawakyu_startup_loaded') === '1') return null;
+  _autoLoadOnStartupResult = syncFromSheet(branchName).then(result => {
     if (result && result.ok) {
       sessionStorage.setItem('kawakyu_startup_loaded', '1');
       sessionStorage.setItem('kawakyu_show_load_toast', '1');
       window.location.reload(); // stateをlocalStorageから再読込するためリロード
     }
   }).catch(() => {}); // 接続できない場合は無視
-})();
+  return _autoLoadOnStartupResult;
+}
+const _startupSyncPromise = autoLoadOnStartup();
+
+// スマホでは、起動時の自動読込がある場合はその結果を待ってから「マイシフト」画面を開く。
+// 読込前の古い・空のスタッフ一覧が一瞬表示されてしまうのを防ぐため。
+// （同期が成功した場合はページごとリロードされるため、この画面は開かれず新しいデータで開き直される）
+if (typeof isMobileDevice === 'function' && isMobileDevice()) {
+  if (_startupSyncPromise && typeof _startupSyncPromise.then === 'function') {
+    _startupSyncPromise.then(() => { openSmartphoneView(); });
+  } else {
+    openSmartphoneView();
+  }
+}
 
 // リロード直後、直前の読込が成功していれば通知する
 if (sessionStorage.getItem('kawakyu_show_load_toast') === '1') {
