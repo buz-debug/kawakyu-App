@@ -5141,11 +5141,63 @@ function openDetail(r) {
 
   document.getElementById('modalBody').innerHTML = html;
   document.getElementById('detailModal').classList.add('open');
+  // 開くたびに、前回ドラッグした位置をリセットして元の位置に戻す
+  const sheetEl = document.querySelector('#detailModal .modal-sheet');
+  if (sheetEl) sheetEl.style.transform = '';
 }
 function closeDetail() {
   currentDetailId = null;
   document.getElementById('detailModal').classList.remove('open');
 }
+
+// 仮締め履歴の詳細ウインドウ：上部のつまみ（ハンドル）をドラッグして移動できるようにする
+(function initDetailModalDrag() {
+  const sheet = document.querySelector('#detailModal .modal-sheet');
+  const handle = document.querySelector('#detailModal .modal-handle');
+  if (!sheet || !handle) return;
+
+  let dragging = false;
+  let startX = 0, startY = 0, baseX = 0, baseY = 0;
+
+  function getPoint(e) {
+    if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onDown(e) {
+    dragging = true;
+    const p = getPoint(e);
+    startX = p.x; startY = p.y;
+    const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(sheet.style.transform || '');
+    baseX = m ? parseFloat(m[1]) : 0;
+    baseY = m ? parseFloat(m[2]) : 0;
+    handle.style.cursor = 'grabbing';
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const p = getPoint(e);
+    const dx = p.x - startX;
+    const dy = p.y - startY;
+    sheet.style.transform = `translate(${baseX + dx}px, ${baseY + dy}px)`;
+    e.preventDefault();
+  }
+
+  function onUp() {
+    dragging = false;
+    handle.style.cursor = 'grab';
+  }
+
+  handle.style.cursor = 'grab';
+  handle.style.touchAction = 'none';
+  handle.addEventListener('mousedown', onDown);
+  handle.addEventListener('touchstart', onDown, { passive: false });
+  window.addEventListener('mousemove', onMove, { passive: false });
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('mouseup', onUp);
+  window.addEventListener('touchend', onUp);
+})();
 function deleteCurrentRecord() {
   if (currentDetailId === null) return;
   if (!confirm('この記録を削除しますか？\nこの操作は取り消せません。')) return;
