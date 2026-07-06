@@ -5600,28 +5600,21 @@ window.addEventListener('pagehide', function() {
 </div>
 
 <!-- ===== スマホビューモーダル ===== -->
-<div id="smartphoneModal" class="sf-modal" onclick="closeSmartphoneView(event)" style="display:none; z-index:1200; align-items:center; justify-content:center; background:transparent; pointer-events:none;">
+<div id="smartphoneModal" class="sf-modal" onclick="closeSmartphoneView(event)" style="display:none; z-index:1200; align-items:stretch; justify-content:stretch; background:transparent; pointer-events:none;">
     <div id="smartphoneFrame" onclick="event.stopPropagation()" style="
-        background: #1a1a2e;
-        width: 390px;
-        max-width: 96vw;
-        height: 90vh;
-        max-height: 844px;
-        border-radius: 40px;
-        padding: 12px;
-        box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 2px #333;
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+        padding: 0;
         position: relative;
         display: flex;
         flex-direction: column;
         pointer-events: auto;
     ">
-        <!-- スマホノッチ（ドラッグハンドル） -->
-        <div id="smartphoneDragHandle" style="width:120px; height:8px; background:#333; border-radius:4px; margin: 0 auto 10px; flex-shrink:0; cursor:grab;"
-            onmousedown="startPhoneDrag(event)" ontouchstart="startPhoneDrag(event)"></div>
         <!-- スマホ画面 -->
         <div style="
             background: #f0f2f5;
-            border-radius: 28px;
+            border-radius: 0;
             flex: 1;
             overflow: hidden;
             display: flex;
@@ -13380,56 +13373,6 @@ function mobileReapplyHighlight(){
         row.classList.toggle("sf-mobile-edit-row-active", mobileSelectedDay !== null && Number(row.dataset.day) === mobileSelectedDay);
     });
 }
-
-/* ======================
-PC画面上でのスマホウインドウのドラッグ移動（画面外には出さない）
-====================== */
-let phoneDragOffsetX = 0;
-let phoneDragOffsetY = 0;
-let isDraggingPhone = false;
-
-function startPhoneDrag(e){
-    const frame = document.getElementById("smartphoneFrame");
-    const rect = frame.getBoundingClientRect();
-    frame.style.position = "fixed";
-    frame.style.left = rect.left + "px";
-    frame.style.top = rect.top + "px";
-    frame.style.margin = "0";
-
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    phoneDragOffsetX = clientX - rect.left;
-    phoneDragOffsetY = clientY - rect.top;
-    isDraggingPhone = true;
-    e.preventDefault();
-}
-
-function movePhoneDrag(e){
-    if(!isDraggingPhone){ return; }
-    const frame = document.getElementById("smartphoneFrame");
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const rect = frame.getBoundingClientRect();
-
-    let newLeft = clientX - phoneDragOffsetX;
-    let newTop = clientY - phoneDragOffsetY;
-    const maxLeft = Math.max(0, window.innerWidth - rect.width);
-    const maxTop = Math.max(0, window.innerHeight - rect.height);
-    newLeft = Math.min(Math.max(0, newLeft), maxLeft);
-    newTop = Math.min(Math.max(0, newTop), maxTop);
-
-    frame.style.left = newLeft + "px";
-    frame.style.top = newTop + "px";
-}
-
-function endPhoneDrag(){
-    isDraggingPhone = false;
-}
-
-document.addEventListener("mousemove", movePhoneDrag);
-document.addEventListener("mouseup", endPhoneDrag);
-document.addEventListener("touchmove", movePhoneDrag, { passive: false });
-document.addEventListener("touchend", endPhoneDrag);
 
 /* ======================
 デバイス自動判定（スマホ・タブレットの場合は自動でスマホ表示を開く）
