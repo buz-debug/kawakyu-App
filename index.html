@@ -2478,22 +2478,24 @@
   }
 }
 #kasime-wrap .modal-handle { width: 40px; height: 4px; background: #DDD; border-radius: 2px; margin: 12px auto 16px; }
-#kasime-wrap .modal-title { font-size: 17px; font-weight: 800; color: var(--cw-green-dark); margin-bottom: 16px; }
+#kasime-wrap .modal-header-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+#kasime-wrap .modal-header-actions { display: flex; gap: 8px; flex-shrink: 0; }
+#kasime-wrap .modal-title { font-size: 17px; font-weight: 800; color: var(--cw-green-dark); margin-bottom: 0; }
 #kasime-wrap .modal-row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--bg-chat); font-size: 14px; }
 #kasime-wrap .modal-row:last-child { border-bottom: none; }
 #kasime-wrap .modal-key { color: #888; }
 #kasime-wrap .modal-val { font-weight: 700; color: var(--text); }
 #kasime-wrap .modal-section { font-size: 12px; font-weight: 800; color: var(--cw-green-dark); letter-spacing: 0.5px; padding: 14px 0 4px; }
 #kasime-wrap .modal-close {
-  display: block; width: 100%; padding: 15px;
-  background: var(--bg-chat); border: none; border-radius: 4px;
-  font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 16px; color: #555;
+  padding: 7px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+  font-size: 12px; font-weight: 700; cursor: pointer; color: #555;
 }
 #kasime-wrap .modal-close:active { background: #EAECEF; }
 #kasime-wrap .modal-delete {
-  display: block; width: 100%; padding: 15px;
+  padding: 7px 14px;
   background: #FFF3F3; border: 1px solid #FFCDD2; border-radius: 4px;
-  font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 12px; color: var(--danger);
+  font-size: 12px; font-weight: 700; cursor: pointer; color: var(--danger);
 }
 #kasime-wrap .modal-delete:active { background: #FFE7E7; }
 #kasime-wrap input[type=number]::-webkit-inner-spin-button, #kasime-wrap input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
@@ -4362,10 +4364,14 @@
   <div id="detailModal">
     <div class="modal-sheet">
       <div class="modal-handle"></div>
-      <div class="modal-title" id="kasime-modalTitle"></div>
+      <div class="modal-header-row">
+        <div class="modal-title" id="kasime-modalTitle"></div>
+        <div class="modal-header-actions">
+          <button class="modal-delete" onclick="deleteCurrentRecord()">削除</button>
+          <button class="modal-close" onclick="closeDetail()">閉じる</button>
+        </div>
+      </div>
       <div id="modalBody"></div>
-      <button class="modal-delete" onclick="deleteCurrentRecord()">この記録を削除</button>
-      <button class="modal-close" onclick="closeDetail()">閉じる</button>
     </div>
   </div>
 
