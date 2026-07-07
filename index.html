@@ -13687,7 +13687,14 @@ function mobileSelectFromDropdown(day, value){
     renderMobileEditCards();
     mobileSelectDay(day);
     // スマホ画面のみの例外ルール：保存ボタンを待たず、選択した時点で即シートへ保存する
-    if (typeof shiftSaveToSheet === "function") shiftSaveToSheet();
+    // 保存完了後は「選択中」のオレンジ枠（カーソル）を消し、入力確定したことが分かるようにする
+    if (typeof _tabSaveToSheet === "function") {
+        _tabSaveToSheet('shift', undefined, undefined, function () {
+            if (typeof markShiftsSynced === 'function') markShiftsSynced();
+            mobileSelectedDay = null;
+            mobileReapplyHighlight();
+        });
+    }
 }
 
 function mobileSelectDay(day){
