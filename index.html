@@ -4121,6 +4121,7 @@
   @page { size: A4 landscape; margin: 8mm; }
 
   .tabs-bar,
+  #btnShiftWishInput,
   #btnSmartphoneView,
   .shift-settings-btn,
   #btnShiftPrint,
@@ -5560,6 +5561,7 @@ window.addEventListener('pagehide', function() {
                 <span id="sfBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
                 <div id="sfMonthLabel" style="font-weight:bold; font-size:15px; margin:0 6px;"></div>
                 <button id="btnShiftNextMonth" onclick="sfChangeMonth(1)">次月</button>
+                <button id="btnShiftWishInput" onclick="openShiftWishPanel()" style="background: linear-gradient(135deg, #ff9800, #ffb74d);">希望入力</button>
                 <button id="btnSmartphoneView" onclick="openSmartphoneView()" style="background: linear-gradient(135deg, #667eea, #764ba2);">スマホ表示</button>
                 <div id="shiftBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
                     <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
@@ -5776,6 +5778,44 @@ window.addEventListener('pagehide', function() {
         <div style="margin-top:8px; background:white; padding:8px 12px; border-radius:10px; border:1px solid #ddd;">
             <h3 style="margin-top:0; margin-bottom:6px; font-size:13px;">時間枠</h3>
             <div id="timeframeListEdit" class="sf-timeframe-grid"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 希望休日 入力ポップアップ（PC用・スタッフ一覧表示） ===== -->
+<div id="panelShiftWish" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelShiftWish')">
+    <div class="sf-popup-modal-content" onclick="event.stopPropagation()" style="width:96vw; max-width:1400px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap:10px; flex-wrap:wrap;">
+            <h2 style="margin:0; font-size:18px; flex-shrink:0; color:#e53935;">希望休日</h2>
+            <div id="shiftWishDeadlineBanner" style="flex:1; min-width:160px; background:#fff3f3; border:1px solid #ffcdd2; border-radius:6px; padding:8px 14px; font-size:15px; font-weight:800; color:#e53935; text-align:center;"></div>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex-shrink:0;">
+                <button onclick="sfChangeMonth(-1)">前月</button>
+                <div id="wishMonthLabel" style="font-weight:bold; font-size:15px; margin:0 4px;"></div>
+                <button onclick="sfChangeMonth(1)">次月</button>
+                <span id="wishSaveWrap" style="display:none;align-items:center;gap:6px;">
+                  <button type="button" onclick="shiftSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
+                </span>
+                <button class="sf-close-btn" onclick="closeSubPanel(null,'panelShiftWish')">閉じる</button>
+            </div>
+        </div>
+        <div class="sf-edit-table-wrapper">
+            <table id="wishTable"></table>
+        </div>
+        <div style="margin-top:8px; background:white; padding:8px 12px; border-radius:10px; border:1px solid #ddd;">
+            <h3 style="margin-top:0; margin-bottom:6px; font-size:13px;">時間枠</h3>
+            <div id="timeframeListWish" class="sf-timeframe-grid"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 希望休日 締切後の警告モーダル ===== -->
+<div id="shiftWishClosedWarningModal" class="sf-modal sf-unsaved-warning-modal">
+    <div class="sf-unsaved-warning-box">
+        <div class="sf-unsaved-warning-icon">⚠️</div>
+        <div class="sf-unsaved-warning-title">この月の希望休日は締め切られました</div>
+        <div class="sf-unsaved-warning-text" id="shiftWishClosedWarningText"></div>
+        <div style="display:flex; justify-content:center; margin-top:18px;">
+            <button onclick="closeShiftWishClosedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">閉じる</button>
         </div>
     </div>
 </div>
@@ -11577,6 +11617,7 @@ function switchShiftViewBranch(name, silent) {
 
     renderViewTable();
     if (typeof renderEditTable === "function") renderEditTable();
+    if (typeof renderWishTable === "function") renderWishTable();
     if (typeof renderTimeFrameEditor === "function") renderTimeFrameEditor();
     if (typeof renderTimeframeList === "function") renderTimeframeList();
     if (typeof renderMultiselectDropdowns === "function") renderMultiselectDropdowns();
@@ -12477,6 +12518,7 @@ function saveShift(key,value){
     localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
     renderViewTable();
     renderEditTable();
+    if (typeof renderWishTable === "function") renderWishTable();
 }
 
 function sfChangeMonth(num){
@@ -12484,6 +12526,8 @@ function sfChangeMonth(num){
     clearShiftSelection();
     renderViewTable();
     renderEditTable();
+    if (typeof renderWishTable === "function") renderWishTable();
+    if (typeof checkShiftWishDeadlineWarning === "function") checkShiftWishDeadlineWarning();
 }
 
 let settingsPassword = localStorage.getItem("settingsPassword") || "1234";
@@ -12498,6 +12542,118 @@ function isShiftMonthLocked(year, month){
     const mm = Number(timeParts[1]);
     const deadlineDate = new Date(year, month - 1, Number(shiftDeadline.day), hh, mm, 0);
     return new Date() >= deadlineDate;
+}
+
+// その対象シフト月（0始まりmonth）の締め切り日時を返す
+function getShiftDeadlineDateForMonth(year, month){
+    const timeParts = (shiftDeadline.time || "12:30").split(":");
+    const hh = Number(timeParts[0]);
+    const mm = Number(timeParts[1]);
+    return new Date(year, month - 1, Number(shiftDeadline.day), hh, mm, 0);
+}
+
+function formatShiftDeadlineDate(date){
+    const mm = String(date.getMinutes()).padStart(2, "0");
+    return `${date.getMonth() + 1}月${date.getDate()}日${date.getHours()}時${mm}分`;
+}
+
+/* ======================
+希望休日 入力（PC用・スタッフ一覧表示。シフト作成ビューと同じ台帳=shiftsを共有する）
+====================== */
+function openShiftWishPanel(){
+    const panel = document.getElementById("panelShiftWish");
+    if (!panel) return;
+    panel.style.display = "block";
+    renderWishTable();
+    checkShiftWishDeadlineWarning();
+}
+
+function closeShiftWishPanel(){
+    const panel = document.getElementById("panelShiftWish");
+    if (panel) panel.style.display = "none";
+}
+
+function updateShiftWishDeadlineBanner(year, month, locked){
+    const banner = document.getElementById("shiftWishDeadlineBanner");
+    if (!banner) return;
+    const deadlineDate = getShiftDeadlineDateForMonth(year, month);
+    banner.textContent = `希望休日の締め切りは${formatShiftDeadlineDate(deadlineDate)}です`;
+    banner.style.background = locked ? "#eee" : "#fff3f3";
+    banner.style.color = locked ? "#888" : "#e53935";
+    banner.style.borderColor = locked ? "#ccc" : "#ffcdd2";
+}
+
+function onWishSelectChange(selectEl){
+    const key = selectEl.dataset.key;
+    saveShift(key, selectEl.value);
+}
+
+function renderWishTable(){
+    const table = document.getElementById("wishTable");
+    if (!table) return;
+    table.innerHTML = "";
+
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const days = new Date(year, month + 1, 0).getDate();
+    const locked = isShiftMonthLocked(year, month);
+
+    const wishMonthLabel = document.getElementById("wishMonthLabel");
+    if (wishMonthLabel) wishMonthLabel.innerText = `${year}年 ${month + 1}月`;
+    updateShiftWishDeadlineBanner(year, month, locked);
+
+    let header = "<tr><th class='sf-staff-name'>スタッフ</th>";
+    for (let d = 1; d <= days; d++) {
+        const date = new Date(year, month, d);
+        const week = ["日","月","火","水","木","金","土"][date.getDay()];
+        let className = "sf-day-header";
+        if (date.getDay() === 0) { className = "sf-day-header sf-sunday"; }
+        if (date.getDay() === 6) { className = "sf-day-header sf-saturday"; }
+        if (isJapanHoliday(date)) { className = "sf-day-header sf-holiday"; }
+        header += `<th class="${className}">${d}<br>(${week})</th>`;
+    }
+    header += "<th class='sf-total-hours'>労働時間</th><th class='sf-subtotal-col'>出勤数</th><th class='sf-subtotal-col'>公休</th><th class='sf-subtotal-col'>有休</th></tr>";
+    table.innerHTML += header;
+
+    shiftStaffNames().forEach(staff => {
+        let row = `<tr><td class="sf-staff-name">${staff}</td>`;
+        for (let d = 1; d <= days; d++) {
+            const key = `${year}-${month+1}-${d}-${staff}`;
+            const value = shifts[key] || "";
+            const bg = timeFrames[value]?.color || "";
+            row += `
+            <td class="sf-shift-cell" style="background:${bg}">
+                <select class="sf-wish-select" data-key="${key}" ${locked ? "disabled" : ""} onchange="onWishSelectChange(this)">
+                    ${getShiftOptionsHtml(value)}
+                </select>
+            </td>`;
+        }
+        const stats = getStaffStats(staff, year, month, days);
+        row += `<td class="sf-total-hours">${stats.hoursStr}</td><td class="sf-subtotal-col">${stats.attendance}</td><td class="sf-subtotal-col">${stats.holiday}</td><td class="sf-subtotal-col">${stats.paidLeave}</td></tr>`;
+        table.innerHTML += row;
+    });
+}
+
+// 希望休日の締め切りを過ぎた月を表示している場合に、警告モーダルを表示する
+function checkShiftWishDeadlineWarning(){
+    const panel = document.getElementById("panelShiftWish");
+    if (!panel || panel.style.display !== "block") return;
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    if (!isShiftMonthLocked(year, month)) return;
+    const deadlineDate = getShiftDeadlineDateForMonth(year, month);
+    const textEl = document.getElementById("shiftWishClosedWarningText");
+    if (textEl) textEl.textContent = `${formatShiftDeadlineDate(deadlineDate)}の締め切りを過ぎているため、この月の希望休日は入力できません。`;
+    const modal = document.getElementById("shiftWishClosedWarningModal");
+    if (modal) {
+        if (typeof overlayZIndex !== "undefined") { overlayZIndex += 1; modal.style.zIndex = overlayZIndex; }
+        modal.style.display = "flex";
+    }
+}
+
+function closeShiftWishClosedWarning(){
+    const modal = document.getElementById("shiftWishClosedWarningModal");
+    if (modal) modal.style.display = "none";
 }
 
 function saveDeadlineSettings(){
@@ -12670,7 +12826,7 @@ function changeSettingsPassword(){
 
 function closeSubPanel(e, id){
     if(e && e.target.id !== id){ return; }
-    if(id === 'panelShiftEdit'){
+    if(id === 'panelShiftEdit' || id === 'panelShiftWish'){
         attemptCloseShiftEdit(function(){
             document.getElementById(id).style.display = "none";
         });
@@ -12949,7 +13105,7 @@ function saveTimeFrames(){
 }
 
 function renderTimeframeList(){
-    const ids = ["timeframeList", "timeframeListEdit"];
+    const ids = ["timeframeList", "timeframeListEdit", "timeframeListWish"];
     ids.forEach(id => {
         const area = document.getElementById(id);
         if(!area){ return; }
@@ -13642,7 +13798,7 @@ function syncAllBranchesToSheet(successMsg) {
 function updateTabSaveBtnVisibility() {
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
   const show = !!(branchName && getGasUrl() && getSpreadsheetId(branchName));
-  ['shiftSaveWrap', 'salesSaveWrap', 'dailySaveWrap', 'kasimeSaveWrap'].forEach(id => {
+  ['shiftSaveWrap', 'wishSaveWrap', 'salesSaveWrap', 'dailySaveWrap', 'kasimeSaveWrap'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? 'flex' : 'none';
   });
