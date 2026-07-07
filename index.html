@@ -3005,7 +3005,7 @@
 }
 
 /* テーブル共通設定 */
-#shiftTable, #editTable {
+#shiftTable, #editTable, #wishTable {
     width:100%;
     min-width: 900px;
     table-layout:fixed;
@@ -3013,7 +3013,8 @@
 }
 
 #shiftTable th, #shiftTable td,
-#editTable th, #editTable td {
+#editTable th, #editTable td,
+#wishTable th, #wishTable td {
     border:1px solid #ddd;
     text-align:center;
     font-size:12px;
@@ -3021,14 +3022,14 @@
     overflow:hidden;
 }
 
-#shiftTable th, #editTable th {
+#shiftTable th, #editTable th, #wishTable th {
     background:#fcfcfc;
     cursor: pointer;
 }
-#shiftTable th.sf-day-header, #editTable th.sf-day-header {
+#shiftTable th.sf-day-header, #editTable th.sf-day-header, #wishTable th.sf-day-header {
     font-size:10px !important;
 }
-#shiftTable th:hover, #editTable th:hover {
+#shiftTable th:hover, #editTable th:hover, #wishTable th:hover {
     background:#eef4fc;
 }
 
@@ -3055,6 +3056,7 @@
 }
 #shiftTable .sf-staff-name { padding: 4px 2px; }
 #editTable .sf-staff-name { padding: 4px 2px; }
+#wishTable .sf-staff-name { padding: 4px 2px; }
 
 .sf-total-hours{
     width:50px !important;
@@ -3881,6 +3883,50 @@
 .sf-mobile-shift-select option {
     background-color: #fff;
     color: #333;
+}
+
+/* 希望休日（PC）テーブルのセル：記号のみ表示し、時間枠・休憩時間の詳細は表示しない */
+#wishTable .sf-shift-cell {
+    position: relative;
+    padding: 0;
+}
+.sf-wish-select-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+.sf-wish-select {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    text-align: center;
+    font-size: 12px;
+    cursor: pointer;
+    color: transparent;
+}
+.sf-wish-select:disabled {
+    cursor: default;
+}
+.sf-wish-select-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+    pointer-events: none;
+}
+.sf-wish-select option {
+    background-color: #fff;
+    color: #333;
+}
+
+/* 希望休日ポップアップ内の時間枠一覧：小さめのカードで横10列に並べる */
+#timeframeListWish.sf-timeframe-grid {
+    grid-template-columns: repeat(10, 1fr);
 }
 
 /* ======================
@@ -12623,9 +12669,12 @@ function renderWishTable(){
             const bg = timeFrames[value]?.color || "";
             row += `
             <td class="sf-shift-cell" style="background:${bg}">
-                <select class="sf-wish-select" data-key="${key}" ${locked ? "disabled" : ""} onchange="onWishSelectChange(this)">
-                    ${getShiftOptionsHtml(value)}
-                </select>
+                <div class="sf-wish-select-wrap">
+                    <select class="sf-wish-select" data-key="${key}" ${locked ? "disabled" : ""} onchange="onWishSelectChange(this)">
+                        ${getShiftOptionsHtml(value)}
+                    </select>
+                    <div class="sf-wish-select-label">${value}</div>
+                </div>
             </td>`;
         }
         const stats = getStaffStats(staff, year, month, days);
@@ -12640,7 +12689,11 @@ function checkShiftWishDeadlineWarning(){
     if (!panel || panel.style.display !== "block") return;
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    if (!isShiftMonthLocked(year, month)) return;
+    if (!isShiftMonthLocked(year, month)) {
+        const openModal = document.getElementById("shiftWishClosedWarningModal");
+        if (openModal) openModal.style.display = "none";
+        return;
+    }
     const deadlineDate = getShiftDeadlineDateForMonth(year, month);
     const textEl = document.getElementById("shiftWishClosedWarningText");
     if (textEl) textEl.textContent = `${formatShiftDeadlineDate(deadlineDate)}の締め切りを過ぎているため、この月の希望休日は入力できません。`;
