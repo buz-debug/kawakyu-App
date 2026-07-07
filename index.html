@@ -3896,21 +3896,29 @@
     height: 100%;
 }
 .sf-wish-select {
+    display: block;
     width: 100%;
     height: 100%;
     border: none;
     border-radius: 0;
-    background: transparent;
+    background-color: transparent;
     text-align: center;
     font-size: 12px;
+    font-weight: bold;
     cursor: pointer;
     color: transparent;
     padding: 0;
     margin: 0;
+    vertical-align: top;
     box-sizing: border-box;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
+}
+.sf-wish-select:focus {
+    outline: none;
+    box-shadow: none;
+    cursor: text;
 }
 .sf-wish-select:disabled {
     cursor: default;
@@ -11736,6 +11744,35 @@ function shiftStaffNames(){
     return (list || []).map(m => m.name);
 }
 let shifts = JSON.parse(localStorage.getItem(shiftKey("shifts"))) || {};
+
+// 「保存」を押さずに閉じた場合に、編集前の状態へ本当に戻せるようにするためのスナップショット。
+// シート同期に成功した時点（markShiftsSynced）でクリアされ、次に編集が入った時点（markShiftsDirtyBeforeEdit）で
+// 改めて取り直される。
+let shiftsCleanSnapshot = null;
+
+function markShiftsDirtyBeforeEdit() {
+    if (shiftsCleanSnapshot === null) {
+        shiftsCleanSnapshot = JSON.stringify(shifts);
+    }
+}
+
+function markShiftsSynced() {
+    shiftsCleanSnapshot = null;
+}
+
+function revertUnsavedShiftChanges() {
+    if (shiftsCleanSnapshot !== null) {
+        shifts = JSON.parse(shiftsCleanSnapshot);
+        localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
+        shiftsCleanSnapshot = null;
+    }
+    window._hasUnsyncedTabChanges = false;
+    if (typeof clearShiftSelection === "function") clearShiftSelection();
+    renderViewTable();
+    if (typeof renderEditTable === "function") renderEditTable();
+    if (typeof renderWishTable === "function") renderWishTable();
+}
+
 let businessHours = JSON.parse(localStorage.getItem(shiftKey("businessHours"))) || { start: "09:00", end: "18:00" };
 
 let timeFrames = JSON.parse(localStorage.getItem(shiftKey("timeFrames"))) || {
@@ -12311,10 +12348,11 @@ function convertTimeToMinutes(timeStr) {
 }
 
 function saveShiftFromPopup(key, value) {
+    markShiftsDirtyBeforeEdit();
     shifts[key] = value;
     window._hasUnsyncedTabChanges = true;
     localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
-    
+
     const ticks = generateHourTicks();
     renderTimelineBody(ticks);
     renderViewTable();
@@ -12566,6 +12604,7 @@ function renderEditTable(){
 }
 
 function saveShift(key,value){
+    markShiftsDirtyBeforeEdit();
     shifts[key] = value;
     window._hasUnsyncedTabChanges = true;
     localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
@@ -12630,7 +12669,7 @@ function updateShiftWishDeadlineBanner(year, month, locked){
     const banner = document.getElementById("shiftWishDeadlineBanner");
     if (!banner) return;
     const deadlineDate = getShiftDeadlineDateForMonth(year, month);
-    banner.textContent = `希望休日の締め切りは${formatShiftDeadlineDate(deadlineDate)}です`;
+    banner.textContent = `${year}年${month + 1}月シフト希望休日の締め切りは${formatShiftDeadlineDate(deadlineDate)}です`;
     banner.style.background = locked ? "#eee" : "#fff3f3";
     banner.style.color = locked ? "#888" : "#e53935";
     banner.style.borderColor = locked ? "#ccc" : "#ffcdd2";
@@ -12949,6 +12988,8 @@ function cancelShiftUnsavedWarning(){
 
 function confirmShiftDiscardAndClose(){
     document.getElementById("shiftUnsavedWarningModal").style.display = "none";
+    // 「保存せずに閉じる」なので、まだシートに反映していない編集内容を実際に破棄して元に戻す
+    if (typeof revertUnsavedShiftChanges === "function") revertUnsavedShiftChanges();
     if(pendingShiftCloseAction){ pendingShiftCloseAction(); pendingShiftCloseAction = null; }
 }
 
@@ -13818,7 +13859,7 @@ function openGasModal() {
 // ── タブ別保存ボタン（シフト・販売実績・日常業務） ──
 // branchNameOverride省略時はログイン中の営業所。管理画面など「別の営業所のデータを編集」する
 // 画面では、その編集対象の営業所を明示的に渡すことで、その営業所自身のスプレッドシートに書き込む。
-function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride) {
+function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride, onSuccess) {
   const branchName = branchNameOverride || ((typeof state !== 'undefined') ? state.currentBranch : null);
   if (!branchName) { appToast('ログインしてください'); return; }
   if (!getGasUrl() || !getSpreadsheetId(branchName)) {
@@ -13828,11 +13869,16 @@ function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride) {
   syncToSheet(branchName).then(() => {
     window._hasUnsyncedTabChanges = false;
     appToast(successMsg || 'スプレッドシートに保存しました');
+    if (typeof onSuccess === 'function') onSuccess();
   }).catch(err => {
     appToast('シート保存に失敗: ' + err.message);
   });
 }
-function shiftSaveToSheet() { _tabSaveToSheet('shift'); }
+function shiftSaveToSheet() {
+  _tabSaveToSheet('shift', undefined, undefined, function () {
+    if (typeof markShiftsSynced === 'function') markShiftsSynced();
+  });
+}
 function salesSaveToSheet() { _tabSaveToSheet('sales'); }
 function dailySaveToSheet() { _tabSaveToSheet('daily'); }
 function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
