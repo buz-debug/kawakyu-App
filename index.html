@@ -3899,11 +3899,18 @@
     width: 100%;
     height: 100%;
     border: none;
+    border-radius: 0;
     background: transparent;
     text-align: center;
     font-size: 12px;
     cursor: pointer;
     color: transparent;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
 }
 .sf-wish-select:disabled {
     cursor: default;
@@ -12658,7 +12665,7 @@ function renderWishTable(){
         if (isJapanHoliday(date)) { className = "sf-day-header sf-holiday"; }
         header += `<th class="${className}">${d}<br>(${week})</th>`;
     }
-    header += "<th class='sf-total-hours'>労働時間</th><th class='sf-subtotal-col'>出勤数</th><th class='sf-subtotal-col'>公休</th><th class='sf-subtotal-col'>有休</th></tr>";
+    header += "<th class='sf-subtotal-col'>公休</th><th class='sf-subtotal-col'>有休</th></tr>";
     table.innerHTML += header;
 
     shiftStaffNames().forEach(staff => {
@@ -12678,7 +12685,7 @@ function renderWishTable(){
             </td>`;
         }
         const stats = getStaffStats(staff, year, month, days);
-        row += `<td class="sf-total-hours">${stats.hoursStr}</td><td class="sf-subtotal-col">${stats.attendance}</td><td class="sf-subtotal-col">${stats.holiday}</td><td class="sf-subtotal-col">${stats.paidLeave}</td></tr>`;
+        row += `<td class="sf-subtotal-col">${stats.holiday}</td><td class="sf-subtotal-col">${stats.paidLeave}</td></tr>`;
         table.innerHTML += row;
     });
 }
