@@ -9952,7 +9952,7 @@ window.addEventListener('pagehide', function() {
           const isToday = (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d);
           const dayRecord = dailyTaskRecords[`${year}-${month + 1}-${d}`] || {};
           const selected = dayRecord[item.id] || '';
-          const options = ['<option value=""></option>'].concat(
+          const options = ['<option value="">空欄</option>'].concat(
             memberNames.map(n => `<option value="${escapeHtml(n)}" ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`)
           ).join('');
           const cellColor = selected ? (memberColorMap[selected] || '') : '';
@@ -11830,7 +11830,7 @@ function createBreakOptions(selectedBreak) {
 プルダウンメニューの選択肢生成（記号・時間帯・労働時間を表示）
 ====================== */
 function getShiftOptionsHtml(currentValue) {
-    let html = `<option value="" ${currentValue === "" ? "selected" : ""}></option>`;
+    let html = `<option value="" ${currentValue === "" ? "selected" : ""}>空欄</option>`;
     timeFrameOrder.forEach(code => {
         if (!timeFrames[code]) return;
         let displayText = code;
