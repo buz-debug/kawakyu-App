@@ -4109,6 +4109,11 @@
 #dailyTable .daily-day-col {
     width: 40px;
 }
+#dailyTable .daily-select-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
 #dailyTable select.daily-member-select {
     width: 100%;
     height: 100%;
@@ -4120,15 +4125,31 @@
     text-align: center;
     text-align-last: center;
     background: transparent;
+    color: transparent;
     box-sizing: border-box;
     -webkit-appearance: none;
     appearance: none;
     overflow: hidden;
     text-overflow: ellipsis;
+    position: relative;
+    z-index: 1;
 }
 #dailyTable select.daily-member-select:focus {
     outline: 2px solid var(--cw-green);
     background: #fff;
+}
+#dailyTable .daily-select-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    color: var(--text);
 }
 
 
@@ -9893,10 +9914,13 @@ window.addEventListener('pagehide', function() {
       }
       window._hasUnsyncedTabChanges = true;
       saveDailyTaskRecords();
-      if (selectEl && selectEl.parentElement) {
+      if (selectEl) {
+        const td = selectEl.closest('td');
         const members = (typeof editableMembers === 'function') ? editableMembers() : [];
         const member = members.find(m => m.name === value);
-        selectEl.parentElement.style.background = (member && member.color) ? member.color : '';
+        if (td) td.style.background = (member && member.color) ? member.color : '';
+        const label = selectEl.parentElement ? selectEl.parentElement.querySelector('.daily-select-label') : null;
+        if (label) label.textContent = value || '';
       }
     }
 
@@ -9952,12 +9976,12 @@ window.addEventListener('pagehide', function() {
           const isToday = (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d);
           const dayRecord = dailyTaskRecords[`${year}-${month + 1}-${d}`] || {};
           const selected = dayRecord[item.id] || '';
-          const options = ['<option value="">空欄</option>'].concat(
+          const options = ['<option value="">空らん</option>'].concat(
             memberNames.map(n => `<option value="${escapeHtml(n)}" ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`)
           ).join('');
           const cellColor = selected ? (memberColorMap[selected] || '') : '';
           const colorStyle = cellColor ? ` style="background:${escapeHtml(cellColor)};"` : '';
-          bodyHtml += `<td class="daily-day-col${isToday ? ' daily-today' : ''}"${colorStyle}><select class="daily-member-select" onchange="onDailyCellChange(${d}, '${item.id}', this.value, this)" style="background:transparent;">${options}</select></td>`;
+          bodyHtml += `<td class="daily-day-col${isToday ? ' daily-today' : ''}"${colorStyle}><div class="daily-select-wrap"><select class="daily-member-select" onchange="onDailyCellChange(${d}, '${item.id}', this.value, this)">${options}</select><div class="daily-select-label">${escapeHtml(selected)}</div></div></td>`;
         }
         bodyHtml += `</tr>`;
       });
@@ -11830,7 +11854,7 @@ function createBreakOptions(selectedBreak) {
 プルダウンメニューの選択肢生成（記号・時間帯・労働時間を表示）
 ====================== */
 function getShiftOptionsHtml(currentValue) {
-    let html = `<option value="" ${currentValue === "" ? "selected" : ""}>空欄</option>`;
+    let html = `<option value="" ${currentValue === "" ? "selected" : ""}>空らん</option>`;
     timeFrameOrder.forEach(code => {
         if (!timeFrames[code]) return;
         let displayText = code;
