@@ -5799,6 +5799,7 @@ window.addEventListener('pagehide', function() {
 <div id="smartphoneLoadingOverlay" style="display:none; position:fixed; inset:0; z-index:1300; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); flex-direction:column; align-items:center; justify-content:center; gap:16px;">
     <div style="font-size:56px; animation: sfLoadingPulse 1.8s ease-in-out infinite;">🍵</div>
     <div style="color:#fff; font-size:15px; font-weight:bold; letter-spacing:1px;">データを読み込んでいます</div>
+    <div id="smartphoneLoadingExtraMsg" style="display:none; color:#fff; font-size:12px; opacity:0.85;">もう少しお待ちください</div>
 </div>
 
 <div id="sfSettingsModal" class="sf-modal">
@@ -13456,6 +13457,12 @@ function openSmartphoneView() {
 
     const loadingOverlay = document.getElementById("smartphoneLoadingOverlay");
     if (loadingOverlay) loadingOverlay.style.display = "none";
+    if (window._smartphoneLoadingExtraMsgTimer) {
+        clearTimeout(window._smartphoneLoadingExtraMsgTimer);
+        window._smartphoneLoadingExtraMsgTimer = null;
+    }
+    const extraMsg = document.getElementById("smartphoneLoadingExtraMsg");
+    if (extraMsg) extraMsg.style.display = "none";
 }
 
 function closeSmartphoneView(e) {
@@ -13695,7 +13702,13 @@ if(isMobileDevice()){
     const shiftTabBtn = document.querySelector('.tab[data-tab="shift"]');
     if (shiftTabBtn) { shiftTabBtn.click(); }
     const loadingOverlay = document.getElementById('smartphoneLoadingOverlay');
-    if (loadingOverlay) loadingOverlay.style.display = 'flex';
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+        window._smartphoneLoadingExtraMsgTimer = setTimeout(function() {
+            const extraMsg = document.getElementById('smartphoneLoadingExtraMsg');
+            if (extraMsg && loadingOverlay.style.display !== 'none') extraMsg.style.display = 'block';
+        }, 5000);
+    }
 }
 
 /* ============================================================
