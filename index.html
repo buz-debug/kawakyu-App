@@ -3533,7 +3533,7 @@
     border-radius: 20px;
     font-size: 13px;
     font-weight: bold;
-    border: 1px solid #ffc0c0;
+    border: 1px solid rgba(0,0,0,0.1);
     color: #c53030;
 }
 .sf-sp-paidleave-chip {
@@ -3544,7 +3544,7 @@
     border-radius: 20px;
     font-size: 13px;
     font-weight: bold;
-    border: 1px solid #ffe9a8;
+    border: 1px solid rgba(0,0,0,0.1);
     color: #b8860b;
 }
 .sf-sp-off-chip {
@@ -13537,11 +13537,11 @@ function renderSmartphoneSchedule() {
             if (calcConditions.holidaySymbols.includes(val)) {
                 holidayCount++;
                 const bg = timeFrames[val].color || "";
-                shiftHtml = `<span class="sf-sp-holiday-chip" style="background:${bg};">🌴 ${val}（公休）</span>`;
+                shiftHtml = `<span class="sf-sp-holiday-chip" style="background:${bg};">${val}（公休）</span>`;
             } else if (calcConditions.paidLeaveSymbols.includes(val)) {
                 paidLeaveCount++;
                 const bg = timeFrames[val].color || "";
-                shiftHtml = `<span class="sf-sp-paidleave-chip" style="background:${bg};">💰 ${val}（有休）</span>`;
+                shiftHtml = `<span class="sf-sp-paidleave-chip" style="background:${bg};">${val}（有休）</span>`;
             } else {
                 attendanceCount++;
                 const tf = timeFrames[val];
