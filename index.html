@@ -13538,11 +13538,11 @@ function renderSmartphoneSchedule() {
         if (val && timeFrames[val]) {
             if (calcConditions.holidaySymbols.includes(val)) {
                 holidayCount++;
-                const bg = timeFrames[val].color || "#fff0f0";
+                const bg = timeFrames[val].color || "";
                 shiftHtml = `<span class="sf-sp-holiday-chip" style="background:${bg};">🌴 ${val}（公休）</span>`;
             } else if (calcConditions.paidLeaveSymbols.includes(val)) {
                 paidLeaveCount++;
-                const bg = timeFrames[val].color || "#fff9e0";
+                const bg = timeFrames[val].color || "";
                 shiftHtml = `<span class="sf-sp-paidleave-chip" style="background:${bg};">💰 ${val}（有休）</span>`;
             } else {
                 attendanceCount++;
@@ -13550,7 +13550,7 @@ function renderSmartphoneSchedule() {
                 const workMins = calculateWorkMinutes(val);
                 const hoursStr = convertMinutesToHours(workMins);
                 totalMinutes += workMins;
-                const bg = tf.color || "#e8f4fd";
+                const bg = tf.color || "";
                 shiftHtml = `
                     <span class="sf-sp-shift-chip" style="background:${bg};">
                         <span class="sf-sp-shift-code">${val}</span>
@@ -13643,7 +13643,7 @@ function renderMobileEditCards(){
         else if(dow === 6){ cls += " sf-sp-saturday"; }
 
         const tf = timeFrames[value];
-        const chipBg = value ? (tf?.color || "#e8f4fd") : "#f5f5f5";
+        const chipBg = value ? (tf?.color || "") : "#f5f5f5";
         const chipColor = value ? "#333" : "#bbb";
 
         rowsHtml += `
