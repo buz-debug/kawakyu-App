@@ -13882,7 +13882,44 @@ async function syncBranchListFromGas() {
     // 通信できない場合は静かに諦める（この端末に既にある営業所での利用は継続できる）
   }
 }
-syncBranchListFromGas();
+
+// listBranchesが返すinitialPasswordは営業所登録時点の仮パスワードのままで、
+// パスワード変更後も更新されない。そのため、初めて使う端末（シークレットウインドウ等）では
+// 仮パスワードのままログイン画面の照合が行われてしまい、変更後のパスワードでログインできない
+// 不具合があった。ログイン前でも「load」はパスワード不要のため、既知の営業所のスプレッドシートから
+// 実際の最新state（変更後のパスワードを含む）を取得し、ログイン画面の照合に反映する。
+async function refreshBranchPasswordsFromSheet() {
+  if (typeof state === 'undefined' || !Array.isArray(state.branches)) return;
+  const source = state.branches.find(b => b.spreadsheetId);
+  if (!source || !getGasUrl()) return;
+  try {
+    const result = await gasRequest('load', source.spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data['kawakyu-chatwork-v5'];
+    if (!raw) return;
+    const remote = JSON.parse(raw);
+    if (!Array.isArray(remote.branches)) return;
+    let changed = false;
+    remote.branches.forEach(rb => {
+      const existing = state.branches.find(b => b.name === rb.name);
+      if (existing) {
+        if (rb.password && existing.password !== rb.password) { existing.password = rb.password; changed = true; }
+        if (rb.shiftSettingsPassword && existing.shiftSettingsPassword !== rb.shiftSettingsPassword) { existing.shiftSettingsPassword = rb.shiftSettingsPassword; changed = true; }
+      }
+    });
+    if (remote.adminPassword && state.adminPassword !== remote.adminPassword) {
+      state.adminPassword = remote.adminPassword;
+      changed = true;
+    }
+    if (changed) {
+      saveState();
+      if (typeof renderLoginBranchSelect === 'function') renderLoginBranchSelect();
+    }
+  } catch (e) {
+    // 通信できない場合は静かに諦める
+  }
+}
+syncBranchListFromGas().then(() => refreshBranchPasswordsFromSheet());
 
 // シートからのダウンロード中は、空・古いローカルデータで上書きしてしまう競合を防ぐためのフラグ
 let _sheetDownloadInProgress = false;
