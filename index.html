@@ -9892,7 +9892,10 @@ window.addEventListener('pagehide', function() {
       if (!dailyTaskRecords[key]) dailyTaskRecords[key] = {};
       const current = dailyTaskRecords[key][itemId] || '';
       if (current) {
-        delete dailyTaskRecords[key][itemId];
+        // キー自体を削除すると、保存前のマージ処理が「このセルは未編集」と誤認し、
+        // サーバー側に残っている古い値で復活してしまうため、空文字を明示的に入れて
+        // 「取り消し済み」であることが分かるようにする（3点マージのbase比較に必要）。
+        dailyTaskRecords[key][itemId] = '';
       } else {
         const sel = document.getElementById('dailyActiveMemberSelect');
         const memberName = sel ? sel.value : '';
