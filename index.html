@@ -4120,48 +4120,13 @@
 #dailyTable .daily-day-col {
     width: 40px;
 }
-#dailyTable .daily-select-wrap {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-#dailyTable select.daily-member-select {
-    width: 100%;
-    height: 100%;
-    border: none;
-    border-radius: 0;
-    padding: 0;
-    margin: 0;
+#dailyTable .daily-clickable-cell {
+    cursor: pointer;
     font-size: 9px;
-    text-align: center;
-    text-align-last: center;
-    background: transparent;
-    color: transparent;
-    box-sizing: border-box;
-    -webkit-appearance: none;
-    appearance: none;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    position: relative;
-    z-index: 1;
+    user-select: none;
 }
-#dailyTable select.daily-member-select:focus {
-    outline: none;
-    box-shadow: none;
-    background: transparent;
-}
-#dailyTable .daily-select-label {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    pointer-events: none;
-    color: var(--text);
+#dailyTable .daily-clickable-cell:hover {
+    background: #eef4fc;
 }
 
 
@@ -6141,6 +6106,10 @@ window.addEventListener('pagehide', function() {
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(-1)">前月</button>
           <div id="dailyMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(1)">次月</button>
+          <span style="display:flex;align-items:center;gap:6px;margin-left:6px;">
+            <span style="font-size:12px;color:var(--muted);white-space:nowrap;">担当者：</span>
+            <select id="dailyActiveMemberSelect" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
+          </span>
           <span id="dailySaveWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
             <button type="button" onclick="dailySaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
           </span>
@@ -9919,24 +9888,23 @@ window.addEventListener('pagehide', function() {
       return `${y}-${m}-${day}`;
     }
 
-    function onDailyCellChange(day, itemId, value, selectEl) {
+    // セルをクリック（タブレットはタッチ）するたびに、上部の「担当者」プルダウンで選択中の
+    // メンバー名を入力/取り消しするトグル動作。毎回セルのプルダウンから自分の名前を選ぶ手間を省く。
+    function toggleDailyCell(day, itemId) {
       const key = dailyRecordKey(day);
       if (!dailyTaskRecords[key]) dailyTaskRecords[key] = {};
-      if (!value) {
+      const current = dailyTaskRecords[key][itemId] || '';
+      if (current) {
         delete dailyTaskRecords[key][itemId];
       } else {
-        dailyTaskRecords[key][itemId] = value;
+        const sel = document.getElementById('dailyActiveMemberSelect');
+        const memberName = sel ? sel.value : '';
+        if (!memberName) { appToast('担当者を選択してください'); return; }
+        dailyTaskRecords[key][itemId] = memberName;
       }
       window._hasUnsyncedTabChanges = true;
       saveDailyTaskRecords();
-      if (selectEl) {
-        const td = selectEl.closest('td');
-        const members = (typeof editableMembers === 'function') ? editableMembers() : [];
-        const member = members.find(m => m.name === value);
-        if (td) td.style.background = (member && member.color) ? member.color : '';
-        const label = selectEl.parentElement ? selectEl.parentElement.querySelector('.daily-select-label') : null;
-        if (label) label.textContent = value || '';
-      }
+      renderDailyTable();
     }
 
     function renderDailyTable() {
@@ -9953,6 +9921,13 @@ window.addEventListener('pagehide', function() {
       const memberNames = members.map(m => m.name);
       const memberColorMap = {};
       members.forEach(m => { if (m.color) memberColorMap[m.name] = m.color; });
+
+      const activeSel = document.getElementById('dailyActiveMemberSelect');
+      if (activeSel) {
+        const prevValue = activeSel.value;
+        activeSel.innerHTML = memberNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+        if (memberNames.includes(prevValue)) { activeSel.value = prevValue; }
+      }
 
       if (!dailyTaskItems.length) {
         table.innerHTML = `<tr><th class="daily-time-col">時間</th><th class="daily-item-col">項目がありません</th></tr>`;
@@ -9991,12 +9966,9 @@ window.addEventListener('pagehide', function() {
           const isToday = (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d);
           const dayRecord = dailyTaskRecords[`${year}-${month + 1}-${d}`] || {};
           const selected = dayRecord[item.id] || '';
-          const options = ['<option value="">空らん</option>'].concat(
-            memberNames.map(n => `<option value="${escapeHtml(n)}" ${n === selected ? 'selected' : ''}>${escapeHtml(n)}</option>`)
-          ).join('');
           const cellColor = selected ? (memberColorMap[selected] || '') : '';
           const colorStyle = cellColor ? ` style="background:${escapeHtml(cellColor)};"` : '';
-          bodyHtml += `<td class="daily-day-col${isToday ? ' daily-today' : ''}"${colorStyle}><div class="daily-select-wrap"><select class="daily-member-select" onchange="onDailyCellChange(${d}, '${item.id}', this.value, this)">${options}</select><div class="daily-select-label">${escapeHtml(selected)}</div></div></td>`;
+          bodyHtml += `<td class="daily-day-col daily-clickable-cell${isToday ? ' daily-today' : ''}"${colorStyle} onclick="toggleDailyCell(${d}, '${item.id}')">${escapeHtml(selected)}</td>`;
         }
         bodyHtml += `</tr>`;
       });
