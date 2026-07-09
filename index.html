@@ -6110,10 +6110,7 @@ window.addEventListener('pagehide', function() {
             <span style="font-size:12px;color:var(--muted);white-space:nowrap;">担当者：</span>
             <select id="dailyActiveMemberSelect" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
           </span>
-          <span id="dailySaveWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
-            <button type="button" onclick="dailySaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
-          </span>
-          <button type="button" class="sales-settings-btn" onclick="openDailySettingsMenu()">設定</button>
+          <button type="button" class="sales-settings-btn" style="margin-left:auto;" onclick="openDailySettingsMenu()">設定</button>
         </div>
         <div class="daily-table-wrapper" style="flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:6px;">
           <table id="dailyTable"></table>
@@ -6588,19 +6585,6 @@ window.addEventListener('pagehide', function() {
       <div class="sf-unsaved-warning-box">
           <div class="sf-unsaved-warning-icon">⚠️</div>
           <div class="sf-unsaved-warning-title">販売実績が保存されていません！</div>
-          <div class="sf-unsaved-warning-text">「保存」ボタンを押してください。<br>このまま閉じるとスプレッドシートにデータが保存されません。</div>
-          <div style="display:flex; gap:12px; justify-content:center; margin-top:18px;">
-              <button onclick="cancelSyncedTabUnsavedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">編集に戻る</button>
-              <button class="sf-danger-btn" onclick="confirmSyncedTabDiscardAndClose()" style="padding:10px 18px; font-size:14px;">保存せずに閉じる</button>
-          </div>
-      </div>
-  </div>
-
-  <!-- ===== 日常業務未保存警告モーダル ===== -->
-  <div id="dailyUnsavedWarningModal" class="sf-modal sf-unsaved-warning-modal">
-      <div class="sf-unsaved-warning-box">
-          <div class="sf-unsaved-warning-icon">⚠️</div>
-          <div class="sf-unsaved-warning-title">日常業務が保存されていません！</div>
           <div class="sf-unsaved-warning-text">「保存」ボタンを押してください。<br>このまま閉じるとスプレッドシートにデータが保存されません。</div>
           <div style="display:flex; gap:12px; justify-content:center; margin-top:18px;">
               <button onclick="cancelSyncedTabUnsavedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">編集に戻る</button>
@@ -9918,6 +9902,8 @@ window.addEventListener('pagehide', function() {
       window._hasUnsyncedTabChanges = true;
       saveDailyTaskRecords();
       renderDailyTable();
+      // 日常業務タブの例外ルール：保存ボタンを待たず、クリックした時点で即シートへ保存する
+      if (typeof dailySaveToSheet === 'function') dailySaveToSheet();
     }
 
     function renderDailyTable() {
@@ -9938,8 +9924,11 @@ window.addEventListener('pagehide', function() {
       const activeSel = document.getElementById('dailyActiveMemberSelect');
       if (activeSel) {
         const prevValue = activeSel.value;
-        activeSel.innerHTML = memberNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-        if (memberNames.includes(prevValue)) { activeSel.value = prevValue; }
+        activeSel.innerHTML = ['<option value="">選択してください</option>'].concat(
+          memberNames.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
+        ).join('');
+        // 画面表示時のデフォルトは未選択（案内表示）。前回選択した担当者が今も居れば、それを優先して復元する。
+        activeSel.value = memberNames.includes(prevValue) ? prevValue : '';
       }
 
       if (!dailyTaskItems.length) {
@@ -10769,10 +10758,6 @@ window.addEventListener('pagehide', function() {
         }
         if (currentTab === 'sales' && targetTab !== 'sales' && window._hasUnsyncedTabChanges) {
           attemptLeaveSyncedTab('salesUnsavedWarningModal', () => applyTabSwitch(targetTab));
-          return;
-        }
-        if (currentTab === 'daily' && targetTab !== 'daily' && window._hasUnsyncedTabChanges) {
-          attemptLeaveSyncedTab('dailyUnsavedWarningModal', () => applyTabSwitch(targetTab));
           return;
         }
         applyTabSwitch(targetTab);
@@ -14181,7 +14166,7 @@ function syncAllBranchesToSheet(successMsg) {
 function updateTabSaveBtnVisibility() {
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
   const show = !!(branchName && getGasUrl() && getSpreadsheetId(branchName));
-  ['shiftSaveWrap', 'wishSaveWrap', 'salesSaveWrap', 'dailySaveWrap', 'kasimeSaveWrap'].forEach(id => {
+  ['shiftSaveWrap', 'wishSaveWrap', 'salesSaveWrap', 'kasimeSaveWrap'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? 'flex' : 'none';
   });
