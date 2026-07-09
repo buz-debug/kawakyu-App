@@ -9905,8 +9905,9 @@ window.addEventListener('pagehide', function() {
       window._hasUnsyncedTabChanges = true;
       saveDailyTaskRecords();
       renderDailyTable();
-      // 日常業務タブの例外ルール：保存ボタンを待たず、クリックした時点で即シートへ保存する
-      if (typeof dailySaveToSheet === 'function') dailySaveToSheet();
+      // 日常業務タブの例外ルール：保存ボタンを待たず、クリックした時点で自動的にシートへ保存する。
+      // 連続タップで保存処理が重ならないよう、少し間を置いてからまとめて保存する。
+      if (typeof scheduleDailySaveToSheet === 'function') scheduleDailySaveToSheet();
     }
 
     function renderDailyTable() {
@@ -14120,13 +14121,13 @@ function openGasModal() {
 // 画面では、その編集対象の営業所を明示的に渡すことで、その営業所自身のスプレッドシートに書き込む。
 function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride, onSuccess) {
   const branchName = branchNameOverride || ((typeof state !== 'undefined') ? state.currentBranch : null);
-  if (!branchName) { appToast('ログインしてください'); return; }
+  if (!branchName) { appToast('ログインしてください'); return Promise.resolve(); }
   if (!getGasUrl() || !getSpreadsheetId(branchName)) {
     appToast('GAS URLとスプレッドシートIDを設定してください');
-    return;
+    return Promise.resolve();
   }
   const keys = getSyncKeysForTab(tabBtnId, branchName);
-  syncToSheet(branchName, keys).then(() => {
+  return syncToSheet(branchName, keys).then(() => {
     window._hasUnsyncedTabChanges = false;
     appToast(successMsg || 'スプレッドシートに保存しました');
     if (typeof onSuccess === 'function') onSuccess();
@@ -14140,10 +14141,38 @@ function shiftSaveToSheet() {
   });
 }
 function salesSaveToSheet() { _tabSaveToSheet('sales'); }
-function dailySaveToSheet() {
+
+// 日常業務タブのセルをすばやく連続でタップされると、保存処理が重なって走り、
+// 後から始まった保存の「保存前マージ」が、先の保存がまだ書き込んでいない古いサーバー内容を
+// 読み込んでしまい、直前の編集を巻き戻してしまうことがあった（クリック連打で名前が復活する不具合）。
+// そのため、保存中は次の保存を待機させ、直前のクリックから少し間を置いてから
+// まとめて1回だけ保存することで、保存処理どうしが重ならないようにする。
+let _dailySaveInProgress = false;
+let _dailySavePending = false;
+let _dailySaveDebounceTimer = null;
+function runDailySaveToSheet() {
+  _dailySaveInProgress = true;
   _tabSaveToSheet('daily', undefined, undefined, function () {
     if (typeof markDailyRecordsSynced === 'function') markDailyRecordsSynced();
+  }).finally(() => {
+    _dailySaveInProgress = false;
+    if (_dailySavePending) {
+      _dailySavePending = false;
+      runDailySaveToSheet();
+    }
   });
+}
+function dailySaveToSheet() {
+  if (_dailySaveDebounceTimer) { clearTimeout(_dailySaveDebounceTimer); _dailySaveDebounceTimer = null; }
+  if (_dailySaveInProgress) { _dailySavePending = true; return; }
+  runDailySaveToSheet();
+}
+function scheduleDailySaveToSheet() {
+  if (_dailySaveDebounceTimer) clearTimeout(_dailySaveDebounceTimer);
+  _dailySaveDebounceTimer = setTimeout(() => {
+    _dailySaveDebounceTimer = null;
+    dailySaveToSheet();
+  }, 500);
 }
 function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
 // メンバー・タスク・予定・ブックマークなど「state」全体の即時保存に使う汎用ラッパー
