@@ -9837,6 +9837,18 @@ window.addEventListener('pagehide', function() {
     let dailyTaskItems = [];
     let dailyTaskRecords = {};
 
+    // 「保存」を押さずに閉じても本当に編集前へ戻せるようにするためのスナップショット（シフトの仕組みと同様）。
+    // シート同期に成功した時点（markDailyRecordsSynced）でクリアされ、次に編集が入った時点で取り直される。
+    let dailyRecordsCleanSnapshot = null;
+    function markDailyRecordsDirtyBeforeEdit() {
+      if (dailyRecordsCleanSnapshot === null) {
+        dailyRecordsCleanSnapshot = JSON.stringify(dailyTaskRecords);
+      }
+    }
+    function markDailyRecordsSynced() {
+      dailyRecordsCleanSnapshot = null;
+    }
+
     function dailyKey(base) {
       return `${base}_${state.currentBranch}`;
     }
@@ -9891,6 +9903,7 @@ window.addEventListener('pagehide', function() {
     // セルをクリック（タブレットはタッチ）するたびに、上部の「担当者」プルダウンで選択中の
     // メンバー名を入力/取り消しするトグル動作。毎回セルのプルダウンから自分の名前を選ぶ手間を省く。
     function toggleDailyCell(day, itemId) {
+      markDailyRecordsDirtyBeforeEdit();
       const key = dailyRecordKey(day);
       if (!dailyTaskRecords[key]) dailyTaskRecords[key] = {};
       const current = dailyTaskRecords[key][itemId] || '';
@@ -13785,6 +13798,33 @@ function getSyncKeys(branchName) {
   ];
 }
 
+// タブ別保存が、そのタブと無関係なデータ（例：シフト保存が連絡ノートや日常業務のデータ）まで
+// まとめてアップロードしてしまうと、この端末が持つ古いデータで他端末の追加分を消してしまう。
+// そのため、保存操作ごとに実際に関係するキーだけへ絞り込む。
+function getSyncKeysForTab(tabBtnId, branchName) {
+  switch (tabBtnId) {
+    case 'shift':
+      return [
+        `shifts_${branchName}`,
+        `timeFrames_${branchName}`,
+        `timeFrameOrder_${branchName}`,
+        `businessHours_${branchName}`,
+        `calcConditions_${branchName}`,
+        `shiftDeadline_${branchName}`,
+      ];
+    case 'sales':
+      return ['salesItems_GLOBAL', `salesRecords_${branchName}`];
+    case 'daily':
+      return [`dailyTaskItems_${branchName}`, `dailyTaskRecords_${branchName}`];
+    case 'kasime':
+      return [`仮締め記録_${branchName}`, `仮締め入力下書き_${branchName}`];
+    case 'state':
+      return ['kawakyu-chatwork-v5'];
+    default:
+      return getSyncKeys(branchName);
+  }
+}
+
 // GASへのリクエスト共通処理
 async function gasRequest(action, spreadsheetId, data) {
   const gasUrl = getGasUrl();
@@ -13896,14 +13936,138 @@ syncBranchListFromGas().then(() => refreshBranchPasswordsFromSheet());
 // シートからのダウンロード中は、空・古いローカルデータで上書きしてしまう競合を防ぐためのフラグ
 let _sheetDownloadInProgress = false;
 
+// 複数端末が同時に使う「kawakyu-chatwork-v5」（連絡ノート・予定・ブックマーク等をまとめた共有データ）は、
+// 保存のたびに端末が持つ内容でまるごと上書きしてしまう仕組みのため、他端末が直前に追加した投稿・予定が
+// 消えてしまう不具合があった（例：シフトを保存しただけでも、その端末の古い連絡ノートで上書きしてしまう）。
+// 保存の直前に必ずサーバーの最新内容を取得し、id単位で「どちらかに存在するものは残す」形でローカルへ
+// マージしてから保存することで、他端末の追加分を消さないようにする。
+async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
+  if (!spreadsheetId || typeof state === 'undefined') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data['kawakyu-chatwork-v5'];
+    if (!raw) return;
+    const remote = JSON.parse(raw);
+    const mergeArrayById = (localArr, remoteArr) => {
+      if (!Array.isArray(remoteArr) || !remoteArr.length) return Array.isArray(localArr) ? localArr : [];
+      const merged = Array.isArray(localArr) ? localArr.slice() : [];
+      const localIds = new Set(merged.map(x => x && x.id));
+      remoteArr.forEach(item => {
+        if (item && item.id && !localIds.has(item.id)) { merged.push(item); }
+      });
+      return merged;
+    };
+
+    // 連絡ノートのメッセージ本体は営業所をまたいで共有される、唯一のトップレベル配列
+    state.messages = mergeArrayById(state.messages, remote.messages);
+
+    // 予定・タスク・ブックマークは営業所ごとに state.branchData[営業所名][項目] に保持されているため、
+    // （state.schedules 等はそのプロキシに過ぎない）、営業所ごとにマージする
+    const ARRAY_PER_BRANCH_KEYS = ['tasks', 'schedules', 'sidebarTasks', 'bookmarks'];
+    if (remote.branchData && typeof remote.branchData === 'object') {
+      if (!state.branchData) state.branchData = {};
+      Object.keys(remote.branchData).forEach(branchName => {
+        const remoteBucket = remote.branchData[branchName];
+        if (!remoteBucket) return;
+        const localBucket = (typeof ensureBranchBucket === 'function')
+          ? ensureBranchBucket(branchName)
+          : (state.branchData[branchName] || (state.branchData[branchName] = {}));
+        ARRAY_PER_BRANCH_KEYS.forEach(key => {
+          localBucket[key] = mergeArrayById(localBucket[key], remoteBucket[key]);
+        });
+      });
+    }
+
+    saveState();
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
+// フラットな辞書型データ（キー単位で1つの値を持つデータ）向けの3点マージ共通処理。
+// base（前回同期時点の内容）と比べてローカルで実際に変更されたキーはローカルを優先し、
+// 触れていないキーはリモート（他端末の最新の値）を採用する。どちらか一方にしか無いキーは残す。
+function mergeFlatDictByBaseline(localDict, remoteDict, baseDict) {
+  const local = (localDict && typeof localDict === 'object') ? localDict : {};
+  const remote = (remoteDict && typeof remoteDict === 'object') ? remoteDict : {};
+  // baseDict省略時（このキー自体がスナップショット取得時点でまだ無かった場合）は、
+  // 「未編集」ではなく「今回新たに触れた」とみなせるよう、空オブジェクトを基準にする
+  // （local自身を基準にしてしまうと、常に「変更なし」と誤判定されローカル編集が消えてしまう）。
+  const base = (baseDict && typeof baseDict === 'object') ? baseDict : {};
+  const merged = Object.assign({}, local);
+  Object.keys(remote).forEach(key => {
+    if (!(key in local) || local[key] === base[key]) {
+      merged[key] = remote[key];
+    }
+    // local[key] !== base[key] の場合は、この端末での編集を優先してそのまま残す
+  });
+  return merged;
+}
+
+// シフトのマス目（日付×スタッフ）は複数端末・複数スタッフが同時に編集しうる高リスクなデータのため、
+// 保存前にサーバーの最新シフトを取得し、この端末で実際に編集したマスだけを残す形でマージする。
+async function mergeRemoteShiftsBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof shifts === 'undefined') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data[`shifts_${branchName}`];
+    if (!raw) return;
+    const remoteShifts = JSON.parse(raw);
+    const baseline = (typeof shiftsCleanSnapshot !== 'undefined' && shiftsCleanSnapshot !== null)
+      ? JSON.parse(shiftsCleanSnapshot)
+      : shifts;
+    shifts = mergeFlatDictByBaseline(shifts, remoteShifts, baseline);
+    localStorage.setItem(shiftKey('shifts'), JSON.stringify(shifts));
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
+// 日常業務の担当者セルも、複数のスタッフが同じ画面をタップし合う運用のため同様にマージする。
+async function mergeRemoteDailyRecordsBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof dailyTaskRecords === 'undefined') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data[`dailyTaskRecords_${branchName}`];
+    if (!raw) return;
+    const remoteRecords = JSON.parse(raw);
+    const baseline = (typeof dailyRecordsCleanSnapshot !== 'undefined' && dailyRecordsCleanSnapshot !== null)
+      ? JSON.parse(dailyRecordsCleanSnapshot)
+      : dailyTaskRecords;
+    const merged = Object.assign({}, dailyTaskRecords);
+    Object.keys(remoteRecords).forEach(dateKey => {
+      merged[dateKey] = mergeFlatDictByBaseline(dailyTaskRecords[dateKey], remoteRecords[dateKey], baseline[dateKey]);
+    });
+    dailyTaskRecords = merged;
+    localStorage.setItem(dailyKey('dailyTaskRecords'), JSON.stringify(dailyTaskRecords));
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
 // アプリ → スプレッドシートへ保存
-async function syncToSheet(branchName) {
+// keysOverride省略時は全キーを対象にする（全営業所への一括同期など）。
+// タブ別保存では、そのタブに関係するキーだけに絞り込んで渡すことで、
+// 無関係なデータ（他タブ・他画面の古いローカルデータ）まで上書きしてしまうのを防ぐ。
+async function syncToSheet(branchName, keysOverride) {
   // シートからのダウンロード中は、空・古いローカルデータで上書きしてしまうため保存しない
   if (typeof _sheetDownloadInProgress !== 'undefined' && _sheetDownloadInProgress) {
     throw new Error('スプレッドシートから読込中のため、少し待ってから保存してください');
   }
   const spreadsheetId = getSpreadsheetId(branchName);
-  const keys = getSyncKeys(branchName);
+  const keys = keysOverride || getSyncKeys(branchName);
+  if (keys.includes('kawakyu-chatwork-v5')) {
+    await mergeRemoteStateArraysBeforeSave(spreadsheetId);
+  }
+  if (keys.includes(`shifts_${branchName}`)) {
+    await mergeRemoteShiftsBeforeSave(branchName, spreadsheetId);
+  }
+  if (keys.includes(`dailyTaskRecords_${branchName}`)) {
+    await mergeRemoteDailyRecordsBeforeSave(branchName, spreadsheetId);
+  }
   const data = {};
   keys.forEach(k => {
     const v = localStorage.getItem(k);
@@ -13933,7 +14097,20 @@ async function doSyncFromSheet(branchName) {
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     if (!keys.includes(k) || v === undefined || v === null || v === '') return;
-    localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+    let valueToStore = v;
+    if (k === 'kawakyu-chatwork-v5') {
+      // currentBranchは「この端末が今ログインしている営業所」を表すローカルな値。
+      // kawakyu-chatwork-v5は共有データとして全営業所のスプレッドシートに書き込まれるため、
+      // 別の営業所を見ていた端末が保存した時点のcurrentBranchがそのまま紛れ込んでいることがある。
+      // それをそのまま採用すると、本社にログインしたのに読込後は栄になっている、といった
+      // 不具合になるため、必ず今回同期対象にした営業所名で上書きする。
+      try {
+        const parsed = JSON.parse(v);
+        parsed.currentBranch = branchName;
+        valueToStore = JSON.stringify(parsed);
+      } catch (e) {}
+    }
+    localStorage.setItem(k, typeof valueToStore === 'string' ? valueToStore : JSON.stringify(valueToStore));
     count++;
   });
   return { ok: true, count };
@@ -13960,7 +14137,8 @@ function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride, onSuccess) {
     appToast('GAS URLとスプレッドシートIDを設定してください');
     return;
   }
-  syncToSheet(branchName).then(() => {
+  const keys = getSyncKeysForTab(tabBtnId, branchName);
+  syncToSheet(branchName, keys).then(() => {
     window._hasUnsyncedTabChanges = false;
     appToast(successMsg || 'スプレッドシートに保存しました');
     if (typeof onSuccess === 'function') onSuccess();
@@ -13974,7 +14152,11 @@ function shiftSaveToSheet() {
   });
 }
 function salesSaveToSheet() { _tabSaveToSheet('sales'); }
-function dailySaveToSheet() { _tabSaveToSheet('daily'); }
+function dailySaveToSheet() {
+  _tabSaveToSheet('daily', undefined, undefined, function () {
+    if (typeof markDailyRecordsSynced === 'function') markDailyRecordsSynced();
+  });
+}
 function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
 // メンバー・タスク・予定・ブックマークなど「state」全体の即時保存に使う汎用ラッパー
 function stateSaveToSheet(successMsg, branchName) { _tabSaveToSheet('state', successMsg, branchName); }
@@ -13983,6 +14165,7 @@ function stateSaveToSheet(successMsg, branchName) { _tabSaveToSheet('state', suc
 // 各営業所は自分専用のスプレッドシートを持つため、共有データは登録済みの
 // 全営業所のスプレッドシートへ同時に書き込まないと、他の営業所からログインした
 // 際に変更前の内容に戻って見えてしまう（今回の「スタッフコードが消える」不具合と同根）。
+// 対象は共有データ（kawakyu-chatwork-v5）のみ。各営業所固有のシフト・売上等のデータには触れない。
 function syncAllBranchesToSheet(successMsg) {
   const branches = (typeof state !== 'undefined' && Array.isArray(state.branches)) ? state.branches : [];
   const targets = branches.filter(b => getGasUrl() && getSpreadsheetId(b.name));
@@ -13990,7 +14173,7 @@ function syncAllBranchesToSheet(successMsg) {
     appToast(successMsg && successMsg.includes('削除') ? '削除しました' : '保存しました');
     return;
   }
-  Promise.all(targets.map(b => syncToSheet(b.name).catch(err => { console.error('sync failed for', b.name, err); return null; })))
+  Promise.all(targets.map(b => syncToSheet(b.name, ['kawakyu-chatwork-v5']).catch(err => { console.error('sync failed for', b.name, err); return null; })))
     .then(() => { appToast(successMsg || 'スプレッドシートに保存しました'); });
 }
 
