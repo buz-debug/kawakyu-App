@@ -6580,6 +6580,18 @@ window.addEventListener('pagehide', function() {
       </div>
   </div>
 
+  <!-- ===== 起動時：スプレッドシート読込失敗モーダル ===== -->
+  <div id="sheetLoadFailedModal" class="sf-modal sf-unsaved-warning-modal">
+      <div class="sf-unsaved-warning-box">
+          <div class="sf-unsaved-warning-icon">⚠️</div>
+          <div class="sf-unsaved-warning-title">スプレッドシートが読み込めませんでした</div>
+          <div class="sf-unsaved-warning-text">通信状況をご確認の上、もう一度お試しください。</div>
+          <div style="display:flex; justify-content:center; margin-top:18px;">
+              <button onclick="retrySheetLoadFromModal()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">再度読み込む</button>
+          </div>
+      </div>
+  </div>
+
   <!-- ===== 販売実績未保存警告モーダル ===== -->
   <div id="salesUnsavedWarningModal" class="sf-modal sf-unsaved-warning-modal">
       <div class="sf-unsaved-warning-box">
@@ -10148,15 +10160,12 @@ window.addEventListener('pagehide', function() {
       renderRoomList();
       renderMessages();
       renderDetail();
-      // ログイン後にシートからデータを読み込み、stateを正しく反映するためリロード
-      if (typeof syncFromSheet === 'function' && getGasUrl() && getSpreadsheetId(state.currentBranch)) {
-        syncFromSheet(state.currentBranch).then(result => {
-          if (result && result.ok) {
-            sessionStorage.setItem('kawakyu_startup_loaded', '1');
-            sessionStorage.setItem('kawakyu_show_load_toast', '1');
-            window.location.reload();
-          }
-        }).catch(() => {});
+      // ログイン後にシートからデータを読み込み、stateを正しく反映するためリロード。
+      // 「シートを読み込めない限りアプリを使わせない」ルールを徹底するため、起動時読込と同じ
+      // 自動リトライ（最大3回）＋失敗モーダルの仕組み（attemptStartupSheetLoad）を使う。
+      if (typeof attemptStartupSheetLoad === 'function' && getGasUrl() && getSpreadsheetId(state.currentBranch)) {
+        if (typeof showLoadingToast === 'function') showLoadingToast('データを読み込んでいます');
+        attemptStartupSheetLoad(state.currentBranch);
       }
     }
 
@@ -14246,19 +14255,51 @@ function autoLoadOnStartup() {
   // 同一セッション内で既にリロード済みならスキップ（無限ループ防止）
   if (sessionStorage.getItem('kawakyu_startup_loaded') === '1') return null;
   if (typeof showLoadingToast === 'function') showLoadingToast('データを読み込んでいます');
-  _autoLoadOnStartupResult = syncFromSheet(branchName).then(result => {
-    if (result && result.ok) {
-      sessionStorage.setItem('kawakyu_startup_loaded', '1');
-      sessionStorage.setItem('kawakyu_show_load_toast', '1');
-      window.location.reload(); // stateをlocalStorageから再読込するためリロード
-    } else {
-      if (typeof hideLoadingToast === 'function') hideLoadingToast();
-    }
-  }).catch(() => {
-    // 接続できない場合は無視
-    if (typeof hideLoadingToast === 'function') hideLoadingToast();
-  });
+  _autoLoadOnStartupResult = attemptStartupSheetLoad(branchName);
   return _autoLoadOnStartupResult;
+}
+
+// 起動時のシート読込：最大3回まで自動でリトライする。3回とも失敗したら「読み込めませんでした」
+// モーダルを表示し、その「再度読み込む」ボタンから呼び直すと、そこからまた最大3回リトライする
+// ……という形を繰り返す（成功するかユーザーが諦めるまで）。
+const SHEET_LOAD_MAX_ATTEMPTS = 3;
+async function attemptStartupSheetLoad(branchName) {
+  for (let attempt = 1; attempt <= SHEET_LOAD_MAX_ATTEMPTS; attempt++) {
+    try {
+      const result = await syncFromSheet(branchName);
+      if (result && result.ok) {
+        sessionStorage.setItem('kawakyu_startup_loaded', '1');
+        sessionStorage.setItem('kawakyu_show_load_toast', '1');
+        window.location.reload(); // stateをlocalStorageから再読込するためリロード
+        return;
+      }
+    } catch (e) {
+      // 通信エラー等はここで無視し、次のリトライへ進む
+    }
+  }
+  // 3回とも失敗
+  if (typeof hideLoadingToast === 'function') hideLoadingToast();
+  if (typeof showSheetLoadFailedModal === 'function') showSheetLoadFailedModal();
+}
+
+function showSheetLoadFailedModal() {
+  const modal = document.getElementById('sheetLoadFailedModal');
+  if (!modal) return;
+  if (typeof overlayZIndex !== 'undefined') { overlayZIndex += 1; modal.style.zIndex = overlayZIndex; }
+  modal.style.display = 'flex';
+}
+
+function hideSheetLoadFailedModal() {
+  const modal = document.getElementById('sheetLoadFailedModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function retrySheetLoadFromModal() {
+  hideSheetLoadFailedModal();
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  if (!branchName) return;
+  if (typeof showLoadingToast === 'function') showLoadingToast('データを読み込んでいます');
+  attemptStartupSheetLoad(branchName);
 }
 const _startupSyncPromise = autoLoadOnStartup();
 
