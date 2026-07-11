@@ -13962,13 +13962,24 @@ let _sheetDownloadInProgress = false;
 // ただしこの「どちらかに存在するものは残す」だけの単純なマージだと、削除がまったく効かなくなってしまう
 // （消した直後の保存で、まだ消える前のサーバー内容を読み込んでしまい、消したはずの項目を復活させてしまう）。
 // そのため、削除操作を行った項目のIDを記録しておき、マージ時にそのIDだけはサーバー側の内容があっても
-// 復活させないようにする。このIDリストは、保存が成功した時点でクリアする。
+// 復活させないようにする。
+//
+// このIDリストは「保存成功時点でクリア」する方式を最初は試したが、それでもなお復活する不具合が残った。
+// Googleスプレッドシート側の書き込み直後の読み込みが、必ずしも最新内容を返すとは限らない（反映に
+// わずかなラグがあり得る）ため、1回保存が成功しただけでは「サーバーに確実に反映された」とは言い切れない。
+// そのため、削除IDは端末・タブを閉じるまで（＝ページを離れるまで）ずっと保持し続け、
+// localStorageにも保存してページ再読み込みをまたいでも消えないようにする。
+const RECENTLY_DELETED_IDS_KEY = 'kawakyu_recently_deleted_ids';
 let recentlyDeletedIds = new Set();
+(function loadRecentlyDeletedIds() {
+  try {
+    const raw = localStorage.getItem(RECENTLY_DELETED_IDS_KEY);
+    if (raw) { JSON.parse(raw).forEach(id => recentlyDeletedIds.add(id)); }
+  } catch (e) {}
+})();
 function markIdsAsDeleted(ids) {
   (ids || []).forEach(id => { if (id) recentlyDeletedIds.add(id); });
-}
-function clearRecentlyDeletedIds() {
-  recentlyDeletedIds.clear();
+  try { localStorage.setItem(RECENTLY_DELETED_IDS_KEY, JSON.stringify(Array.from(recentlyDeletedIds))); } catch (e) {}
 }
 
 async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
@@ -14220,11 +14231,7 @@ function scheduleDailySaveToSheet() {
 }
 function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
 // メンバー・タスク・予定・ブックマークなど「state」全体の即時保存に使う汎用ラッパー
-function stateSaveToSheet(successMsg, branchName) {
-  _tabSaveToSheet('state', successMsg, branchName, function () {
-    if (typeof clearRecentlyDeletedIds === 'function') clearRecentlyDeletedIds();
-  });
-}
+function stateSaveToSheet(successMsg, branchName) { _tabSaveToSheet('state', successMsg, branchName); }
 
 // 営業所一覧・管理者パスワードなど「全営業所で共有されるデータ」の変更用。
 // 各営業所は自分専用のスプレッドシートを持つため、共有データは登録済みの
