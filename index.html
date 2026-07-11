@@ -2184,12 +2184,25 @@
   white-space: nowrap;
   padding: 0 14px;
 }
-#kasime-wrap /* 下段：3カラム */
+#kasime-wrap /* 下段：左（ドロア現金・金庫・備考欄）／右（機器・その他ほか） の2カラム */
 .input-bottom-cols {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr;
   gap: 8px;
   padding: 0 10px 8px;
+  align-items: start;
+}
+#kasime-wrap /* 左グループ：右カラムの高さに引きずられないよう、ドロア現金・金庫・備考欄をひとつのブロックとしてまとめる */
+.kasime-left-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+#kasime-wrap .kasime-left-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   align-items: start;
 }
 #kasime-wrap .input-col {
@@ -2206,9 +2219,8 @@
 #kasime-wrap .input-col .result-card {
   margin: 0;
 }
-#kasime-wrap /* 備考欄：ドロア現金・金庫の2カラム分の幅を使い、その下のスペースに置く */
+#kasime-wrap /* 備考欄 */
 .kasime-note-card {
-  grid-column: 1 / span 2;
   margin: 0;
 }
 #kasime-wrap .input-top-row > .top-cancel-btn {
@@ -2243,22 +2255,22 @@
   flex-direction: column;
   gap: 10px;
 }
-#kasime-wrap /* スマホ時は元のレイアウトに戻す */
+/* スマホ時は元のレイアウトに戻す */
 @media (max-width: 700px) {
-  .input-top-row .person-card, .input-top-row .time-card {
+  #kasime-wrap .input-top-row .person-card, #kasime-wrap .input-top-row .time-card {
     flex-basis: 100%;
   }
-#kasime-wrap .input-top-row .top-cancel-btn, #kasime-wrap .input-top-row .top-save-btn {
+  #kasime-wrap .input-top-row .top-cancel-btn, #kasime-wrap .input-top-row .top-save-btn {
     height: 44px;
     flex: 1 1 auto;
   }
-#kasime-wrap .input-bottom-cols {
+  #kasime-wrap .input-bottom-cols {
     grid-template-columns: 1fr;
   }
-#kasime-wrap .kasime-note-card {
-    grid-column: 1;
+  #kasime-wrap .kasime-left-cols {
+    grid-template-columns: 1fr;
   }
-#kasime-wrap }
+}
 
 /* TIME PICKER */
 .time-card { margin: 0 14px 14px; }
@@ -2486,8 +2498,8 @@
 #kasime-wrap .modal-sheet .input-bottom-cols {
     grid-template-columns: 1fr;
   }
-#kasime-wrap .modal-sheet .kasime-note-card {
-    grid-column: 1;
+#kasime-wrap .modal-sheet .kasime-left-cols {
+    grid-template-columns: 1fr;
   }
 }
 #kasime-wrap .modal-handle { width: 40px; height: 4px; background: #DDD; border-radius: 2px; margin: 12px auto 16px; }
@@ -4515,33 +4527,58 @@
       <!-- ===== 下段：3カラム ===== -->
       <div class="input-bottom-cols">
 
-        <!-- 左：ドロア現金 -->
-        <div class="input-col">
-          <div class="card">
-            <div class="card-header">
-              <div class="card-header-main">
-                <span class="card-header-main-lg">ドロア現金</span>
-                <span>（枚数）</span>
-              </div>
-              <button class="sec-reset-btn" tabindex="-1" onclick="resetSection('drawer')">リセット</button>
-            </div>
-            <div id="drawerRows"></div>
-          </div>
-        </div>
+        <!-- 左グループ：ドロア現金・金庫を横並びにし、その下に備考欄を続けて配置する
+             （右カラムは3枚のカード分背が高いため、CSS Gridで単純に3カラム扱いにすると
+             備考欄がその高さ分だけ下に押し出され、不自然な空白ができてしまう。
+             そのため、この左グループを右カラムとは独立した高さのブロックとして扱う） -->
+        <div class="kasime-left-group">
+          <div class="kasime-left-cols">
 
-        <!-- 中央：金庫 -->
-        <div class="input-col">
-          <div class="card">
+            <!-- 左：ドロア現金 -->
+            <div class="input-col">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-header-main">
+                    <span class="card-header-main-lg">ドロア現金</span>
+                    <span>（枚数）</span>
+                  </div>
+                  <button class="sec-reset-btn" tabindex="-1" onclick="resetSection('drawer')">リセット</button>
+                </div>
+                <div id="drawerRows"></div>
+              </div>
+            </div>
+
+            <!-- 中央：金庫 -->
+            <div class="input-col">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-header-main">
+                    <span class="card-header-main-lg">金庫</span>
+                    <span class="card-note">※硬貨は1本＝50枚で計算</span>
+                  </div>
+                  <button class="sec-reset-btn" tabindex="-1" onclick="resetSection('safe')">リセット</button>
+                </div>
+                <div id="safeRows"></div>
+              </div>
+            </div>
+
+          </div><!-- /kasime-left-cols -->
+
+          <!-- 備考欄（手打ち入力のみ） -->
+          <div class="card kasime-note-card">
             <div class="card-header">
               <div class="card-header-main">
-                <span class="card-header-main-lg">金庫</span>
-                <span class="card-note">※硬貨は1本＝50枚で計算</span>
+                <span class="card-header-main-lg">備考</span>
               </div>
-              <button class="sec-reset-btn" tabindex="-1" onclick="resetSection('safe')">リセット</button>
             </div>
-            <div id="safeRows"></div>
+            <div style="padding:8px 12px;">
+              <textarea id="kasimeNoteInput" placeholder="備考があれば入力してください" maxlength="500" rows="2"
+                style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box;"
+                oninput="persistDraft()"></textarea>
+            </div>
           </div>
-        </div>
+
+        </div><!-- /kasime-left-group -->
 
         <!-- 右：機器・その他 ＋ 計算有高 ＋ 差額 -->
         <div class="input-col">
@@ -4580,20 +4617,6 @@
               <span class="diff-result-label">差額</span>
               <span class="diff-result-val diff-zero" id="resDiff">±¥0</span>
             </div>
-          </div>
-        </div>
-
-        <!-- 備考欄（ドロア現金・金庫欄の下のスペースに設置。手打ち入力のみ） -->
-        <div class="card kasime-note-card">
-          <div class="card-header">
-            <div class="card-header-main">
-              <span class="card-header-main-lg">備考</span>
-            </div>
-          </div>
-          <div style="padding:8px 12px;">
-            <textarea id="kasimeNoteInput" placeholder="備考があれば入力してください" maxlength="500" rows="2"
-              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box;"
-              oninput="persistDraft()"></textarea>
           </div>
         </div>
 
@@ -5189,8 +5212,8 @@ function openDetail(r) {
     </div>
   `;
 
-  // 下段：3カラム（ドロア／金庫／その他・計算結果）
-  html += `<div class="input-bottom-cols">`;
+  // 下段：左グループ（ドロア／金庫／備考）／右（その他・計算結果）
+  html += `<div class="input-bottom-cols"><div class="kasime-left-group"><div class="kasime-left-cols">`;
 
   // 左：ドロア現金
   html += `
@@ -5218,6 +5241,19 @@ function openDetail(r) {
     </div>
   `;
 
+  html += `</div>`; // /kasime-left-cols
+
+  if (r.note) {
+    html += `
+      <div class="card kasime-note-card">
+        <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">備考</span></div></div>
+        <div style="padding:8px 12px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(r.note)}</div>
+      </div>
+    `;
+  }
+
+  html += `</div>`; // /kasime-left-group
+
   // 右：機器・その他 ＋ 計算有高 ＋ 差額
   html += `
     <div class="input-col">
@@ -5239,15 +5275,6 @@ function openDetail(r) {
       </div>
     </div>
   `;
-
-  if (r.note) {
-    html += `
-      <div class="card kasime-note-card">
-        <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">備考</span></div></div>
-        <div style="padding:8px 12px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(r.note)}</div>
-      </div>
-    `;
-  }
 
   html += `</div>`; // /input-bottom-cols
 
