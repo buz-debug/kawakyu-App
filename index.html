@@ -2206,6 +2206,11 @@
 #kasime-wrap .input-col .result-card {
   margin: 0;
 }
+#kasime-wrap /* 備考欄：ドロア現金・金庫の2カラム分の幅を使い、その下のスペースに置く */
+.kasime-note-card {
+  grid-column: 1 / span 2;
+  margin: 0;
+}
 #kasime-wrap .input-top-row > .top-cancel-btn {
   align-self: center;
   height: auto;
@@ -2249,6 +2254,9 @@
   }
 #kasime-wrap .input-bottom-cols {
     grid-template-columns: 1fr;
+  }
+#kasime-wrap .kasime-note-card {
+    grid-column: 1;
   }
 #kasime-wrap }
 
@@ -2477,6 +2485,9 @@
 @media (max-width: 700px) {
 #kasime-wrap .modal-sheet .input-bottom-cols {
     grid-template-columns: 1fr;
+  }
+#kasime-wrap .modal-sheet .kasime-note-card {
+    grid-column: 1;
   }
 }
 #kasime-wrap .modal-handle { width: 40px; height: 4px; background: #DDD; border-radius: 2px; margin: 12px auto 16px; }
@@ -4572,6 +4583,20 @@
           </div>
         </div>
 
+        <!-- 備考欄（ドロア現金・金庫欄の下のスペースに設置。手打ち入力のみ） -->
+        <div class="card kasime-note-card">
+          <div class="card-header">
+            <div class="card-header-main">
+              <span class="card-header-main-lg">備考</span>
+            </div>
+          </div>
+          <div style="padding:8px 12px;">
+            <textarea id="kasimeNoteInput" placeholder="備考があれば入力してください" maxlength="500" rows="2"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box;"
+              oninput="persistDraft()"></textarea>
+          </div>
+        </div>
+
       </div><!-- /input-bottom-cols -->
 
     </div><!-- /input-body -->
@@ -4691,6 +4716,7 @@ function persistDraft() {
     hour: document.getElementById('timeHour') ? document.getElementById('timeHour').value : '',
     min: document.getElementById('timeMin') ? document.getElementById('timeMin').value : '',
     yudaka: document.getElementById('calcYudaka') ? document.getElementById('calcYudaka').value : '',
+    note: document.getElementById('kasimeNoteInput') ? document.getElementById('kasimeNoteInput').value : '',
     drawer: {...drawerCounts},
     safe: {...safeCounts},
     other: {},
@@ -4712,6 +4738,8 @@ function hasUnsavedKasimeAmounts() {
   if (hasCount(drawerCounts) || hasCount(safeCounts)) return true;
   const yudakaEl = document.getElementById('calcYudaka');
   if (yudakaEl && Number(yudakaEl.value) > 0) return true;
+  const noteEl = document.getElementById('kasimeNoteInput');
+  if (noteEl && noteEl.value.trim() !== '') return true;
   return OTHER_LABELS.some(lbl => {
     const el = document.getElementById('oth_' + lbl);
     return el && Number(el.value) > 0;
@@ -4875,6 +4903,7 @@ function buildInputForm() {
   });
 
   document.getElementById('calcYudaka').value = '';
+  if (document.getElementById('kasimeNoteInput')) document.getElementById('kasimeNoteInput').value = '';
   renderPersonSelect();
   const personSel = document.getElementById('personSelect');
   if (personSel) personSel.onchange = persistDraft;
@@ -4918,6 +4947,9 @@ function applyDraft(draft) {
   }
   if (document.getElementById('calcYudaka')) {
     document.getElementById('calcYudaka').value = draft.yudaka || '';
+  }
+  if (document.getElementById('kasimeNoteInput')) {
+    document.getElementById('kasimeNoteInput').value = draft.note || '';
   }
   if (document.getElementById('timeHour') && draft.hour !== undefined && draft.hour !== '') {
     document.getElementById('timeHour').value = draft.hour;
@@ -5007,6 +5039,8 @@ function saveRecord() {
     otherData[lbl] = Number(el ? el.value : 0)||0;
   });
 
+  const noteEl = document.getElementById('kasimeNoteInput');
+
   records.push({
     id: Date.now(),
     date: todayStr(),
@@ -5015,6 +5049,7 @@ function saveRecord() {
     genkin,
     yudaka,
     diff,
+    note: noteEl ? noteEl.value.trim() : '',
     drawer: {...drawerCounts},
     safe:   {...safeCounts},
     other:  otherData,
@@ -5204,6 +5239,15 @@ function openDetail(r) {
       </div>
     </div>
   `;
+
+  if (r.note) {
+    html += `
+      <div class="card kasime-note-card">
+        <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">備考</span></div></div>
+        <div style="padding:8px 12px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(r.note)}</div>
+      </div>
+    `;
+  }
 
   html += `</div>`; // /input-bottom-cols
 
