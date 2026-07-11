@@ -7520,6 +7520,7 @@ window.addEventListener('pagehide', function() {
         if (delBtn) delBtn.addEventListener('click', e => {
           e.stopPropagation();
           if (!confirm('このブックマークを削除しますか？')) return;
+          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([item.dataset.bmid]);
           state.bookmarks = state.bookmarks.filter(b => b.id !== item.dataset.bmid);
           saveState();
           if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
@@ -10360,6 +10361,7 @@ window.addEventListener('pagehide', function() {
 
     function confirmDelete(id) {
       openModal('削除', 'このメッセージを削除しますか？', () => {
+        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
         state.messages = state.messages.filter(m => m.id !== id);
         saveState();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
@@ -10372,6 +10374,11 @@ window.addEventListener('pagehide', function() {
     function confirmClearRoom() {
       const room = ROOMS.find(r => r.id === currentRoom);
       openModal('履歴削除', `「${room?.name}」のメッセージをすべて削除しますか？`, () => {
+        if (typeof markIdsAsDeleted === 'function') {
+          const deletedMsgIds = state.messages.filter(m => (m.room || m.channel) === currentRoom).map(m => m.id);
+          const deletedTaskIds = state.tasks.filter(t => t.room === currentRoom).map(t => t.id);
+          markIdsAsDeleted(deletedMsgIds.concat(deletedTaskIds));
+        }
         state.messages = state.messages.filter(m => (m.room || m.channel) !== currentRoom);
         state.tasks = state.tasks.filter(t => t.room !== currentRoom);
         saveState();
@@ -10452,6 +10459,7 @@ window.addEventListener('pagehide', function() {
     }
 
     function removeBookmark(bmId) {
+      if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([bmId]);
       state.bookmarks = (state.bookmarks || []).filter(b => b.id !== bmId);
       saveState();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
@@ -10460,6 +10468,9 @@ window.addEventListener('pagehide', function() {
     }
 
     function removeBookmarksForMessage(msgId) {
+      if (typeof markIdsAsDeleted === 'function') {
+        markIdsAsDeleted((state.bookmarks || []).filter(b => b.msgId === msgId).map(b => b.id));
+      }
       state.bookmarks = (state.bookmarks || []).filter(b => b.msgId !== msgId);
       saveState();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートからブックマークを外しました');
@@ -10590,6 +10601,7 @@ window.addEventListener('pagehide', function() {
     function deleteSchedule() {
       openModal('予定を削除', 'この予定を削除しますか？', () => {
         const deleted = (state.schedules || []).find(x => x.id === editingScheduleId);
+        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([editingScheduleId]);
         state.schedules = (state.schedules || []).filter(x => x.id !== editingScheduleId);
         saveState();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
@@ -11306,6 +11318,9 @@ window.addEventListener('pagehide', function() {
               task.done = false;
               // 繰り返しタスクを未完了に戻す場合、完了時に生成された次回分は不要なため削除する
               if (task.recur) {
+                if (typeof markIdsAsDeleted === 'function') {
+                  markIdsAsDeleted(state.sidebarTasks.filter(x => x.generatedFrom === task.id).map(x => x.id));
+                }
                 state.sidebarTasks = state.sidebarTasks.filter(x => x.generatedFrom !== task.id);
               }
               saveState();
@@ -11330,6 +11345,9 @@ window.addEventListener('pagehide', function() {
 
     document.getElementById('btnClearDoneTasks').addEventListener('click', () => {
       openModal('完了タスクを全て削除', '完了済みのタスクをすべて削除しますか？', () => {
+        if (typeof markIdsAsDeleted === 'function') {
+          markIdsAsDeleted(state.sidebarTasks.filter(t => t.done).map(t => t.id));
+        }
         state.sidebarTasks = state.sidebarTasks.filter(t => !t.done);
         saveState();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
@@ -11459,6 +11477,7 @@ window.addEventListener('pagehide', function() {
 
     document.getElementById('taskEditDelete').addEventListener('click', () => {
       openModal('タスクを削除', 'このタスクを削除しますか？', () => {
+        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([editingTaskId]);
         state.sidebarTasks = (state.sidebarTasks || []).filter(x => x.id !== editingTaskId);
         saveState();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
@@ -13939,6 +13958,19 @@ let _sheetDownloadInProgress = false;
 // 消えてしまう不具合があった（例：シフトを保存しただけでも、その端末の古い連絡ノートで上書きしてしまう）。
 // 保存の直前に必ずサーバーの最新内容を取得し、id単位で「どちらかに存在するものは残す」形でローカルへ
 // マージしてから保存することで、他端末の追加分を消さないようにする。
+//
+// ただしこの「どちらかに存在するものは残す」だけの単純なマージだと、削除がまったく効かなくなってしまう
+// （消した直後の保存で、まだ消える前のサーバー内容を読み込んでしまい、消したはずの項目を復活させてしまう）。
+// そのため、削除操作を行った項目のIDを記録しておき、マージ時にそのIDだけはサーバー側の内容があっても
+// 復活させないようにする。このIDリストは、保存が成功した時点でクリアする。
+let recentlyDeletedIds = new Set();
+function markIdsAsDeleted(ids) {
+  (ids || []).forEach(id => { if (id) recentlyDeletedIds.add(id); });
+}
+function clearRecentlyDeletedIds() {
+  recentlyDeletedIds.clear();
+}
+
 async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
   if (!spreadsheetId || typeof state === 'undefined') return;
   try {
@@ -13952,7 +13984,10 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
       const merged = Array.isArray(localArr) ? localArr.slice() : [];
       const localIds = new Set(merged.map(x => x && x.id));
       remoteArr.forEach(item => {
-        if (item && item.id && !localIds.has(item.id)) { merged.push(item); }
+        if (!item || !item.id) return;
+        if (localIds.has(item.id)) return;
+        if (recentlyDeletedIds.has(item.id)) return; // この端末で削除済みのため復活させない
+        merged.push(item);
       });
       return merged;
     };
@@ -14185,7 +14220,11 @@ function scheduleDailySaveToSheet() {
 }
 function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
 // メンバー・タスク・予定・ブックマークなど「state」全体の即時保存に使う汎用ラッパー
-function stateSaveToSheet(successMsg, branchName) { _tabSaveToSheet('state', successMsg, branchName); }
+function stateSaveToSheet(successMsg, branchName) {
+  _tabSaveToSheet('state', successMsg, branchName, function () {
+    if (typeof clearRecentlyDeletedIds === 'function') clearRecentlyDeletedIds();
+  });
+}
 
 // 営業所一覧・管理者パスワードなど「全営業所で共有されるデータ」の変更用。
 // 各営業所は自分専用のスプレッドシートを持つため、共有データは登録済みの
