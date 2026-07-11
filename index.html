@@ -8240,7 +8240,7 @@ window.addEventListener('pagehide', function() {
               appToast(`次回：${nextDue}`);
             }
             saveState();
-            if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+            if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
             render4ColTasks();
           });
         });
@@ -10592,7 +10592,7 @@ window.addEventListener('pagehide', function() {
       s.note = document.getElementById('schedEditNote').value.trim();
       s.duration = getPresetDuration(text);
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      if (typeof scheduleSaveToSheet === 'function') scheduleSaveToSheet();
       closeScheduleModal();
       renderTaskCalendar();
       showScheduleResultPopup('変更', s);
@@ -10604,7 +10604,7 @@ window.addEventListener('pagehide', function() {
         if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([editingScheduleId]);
         state.schedules = (state.schedules || []).filter(x => x.id !== editingScheduleId);
         saveState();
-        if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+        if (typeof scheduleSaveToSheet === 'function') scheduleSaveToSheet('スプレッドシートから削除しました');
         closeScheduleModal();
         renderTaskCalendar();
         if (deleted) showScheduleResultPopup('削除', deleted);
@@ -11285,7 +11285,7 @@ window.addEventListener('pagehide', function() {
       const newSchedule = { id: uid(), text, date, time, customer, vehicle, note, duration, ts: Date.now() };
       state.schedules.push(newSchedule);
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      if (typeof scheduleSaveToSheet === 'function') scheduleSaveToSheet();
       input.value = '';
       document.getElementById('taskCustomer').value = '';
       document.getElementById('taskVehicle').value = '';
@@ -11324,7 +11324,7 @@ window.addEventListener('pagehide', function() {
                 state.sidebarTasks = state.sidebarTasks.filter(x => x.generatedFrom !== task.id);
               }
               saveState();
-              if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+              if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
               openDoneTasksModal(); render4ColTasks();
             }
           });
@@ -11350,7 +11350,7 @@ window.addEventListener('pagehide', function() {
         }
         state.sidebarTasks = state.sidebarTasks.filter(t => !t.done);
         saveState();
-        if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+        if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet('スプレッドシートから削除しました');
         closeOverlay(document.getElementById('doneTasksModal'));
         render4ColTasks();
       });
@@ -11468,7 +11468,7 @@ window.addEventListener('pagehide', function() {
       task.due = due;
       task.recur = recur;
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
       closeTaskEditModal();
       render4ColTasks();
     });
@@ -11480,7 +11480,7 @@ window.addEventListener('pagehide', function() {
         if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([editingTaskId]);
         state.sidebarTasks = (state.sidebarTasks || []).filter(x => x.id !== editingTaskId);
         saveState();
-        if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+        if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet('スプレッドシートから削除しました');
         closeTaskEditModal();
         render4ColTasks();
       });
@@ -11554,7 +11554,7 @@ window.addEventListener('pagehide', function() {
       if (!state.sidebarTasks) state.sidebarTasks = [];
       state.sidebarTasks.push({ id: uid(), text, due, author: getUserName(), ts: Date.now(), done: false, recur });
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
       document.getElementById('stTaskText').value = '';
       document.getElementById('stTaskDate').value = '';
       closeOverlay(document.getElementById('addTaskModal'));
@@ -13812,12 +13812,16 @@ function getSyncKeys(branchName) {
     `businessHours_${branchName}`,
     `calcConditions_${branchName}`,
     `shiftDeadline_${branchName}`,
+    `schedules_${branchName}`,
+    `sidebarTasks_${branchName}`,
   ];
 }
 
 // タブ別保存が、そのタブと無関係なデータ（例：シフト保存が連絡ノートや日常業務のデータ）まで
 // まとめてアップロードしてしまうと、この端末が持つ古いデータで他端末の追加分を消してしまう。
 // そのため、保存操作ごとに実際に関係するキーだけへ絞り込む。
+// 予定タブの「タスク」「予定カレンダー」も、他のstateデータ（連絡ノート等）と巻き込み合わないよう、
+// それぞれ独立した保存キーに分けている。
 function getSyncKeysForTab(tabBtnId, branchName) {
   switch (tabBtnId) {
     case 'shift':
@@ -13835,6 +13839,10 @@ function getSyncKeysForTab(tabBtnId, branchName) {
       return [`dailyTaskItems_${branchName}`, `dailyTaskRecords_${branchName}`];
     case 'kasime':
       return [`仮締め記録_${branchName}`, `仮締め入力下書き_${branchName}`];
+    case 'schedule':
+      return [`schedules_${branchName}`];
+    case 'sidebarTask':
+      return [`sidebarTasks_${branchName}`];
     case 'state':
       return ['kawakyu-chatwork-v5'];
     default:
@@ -13982,6 +13990,21 @@ function markIdsAsDeleted(ids) {
   try { localStorage.setItem(RECENTLY_DELETED_IDS_KEY, JSON.stringify(Array.from(recentlyDeletedIds))); } catch (e) {}
 }
 
+// id付きの配列同士を「どちらかに存在するものは残す」形でマージする共通処理。
+// ただし、この端末で削除済み（recentlyDeletedIds）のidだけは、リモートに残っていても復活させない。
+function mergeArrayById(localArr, remoteArr) {
+  if (!Array.isArray(remoteArr) || !remoteArr.length) return Array.isArray(localArr) ? localArr : [];
+  const merged = Array.isArray(localArr) ? localArr.slice() : [];
+  const localIds = new Set(merged.map(x => x && x.id));
+  remoteArr.forEach(item => {
+    if (!item || !item.id) return;
+    if (localIds.has(item.id)) return;
+    if (recentlyDeletedIds.has(item.id)) return; // この端末で削除済みのため復活させない
+    merged.push(item);
+  });
+  return merged;
+}
+
 async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
   if (!spreadsheetId || typeof state === 'undefined') return;
   try {
@@ -13990,25 +14013,16 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
     const raw = result.data['kawakyu-chatwork-v5'];
     if (!raw) return;
     const remote = JSON.parse(raw);
-    const mergeArrayById = (localArr, remoteArr) => {
-      if (!Array.isArray(remoteArr) || !remoteArr.length) return Array.isArray(localArr) ? localArr : [];
-      const merged = Array.isArray(localArr) ? localArr.slice() : [];
-      const localIds = new Set(merged.map(x => x && x.id));
-      remoteArr.forEach(item => {
-        if (!item || !item.id) return;
-        if (localIds.has(item.id)) return;
-        if (recentlyDeletedIds.has(item.id)) return; // この端末で削除済みのため復活させない
-        merged.push(item);
-      });
-      return merged;
-    };
 
     // 連絡ノートのメッセージ本体は営業所をまたいで共有される、唯一のトップレベル配列
     state.messages = mergeArrayById(state.messages, remote.messages);
 
-    // 予定・タスク・ブックマークは営業所ごとに state.branchData[営業所名][項目] に保持されているため、
-    // （state.schedules 等はそのプロキシに過ぎない）、営業所ごとにマージする
-    const ARRAY_PER_BRANCH_KEYS = ['tasks', 'schedules', 'sidebarTasks', 'bookmarks'];
+    // 連絡ノートのタスク・ブックマークは営業所ごとに state.branchData[営業所名][項目] に保持されているため、
+    // （state.tasks 等はそのプロキシに過ぎない）、営業所ごとにマージする。
+    // 予定カレンダー（schedules）・タスク一覧（sidebarTasks）は、それぞれ独立した保存キーで
+    // 個別にマージする（mergeRemoteScheduleBeforeSave / mergeRemoteSidebarTasksBeforeSave）ため、
+    // ここでは扱わない。
+    const ARRAY_PER_BRANCH_KEYS = ['tasks', 'bookmarks'];
     if (remote.branchData && typeof remote.branchData === 'object') {
       if (!state.branchData) state.branchData = {};
       Object.keys(remote.branchData).forEach(branchName => {
@@ -14092,6 +14106,43 @@ async function mergeRemoteDailyRecordsBeforeSave(branchName, spreadsheetId) {
   }
 }
 
+// 予定タブの「予定カレンダー」は、連絡ノート等の他のstateデータと保存キーを分離した独立管理のため、
+// 専用のマージ処理を持つ（ロジックはmergeArrayByIdと同じ：削除済みIDは復活させない）。
+async function mergeRemoteScheduleBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof ensureBranchBucket !== 'function') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data[`schedules_${branchName}`];
+    if (!raw) return;
+    const remoteSchedules = JSON.parse(raw);
+    const bucket = ensureBranchBucket(branchName);
+    bucket.schedules = mergeArrayById(bucket.schedules, remoteSchedules);
+    saveState();
+    localStorage.setItem(`schedules_${branchName}`, JSON.stringify(bucket.schedules));
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
+// 予定タブの「タスク」も同様に独立管理。
+async function mergeRemoteSidebarTasksBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof ensureBranchBucket !== 'function') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data[`sidebarTasks_${branchName}`];
+    if (!raw) return;
+    const remoteTasks = JSON.parse(raw);
+    const bucket = ensureBranchBucket(branchName);
+    bucket.sidebarTasks = mergeArrayById(bucket.sidebarTasks, remoteTasks);
+    saveState();
+    localStorage.setItem(`sidebarTasks_${branchName}`, JSON.stringify(bucket.sidebarTasks));
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
 // アプリ → スプレッドシートへ保存
 // keysOverride省略時は全キーを対象にする（全営業所への一括同期など）。
 // タブ別保存では、そのタブに関係するキーだけに絞り込んで渡すことで、
@@ -14111,6 +14162,12 @@ async function syncToSheet(branchName, keysOverride) {
   }
   if (keys.includes(`dailyTaskRecords_${branchName}`)) {
     await mergeRemoteDailyRecordsBeforeSave(branchName, spreadsheetId);
+  }
+  if (keys.includes(`schedules_${branchName}`)) {
+    await mergeRemoteScheduleBeforeSave(branchName, spreadsheetId);
+  }
+  if (keys.includes(`sidebarTasks_${branchName}`)) {
+    await mergeRemoteSidebarTasksBeforeSave(branchName, spreadsheetId);
   }
   const data = {};
   keys.forEach(k => {
@@ -14157,6 +14214,30 @@ async function doSyncFromSheet(branchName) {
     localStorage.setItem(k, typeof valueToStore === 'string' ? valueToStore : JSON.stringify(valueToStore));
     count++;
   });
+
+  // 予定カレンダー（schedules）・タスク一覧（sidebarTasks）は独立キーで保存しているが、
+  // 画面が実際に読み込むstateの実体はkawakyu-chatwork-v5（branchData）側だけなので、
+  // ダウンロードした専用キーの内容をここでkawakyu-chatwork-v5にも反映しておく。
+  // これをしないと、専用キーのlocalStorageには最新が入っていても、直後のリロードで
+  // 画面に反映されない（stateはkawakyu-chatwork-v5からしか復元されないため）。
+  const scheduleKey = `schedules_${branchName}`;
+  const sidebarTaskKey = `sidebarTasks_${branchName}`;
+  const hasScheduleUpdate = result.data && result.data[scheduleKey] !== undefined && result.data[scheduleKey] !== null && result.data[scheduleKey] !== '';
+  const hasSidebarTaskUpdate = result.data && result.data[sidebarTaskKey] !== undefined && result.data[sidebarTaskKey] !== null && result.data[sidebarTaskKey] !== '';
+  if (hasScheduleUpdate || hasSidebarTaskUpdate) {
+    try {
+      const rawState = localStorage.getItem('kawakyu-chatwork-v5');
+      if (rawState) {
+        const parsed = JSON.parse(rawState);
+        if (!parsed.branchData) parsed.branchData = {};
+        if (!parsed.branchData[branchName]) parsed.branchData[branchName] = {};
+        if (hasScheduleUpdate) parsed.branchData[branchName].schedules = JSON.parse(result.data[scheduleKey]);
+        if (hasSidebarTaskUpdate) parsed.branchData[branchName].sidebarTasks = JSON.parse(result.data[sidebarTaskKey]);
+        localStorage.setItem('kawakyu-chatwork-v5', JSON.stringify(parsed));
+      }
+    } catch (e) {}
+  }
+
   return { ok: true, count };
 }
 
@@ -14232,6 +14313,19 @@ function scheduleDailySaveToSheet() {
 function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
 // メンバー・タスク・予定・ブックマークなど「state」全体の即時保存に使う汎用ラッパー
 function stateSaveToSheet(successMsg, branchName) { _tabSaveToSheet('state', successMsg, branchName); }
+
+// 予定タブの「予定カレンダー」「タスク」は、連絡ノート等の他のstateデータと保存を分離し、
+// それぞれ専用のキーで独立して保存する。保存前に現在の内容を専用キーへ書き出してから送信する。
+function scheduleSaveToSheet(successMsg) {
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  if (branchName) localStorage.setItem(`schedules_${branchName}`, JSON.stringify(state.schedules || []));
+  return _tabSaveToSheet('schedule', successMsg);
+}
+function sidebarTaskSaveToSheet(successMsg) {
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  if (branchName) localStorage.setItem(`sidebarTasks_${branchName}`, JSON.stringify(state.sidebarTasks || []));
+  return _tabSaveToSheet('sidebarTask', successMsg);
+}
 
 // 営業所一覧・管理者パスワードなど「全営業所で共有されるデータ」の変更用。
 // 各営業所は自分専用のスプレッドシートを持つため、共有データは登録済みの
