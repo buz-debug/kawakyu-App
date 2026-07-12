@@ -1831,6 +1831,7 @@
     /* 「削除」ボタンは背景色を赤で統一 */
     .del,
     #taskEditDelete,
+    #taskDetailDelete,
     #btnClearDoneTasks,
     #btnClearRoom,
     #kasime-wrap .modal-delete {
@@ -1840,6 +1841,7 @@
     }
     .del:hover,
     #taskEditDelete:hover,
+    #taskDetailDelete:hover,
     #btnClearDoneTasks:hover,
     #btnClearRoom:hover,
     #kasime-wrap .modal-delete:hover {
@@ -6442,11 +6444,27 @@ window.addEventListener('pagehide', function() {
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">日付（複数選択可）</label>
           <div id="taskEditRecurMonthDays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
         </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
+          <textarea id="taskEditNote" placeholder="備考を入力" maxlength="500" rows="3"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;"></textarea>
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" id="taskEditDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
         <button type="button" id="taskEditCancel">キャンセル</button>
         <button type="button" id="taskEditSave" class="primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- タスク詳細モーダル（タイトルは表示しない） -->
+  <div class="modal-overlay" id="taskDetailModal" role="dialog" aria-modal="true">
+    <div class="modal" style="width:min(400px,92vw);">
+      <div id="taskDetailBody" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"></div>
+      <div class="modal-actions">
+        <button type="button" id="taskDetailDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
+        <button type="button" id="taskDetailEdit" class="primary">編集</button>
       </div>
     </div>
   </div>
@@ -6483,6 +6501,11 @@ window.addEventListener('pagehide', function() {
           <div id="stTaskRecurMonthly" style="display:none;">
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">日付（複数選択可）</label>
             <div id="stTaskRecurMonthDays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
+            <textarea id="stTaskNote" placeholder="備考を入力" maxlength="500" rows="3"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;"></textarea>
           </div>
         </div>
         <div class="modal-actions">
@@ -8325,7 +8348,7 @@ window.addEventListener('pagehide', function() {
           });
         });
         el.querySelectorAll('[data-edittask]').forEach(div => {
-          div.addEventListener('click', () => openTaskEditModal(div.dataset.edittask));
+          div.addEventListener('click', () => openTaskDetailModal(div.dataset.edittask));
         });
       });
     }
@@ -11553,6 +11576,7 @@ window.addEventListener('pagehide', function() {
       editingTaskId = id;
       document.getElementById('taskEditText').value = task.text;
       document.getElementById('taskEditDate').value = task.due || '';
+      document.getElementById('taskEditNote').value = task.note || '';
       setRecurEditor('taskEdit', task.recur);
       openOverlay(document.getElementById('taskEditModal'));
       setTimeout(() => document.getElementById('taskEditText').focus(), 50);
@@ -11575,6 +11599,7 @@ window.addEventListener('pagehide', function() {
       task.text = text;
       task.due = due;
       task.recur = recur;
+      task.note = document.getElementById('taskEditNote').value.trim();
       saveState();
       if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
       closeTaskEditModal();
@@ -11583,19 +11608,60 @@ window.addEventListener('pagehide', function() {
 
     document.getElementById('taskEditCancel').addEventListener('click', closeTaskEditModal);
 
-    document.getElementById('taskEditDelete').addEventListener('click', () => {
+    // 編集モーダル・詳細モーダルのどちらからでも呼べる共通の削除処理
+    function deleteSidebarTask(id, afterClose) {
       openModal('タスクを削除', 'このタスクを削除しますか？', () => {
-        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([editingTaskId]);
-        state.sidebarTasks = (state.sidebarTasks || []).filter(x => x.id !== editingTaskId);
+        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
+        state.sidebarTasks = (state.sidebarTasks || []).filter(x => x.id !== id);
         saveState();
         if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet('スプレッドシートから削除しました');
-        closeTaskEditModal();
+        if (typeof afterClose === 'function') afterClose();
         render4ColTasks();
       });
+    }
+
+    document.getElementById('taskEditDelete').addEventListener('click', () => {
+      deleteSidebarTask(editingTaskId, closeTaskEditModal);
     });
 
     document.getElementById('taskEditModal').addEventListener('click', e => {
       if (e.target.id === 'taskEditModal') closeTaskEditModal();
+    });
+
+    // ── タスク詳細モーダル（クリックで開く読み取り専用ビュー。タイトルは表示しない） ──
+    let viewingTaskId = null;
+
+    function openTaskDetailModal(id) {
+      const task = (state.sidebarTasks || []).find(x => x.id === id);
+      if (!task) return;
+      viewingTaskId = id;
+      const recurLabel = taskRecurLabel(task.recur);
+      const body = document.getElementById('taskDetailBody');
+      body.innerHTML = `
+        <div style="font-size:16px;font-weight:800;color:var(--text);word-break:break-word;line-height:1.4;">${escapeHtml(task.text)}</div>
+        <div style="font-size:12px;color:var(--muted);">${task.due ? escapeHtml(task.due) : '期日なし'}${recurLabel ? '　' + recurLabel : ''}</div>
+        ${task.note ? `<div style="font-size:13px;color:var(--text);white-space:pre-wrap;word-break:break-word;border-top:1px solid var(--border);padding-top:10px;">${escapeHtml(task.note)}</div>` : ''}
+      `;
+      openOverlay(document.getElementById('taskDetailModal'));
+    }
+
+    function closeTaskDetailModal() {
+      closeOverlay(document.getElementById('taskDetailModal'));
+      viewingTaskId = null;
+    }
+
+    document.getElementById('taskDetailEdit').addEventListener('click', () => {
+      const id = viewingTaskId;
+      closeTaskDetailModal();
+      openTaskEditModal(id);
+    });
+
+    document.getElementById('taskDetailDelete').addEventListener('click', () => {
+      deleteSidebarTask(viewingTaskId, closeTaskDetailModal);
+    });
+
+    document.getElementById('taskDetailModal').addEventListener('click', e => {
+      if (e.target.id === 'taskDetailModal') closeTaskDetailModal();
     });
 
     document.getElementById('taskEditText').addEventListener('keydown', e => {
@@ -11638,6 +11704,7 @@ window.addEventListener('pagehide', function() {
     document.getElementById('btnAddTask').addEventListener('click', () => {
       document.getElementById('stTaskText').value = '';
       document.getElementById('stTaskDate').value = '';
+      document.getElementById('stTaskNote').value = '';
       setRecurEditor('stTask', null);
       openOverlay(document.getElementById('addTaskModal'));
       setTimeout(() => document.getElementById('stTaskText').focus(), 50);
@@ -11659,12 +11726,14 @@ window.addEventListener('pagehide', function() {
       if (!due) { alert('期日を入力してください。'); return; }
       const recur = getRecurFromEditor('stTask');
       if (recur) due = nextRecurOccurrence(recur, due, due);
+      const note = document.getElementById('stTaskNote').value.trim();
       if (!state.sidebarTasks) state.sidebarTasks = [];
-      state.sidebarTasks.push({ id: uid(), text, due, author: getUserName(), ts: Date.now(), done: false, recur });
+      state.sidebarTasks.push({ id: uid(), text, due, author: getUserName(), ts: Date.now(), done: false, recur, note });
       saveState();
       if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
       document.getElementById('stTaskText').value = '';
       document.getElementById('stTaskDate').value = '';
+      document.getElementById('stTaskNote').value = '';
       closeOverlay(document.getElementById('addTaskModal'));
       render4ColTasks();
     });
