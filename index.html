@@ -1383,7 +1383,6 @@
 
     .task-cal-chip.done {
       background: #d1d5db;
-      text-decoration: line-through;
       color: #666;
     }
 
@@ -6554,12 +6553,12 @@ window.addEventListener('pagehide', function() {
   <!-- 予定編集モーダル -->
   <div class="modal-overlay" id="scheduleModal" role="dialog" aria-modal="true">
     <div class="modal" style="width:min(460px,92vw);">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-        <button type="button" id="schedEditCompleteBtn" onclick="toggleScheduleEditComplete()"
-          style="flex-shrink:0;display:flex;align-items:center;gap:4px;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#e5e7eb;color:#555;transition:background .15s,color .15s;">
-          <span id="schedEditCompleteIcon">✓</span><span id="schedEditCompleteLabel">完了</span>
-        </button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
         <h2 style="margin:0;">予定を編集</h2>
+        <button type="button" id="schedEditCompleteBtn" onclick="toggleScheduleEditComplete()"
+          style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
+          <span id="schedEditCompleteLabel">完了</span>
+        </button>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
         <div>
@@ -10577,7 +10576,7 @@ window.addEventListener('pagehide', function() {
           <div class="day-detail-item" data-sid="${s.id}" style="${s.completed ? 'opacity:.6;' : ''}">
             <div class="day-detail-time">${s.time || '終日'}</div>
             <div>
-              <div class="day-detail-text"${s.completed ? ' style="text-decoration:line-through;"' : ''}>${s.completed ? '✓ ' : ''}${escapeHtml(s.text)}${s.vehicle ? `　<span style="color:var(--muted);">${escapeHtml(s.vehicle)}</span>` : ''}${s.customer ? `　<span style="color:var(--cw-green-dark);font-weight:600;">${escapeHtml(s.customer)}様</span>` : ''}</div>
+              <div class="day-detail-text">${s.completed ? '✓ ' : ''}${escapeHtml(s.text)}${s.vehicle ? `　<span style="color:var(--muted);">${escapeHtml(s.vehicle)}</span>` : ''}${s.customer ? `　<span style="color:var(--cw-green-dark);font-weight:600;">${escapeHtml(s.customer)}様</span>` : ''}</div>
               ${s.note ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;">${escapeHtml(s.note)}</div>` : ''}
             </div>
           </div>`).join('');
@@ -10648,12 +10647,12 @@ window.addEventListener('pagehide', function() {
       const label = document.getElementById('schedEditCompleteLabel');
       if (!btn) return;
       if (editingScheduleCompleted) {
-        btn.style.background = '#22c55e';
+        btn.style.background = '#9ca3af';
         btn.style.color = '#fff';
         label.textContent = '完了済み';
       } else {
-        btn.style.background = '#e5e7eb';
-        btn.style.color = '#555';
+        btn.style.background = '#22c55e';
+        btn.style.color = '#fff';
         label.textContent = '完了';
       }
     }
