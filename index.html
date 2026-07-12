@@ -6554,7 +6554,13 @@ window.addEventListener('pagehide', function() {
   <!-- 予定編集モーダル -->
   <div class="modal-overlay" id="scheduleModal" role="dialog" aria-modal="true">
     <div class="modal" style="width:min(460px,92vw);">
-      <h2 style="margin-bottom:14px;">予定を編集</h2>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <button type="button" id="schedEditCompleteBtn" onclick="toggleScheduleEditComplete()"
+          style="flex-shrink:0;display:flex;align-items:center;gap:4px;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#e5e7eb;color:#555;transition:background .15s,color .15s;">
+          <span id="schedEditCompleteIcon">✓</span><span id="schedEditCompleteLabel">完了</span>
+        </button>
+        <h2 style="margin:0;">予定を編集</h2>
+      </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">予定</label>
@@ -8418,7 +8424,10 @@ window.addEventListener('pagehide', function() {
           const chipColor = preset?.color || '#4a7fb5';
           const isOverlap = checkOverlap(iso, s.time, s.text, s.id) !== null;
           const bgColor = isOverlap ? '#f97316' : chipColor;
-          return `<div class="task-cal-chip" data-sid="${s.id}" title="${escapeHtml(label)}${isOverlap ? ' ⚠重複' : ''}" style="background:${bgColor};">${escapeHtml(label)}${isOverlap ? ' ⚠' : ''}</div>`;
+          const chipCls = 'task-cal-chip' + (s.completed ? ' done' : '');
+          const chipStyle = s.completed ? '' : `style="background:${bgColor};"`;
+          const chipLabel = (s.completed ? '✓ ' : '') + escapeHtml(label) + (isOverlap ? ' ⚠' : '');
+          return `<div class="${chipCls}" data-sid="${s.id}" title="${escapeHtml(label)}${isOverlap ? ' ⚠重複' : ''}${s.completed ? '（完了）' : ''}" ${chipStyle}>${chipLabel}</div>`;
         }).join('');
         const isHoliday = isJapanHoliday(date);
         const cls = ['task-cal-cell', !current ? 'other-month' : '', isToday ? 'today' : '', dow === 0 ? 'sun' : '', dow === 6 ? 'sat' : '', isHoliday ? 'holiday' : ''].filter(Boolean).join(' ');
@@ -10565,10 +10574,10 @@ window.addEventListener('pagehide', function() {
         list.innerHTML = '<div class="day-detail-empty">この日の予定はありません</div>';
       } else {
         list.innerHTML = schedules.map(s => `
-          <div class="day-detail-item" data-sid="${s.id}">
+          <div class="day-detail-item" data-sid="${s.id}" style="${s.completed ? 'opacity:.6;' : ''}">
             <div class="day-detail-time">${s.time || '終日'}</div>
             <div>
-              <div class="day-detail-text">${escapeHtml(s.text)}${s.vehicle ? `　<span style="color:var(--muted);">${escapeHtml(s.vehicle)}</span>` : ''}${s.customer ? `　<span style="color:var(--cw-green-dark);font-weight:600;">${escapeHtml(s.customer)}様</span>` : ''}</div>
+              <div class="day-detail-text"${s.completed ? ' style="text-decoration:line-through;"' : ''}>${s.completed ? '✓ ' : ''}${escapeHtml(s.text)}${s.vehicle ? `　<span style="color:var(--muted);">${escapeHtml(s.vehicle)}</span>` : ''}${s.customer ? `　<span style="color:var(--cw-green-dark);font-weight:600;">${escapeHtml(s.customer)}様</span>` : ''}</div>
               ${s.note ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;">${escapeHtml(s.note)}</div>` : ''}
             </div>
           </div>`).join('');
@@ -10591,6 +10600,7 @@ window.addEventListener('pagehide', function() {
 
     // ── 予定編集モーダル ──
     let editingScheduleId = null;
+    let editingScheduleCompleted = false; // 「予定を編集」モーダル内で保存前に一時的に保持する完了状態
 
     function buildScheduleTimeOptions(selectedTime) {
       const unit = state.timeUnit || 30;
@@ -10621,6 +10631,8 @@ window.addEventListener('pagehide', function() {
       document.getElementById('schedEditNote').value = s.note || '';
       document.getElementById('schedEditDate').value = s.date;
       document.getElementById('schedEditTime').innerHTML = buildScheduleTimeOptions(s.time || '');
+      editingScheduleCompleted = !!s.completed;
+      renderScheduleEditCompleteButton();
       openOverlay(document.getElementById('scheduleModal'));
       setTimeout(() => document.getElementById('schedEditText').focus(), 50);
     }
@@ -10628,6 +10640,27 @@ window.addEventListener('pagehide', function() {
     function closeScheduleModal() {
       closeOverlay(document.getElementById('scheduleModal'));
       editingScheduleId = null;
+    }
+
+    // 「完了」ボタンの見た目を、現在の（保存前の）完了状態に合わせて切り替える
+    function renderScheduleEditCompleteButton() {
+      const btn = document.getElementById('schedEditCompleteBtn');
+      const label = document.getElementById('schedEditCompleteLabel');
+      if (!btn) return;
+      if (editingScheduleCompleted) {
+        btn.style.background = '#22c55e';
+        btn.style.color = '#fff';
+        label.textContent = '完了済み';
+      } else {
+        btn.style.background = '#e5e7eb';
+        btn.style.color = '#555';
+        label.textContent = '完了';
+      }
+    }
+
+    function toggleScheduleEditComplete() {
+      editingScheduleCompleted = !editingScheduleCompleted;
+      renderScheduleEditCompleteButton();
     }
 
     function saveScheduleEdit() {
@@ -10662,6 +10695,7 @@ window.addEventListener('pagehide', function() {
       s.customer = document.getElementById('schedEditCustomer').value.trim();
       s.note = document.getElementById('schedEditNote').value.trim();
       s.duration = getPresetDuration(text);
+      s.completed = editingScheduleCompleted;
       saveState();
       if (typeof scheduleSaveToSheet === 'function') scheduleSaveToSheet();
       closeScheduleModal();
