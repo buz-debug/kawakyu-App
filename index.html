@@ -6465,6 +6465,7 @@ window.addEventListener('pagehide', function() {
       <div class="modal-actions">
         <button type="button" id="taskDetailDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
         <button type="button" id="taskDetailEdit" class="primary">編集</button>
+        <button type="button" id="taskDetailClose">閉じる</button>
       </div>
     </div>
   </div>
@@ -11659,6 +11660,8 @@ window.addEventListener('pagehide', function() {
     document.getElementById('taskDetailDelete').addEventListener('click', () => {
       deleteSidebarTask(viewingTaskId, closeTaskDetailModal);
     });
+
+    document.getElementById('taskDetailClose').addEventListener('click', closeTaskDetailModal);
 
     document.getElementById('taskDetailModal').addEventListener('click', e => {
       if (e.target.id === 'taskDetailModal') closeTaskDetailModal();
