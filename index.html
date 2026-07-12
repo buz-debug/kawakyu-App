@@ -2218,9 +2218,13 @@
 #kasime-wrap .input-col .result-card {
   margin: 0;
 }
-#kasime-wrap /* 備考欄 */
+#kasime-wrap /* 備考欄：タイトルと入力欄の間の区切り線は無し、詰めて表示する */
 .kasime-note-card {
   margin: 0;
+}
+#kasime-wrap .kasime-note-card .card-header {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 #kasime-wrap .input-top-row > .top-cancel-btn {
   align-self: center;
@@ -4570,8 +4574,8 @@
                 <span class="card-header-main-lg">備考</span>
               </div>
             </div>
-            <div style="padding:8px 12px;">
-              <textarea id="kasimeNoteInput" placeholder="備考があれば入力してください" maxlength="500" rows="2"
+            <div style="padding:2px 12px 8px;">
+              <textarea id="kasimeNoteInput" placeholder="備考があれば入力してください" maxlength="500" rows="3"
                 style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box;"
                 oninput="persistDraft()"></textarea>
             </div>
@@ -5246,7 +5250,7 @@ function openDetail(r) {
     html += `
       <div class="card kasime-note-card">
         <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">備考</span></div></div>
-        <div style="padding:8px 12px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(r.note)}</div>
+        <div style="padding:2px 12px 8px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(r.note)}</div>
       </div>
     `;
   }
