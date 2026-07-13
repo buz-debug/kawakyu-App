@@ -6949,6 +6949,7 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openChatSettingsSubPanel('adminPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">管理者パスワード</button>
         <button type="button" onclick="openAdminStaffIdModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スタッフID管理</button>
         <button type="button" onclick="openGasModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スプレッドシート連携（GAS）</button>
+        <button type="button" onclick="openAdminRetentionModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">データ保存期間の設定</button>
       </div>
 
       <div class="modal-actions" style="margin-top:16px;justify-content:space-between;">
@@ -6970,6 +6971,19 @@ window.addEventListener('pagehide', function() {
 
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('gasModal'))">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- データ保存期間の設定モーダル -->
+  <div class="modal-overlay settings-modal" id="adminRetentionModal" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:460px;">
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">データ保存期間の設定</h3>
+      <p class="settings-note" style="margin-bottom:12px;">タブごとに保存期間（◯ヶ月）を設定します。設定した期間より古いデータは、アプリを開いた際に自動的に削除されます。空欄のまま保存すると、そのタブは削除の対象になりません。</p>
+      <div id="adminRetentionList" style="display:flex;flex-direction:column;gap:10px;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('adminRetentionModal'))">閉じる</button>
+        <button type="button" id="adminRetentionSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -8909,6 +8923,53 @@ window.addEventListener('pagehide', function() {
       closeAdminPage();
       showToast('管理者ページからログアウトしました');
     }
+
+    // ── データ保存期間の設定（各タブごとに◯ヶ月保管を設定し、古いデータを自動削除する） ──
+    // stateDataRetentionMonthsは全営業所共有の設定（state直下の項目として、他の共有設定と同様に
+    // 全営業所のスプレッドシートへ同期される）。実際のデータ削除はapplyDataRetentionCleanup()が
+    // 各営業所の端末でアプリを開いた際に、その端末が持つ自分の営業所のデータに対して行う。
+    const DATA_RETENTION_TABS = [
+      { key: 'note', label: '連絡ノート' },
+      { key: 'schedule', label: '予定（予定カレンダー・タスク）' },
+      { key: 'kasime', label: '仮締め' },
+      { key: 'shift', label: 'シフト' },
+      { key: 'sales', label: '販売実績表' },
+      { key: 'daily', label: '日常業務' },
+    ];
+
+    function renderAdminRetentionList() {
+      const wrap = document.getElementById('adminRetentionList');
+      if (!wrap) return;
+      const cur = state.dataRetentionMonths || {};
+      wrap.innerHTML = DATA_RETENTION_TABS.map(({ key, label }) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <span style="font-size:13px;">${label}</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" min="0" step="1" data-retention-key="${key}" value="${cur[key] || ''}" placeholder="無制限"
+              style="width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:right;">
+            <span style="font-size:12px;color:var(--muted);">ヶ月保管</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openAdminRetentionModal() {
+      renderAdminRetentionList();
+      openOverlay(document.getElementById('adminRetentionModal'));
+    }
+
+    document.getElementById('adminRetentionSaveBtn').addEventListener('click', () => {
+      const result = {};
+      document.querySelectorAll('#adminRetentionList [data-retention-key]').forEach(input => {
+        const n = Math.max(0, parseInt(input.value, 10) || 0);
+        if (n > 0) result[input.dataset.retentionKey] = n;
+      });
+      state.dataRetentionMonths = result;
+      saveState();
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet('保存期間を保存しました');
+      if (typeof applyDataRetentionCleanup === 'function') applyDataRetentionCleanup();
+      closeOverlay(document.getElementById('adminRetentionModal'));
+    });
 
     function openAdminStaffIdModal() {
       const sel = document.getElementById('adminStaffIdBranchSelect');
@@ -11805,11 +11866,148 @@ window.addEventListener('pagehide', function() {
     notifyKasimeMembers();
     selectRoom('all');
 
+    // ── データ保存期間による自動削除 ──
+    // 管理者ページ「データ保存期間の設定」で設定した◯ヶ月を過ぎたデータを削除する。
+    // サーバー側でcronのような定期実行はできないため、各営業所の端末でこのアプリを開くたびに
+    // （ログイン済みの状態でこの起動処理が走るたびに）その端末が持つ自分の営業所のデータに対して実行する。
+    function monthsAgoCutoffISO(months) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - months);
+      d.setHours(0, 0, 0, 0);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function monthsAgoCutoffTs(months) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - months);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    // shifts/salesRecords/dailyTaskRecordsのキーは "YYYY-M-D"（ゼロ埋めなし）または
+    // 末尾に "-スタッフ名" が付く形式のため、キーから日付部分を取り出しISO形式に正規化して比較する。
+    function extractDateFromLegacyKey(key) {
+      const m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(key);
+      if (!m) return null;
+      return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
+    }
+
+    function applyDataRetentionCleanup() {
+      if (typeof state === 'undefined' || !state.dataRetentionMonths) return;
+      const limits = state.dataRetentionMonths;
+
+      // 連絡ノート（メッセージ・室内タスク）
+      if (limits.note > 0) {
+        const cutoffTs = monthsAgoCutoffTs(limits.note);
+        const oldMsgIds = (state.messages || []).filter(m => m.ts && m.ts < cutoffTs).map(m => m.id);
+        const oldTaskIds = (state.tasks || []).filter(t => t.ts && t.ts < cutoffTs).map(t => t.id);
+        if (oldMsgIds.length || oldTaskIds.length) {
+          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(oldMsgIds.concat(oldTaskIds));
+          state.messages = (state.messages || []).filter(m => !m.ts || m.ts >= cutoffTs);
+          state.tasks = (state.tasks || []).filter(t => !t.ts || t.ts >= cutoffTs);
+          saveState();
+          if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+          if (typeof renderRoomList === 'function') renderRoomList();
+          if (typeof renderMessages === 'function') renderMessages();
+        }
+      }
+
+      // 予定（予定カレンダー・タスク）
+      if (limits.schedule > 0) {
+        const cutoffISO = monthsAgoCutoffISO(limits.schedule);
+        const oldSchedIds = (state.schedules || []).filter(s => s.date && s.date < cutoffISO).map(s => s.id);
+        const oldTaskIds = (state.sidebarTasks || []).filter(t => t.due && t.due < cutoffISO).map(t => t.id);
+        if (oldSchedIds.length || oldTaskIds.length) {
+          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(oldSchedIds.concat(oldTaskIds));
+          state.schedules = (state.schedules || []).filter(s => !s.date || s.date >= cutoffISO);
+          state.sidebarTasks = (state.sidebarTasks || []).filter(t => !t.due || t.due >= cutoffISO);
+          saveState();
+          if (typeof scheduleSaveToSheet === 'function') scheduleSaveToSheet();
+          if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
+          if (typeof renderTaskCalendar === 'function') renderTaskCalendar();
+          if (typeof render4ColTasks === 'function') render4ColTasks();
+        }
+      }
+
+      // 仮締め（複数端末同時編集がほぼ無いため、3-wayマージの対象外＝そのまま削除してよい）
+      if (limits.kasime > 0 && typeof records !== 'undefined') {
+        const cutoffISO = monthsAgoCutoffISO(limits.kasime);
+        const before = records.length;
+        records = records.filter(r => !r.date || r.date >= cutoffISO);
+        if (records.length !== before) {
+          if (typeof persist === 'function') persist();
+          if (typeof kasimeSaveToSheet === 'function') kasimeSaveToSheet();
+          if (typeof renderList === 'function') renderList();
+        }
+      }
+
+      // シフト（mergeFlatDictByBaselineの対象データのため、deleteではなく空文字のtombstoneにする）
+      if (limits.shift > 0 && typeof shifts !== 'undefined') {
+        const cutoffISO = monthsAgoCutoffISO(limits.shift);
+        let shiftChanged = false;
+        Object.keys(shifts).forEach(key => {
+          const dateStr = extractDateFromLegacyKey(key);
+          if (dateStr && dateStr < cutoffISO && shifts[key] !== '') {
+            if (typeof markShiftsDirtyBeforeEdit === 'function') markShiftsDirtyBeforeEdit();
+            shifts[key] = '';
+            shiftChanged = true;
+          }
+        });
+        if (shiftChanged) {
+          localStorage.setItem(shiftKey('shifts'), JSON.stringify(shifts));
+          if (typeof shiftSaveToSheet === 'function') shiftSaveToSheet();
+        }
+      }
+
+      // 販売実績表（マージ保護の対象外のため、キーを直接削除してよい）
+      if (limits.sales > 0 && typeof salesRecords !== 'undefined') {
+        const cutoffISO = monthsAgoCutoffISO(limits.sales);
+        let salesChanged = false;
+        Object.keys(salesRecords).forEach(key => {
+          const dateStr = extractDateFromLegacyKey(key);
+          if (dateStr && dateStr < cutoffISO) {
+            delete salesRecords[key];
+            salesChanged = true;
+          }
+        });
+        if (salesChanged) {
+          localStorage.setItem(salesKey('salesRecords'), JSON.stringify(salesRecords));
+          if (typeof salesSaveToSheet === 'function') salesSaveToSheet();
+        }
+      }
+
+      // 日常業務（シフトと同様、mergeFlatDictByBaseline対象のためtombstoneを使う）
+      if (limits.daily > 0 && typeof dailyTaskRecords !== 'undefined') {
+        const cutoffISO = monthsAgoCutoffISO(limits.daily);
+        let dailyChanged = false;
+        Object.keys(dailyTaskRecords).forEach(dateKey => {
+          const dateStr = extractDateFromLegacyKey(dateKey);
+          if (dateStr && dateStr < cutoffISO) {
+            const dayRecord = dailyTaskRecords[dateKey] || {};
+            Object.keys(dayRecord).forEach(itemId => {
+              if (dayRecord[itemId] !== '') {
+                if (typeof markDailyRecordsDirtyBeforeEdit === 'function') markDailyRecordsDirtyBeforeEdit();
+                dayRecord[itemId] = '';
+                dailyChanged = true;
+              }
+            });
+          }
+        });
+        if (dailyChanged) {
+          localStorage.setItem(dailyKey('dailyTaskRecords'), JSON.stringify(dailyTaskRecords));
+          if (typeof scheduleDailySaveToSheet === 'function') scheduleDailySaveToSheet();
+        }
+      }
+    }
+
     // ── ログインゲート ──
     renderCurrentBranchLabel();
     let alreadyLoggedIn = false;
     try { alreadyLoggedIn = localStorage.getItem('kawakyu_logged_in') === '1'; } catch (e) {}
-    if (alreadyLoggedIn) { hideLoginGate(); } else { showLoginGate(); }
+    if (alreadyLoggedIn) {
+      hideLoginGate();
+      applyDataRetentionCleanup();
+    } else {
+      showLoginGate();
+    }
 
     // 予定を追加中（フォームに入力済み・未保存）に画面を閉じようとした場合の確認
     function hasUnsavedScheduleInput() {
