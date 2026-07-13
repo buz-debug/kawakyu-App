@@ -6979,7 +6979,7 @@ window.addEventListener('pagehide', function() {
   <div class="modal-overlay settings-modal" id="adminRetentionModal" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:460px;">
       <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">データ保存期間の設定</h3>
-      <p class="settings-note" style="margin-bottom:12px;">タブごとに保存期間（◯ヶ月）を設定します。設定した期間より古いデータは、アプリを開いた際に自動的に削除されます。空欄のまま保存すると、そのタブは削除の対象になりません。</p>
+      <p class="settings-note" style="margin-bottom:12px;">タブごとに保存期間（◯ヶ月）を設定します。設定した期間より古いデータは、アプリを開いた際に自動的に削除されます。空欄のまま保存すると、そのタブは削除の対象になりません。<br>※連絡ノートでブックマークされたメッセージは、保存期間に関わらず削除されません（ブックマークを外すと、期間に応じて削除対象になります）。</p>
       <div id="adminRetentionList" style="display:flex;flex-direction:column;gap:10px;"></div>
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('adminRetentionModal'))">閉じる</button>
@@ -11895,14 +11895,19 @@ window.addEventListener('pagehide', function() {
       const limits = state.dataRetentionMonths;
 
       // 連絡ノート（メッセージ・室内タスク）
+      // ただし、ブックマークされているメッセージは保存期間の対象外とし、削除しない。
+      // ブックマークを外せば、その時点の年齢に応じて通常どおり削除対象になる。
       if (limits.note > 0) {
         const cutoffTs = monthsAgoCutoffTs(limits.note);
-        const oldMsgIds = (state.messages || []).filter(m => m.ts && m.ts < cutoffTs).map(m => m.id);
+        const bookmarkedMsgIds = new Set((state.bookmarks || []).map(b => b.msgId));
+        const oldMsgIds = (state.messages || []).filter(m => m.ts && m.ts < cutoffTs && !bookmarkedMsgIds.has(m.id)).map(m => m.id);
         const oldTaskIds = (state.tasks || []).filter(t => t.ts && t.ts < cutoffTs).map(t => t.id);
         if (oldMsgIds.length || oldTaskIds.length) {
           if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(oldMsgIds.concat(oldTaskIds));
-          state.messages = (state.messages || []).filter(m => !m.ts || m.ts >= cutoffTs);
-          state.tasks = (state.tasks || []).filter(t => !t.ts || t.ts >= cutoffTs);
+          const oldMsgIdSet = new Set(oldMsgIds);
+          const oldTaskIdSet = new Set(oldTaskIds);
+          state.messages = (state.messages || []).filter(m => !oldMsgIdSet.has(m.id));
+          state.tasks = (state.tasks || []).filter(t => !oldTaskIdSet.has(t.id));
           saveState();
           if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
           if (typeof renderRoomList === 'function') renderRoomList();
