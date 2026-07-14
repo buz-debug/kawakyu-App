@@ -1411,10 +1411,15 @@
     .task-cal-allday-bar:hover { opacity: .85; }
 
     /* ===== 車検予約カレンダー ===== */
-    /* 週ごとに「日付の行」と「予約バーの行」を分け、バーは日付セルの罫線・背景の
-       影響を受けない別レイヤーとして描画する。複数日にまたがる予約はgrid-columnで
-       まとめて1つの要素として描くため、日をまたいでもズレたり途切れたりしない。 */
+    /* 週ごとに1枚のカードにまとめ、日付とバーが同じ背景・枠の中に収まることで
+       一体感を出す（個々の日付セルの罫線は廃止し、数字のみ表示）。
+       複数日にまたがる予約はgrid-columnでまとめて1つの要素として描くため、
+       日をまたいでもズレたり途切れたりしない。 */
     .shaken-week {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px;
       margin-bottom: 6px;
     }
     .shaken-week-dates {
@@ -1423,25 +1428,31 @@
       gap: 2px;
     }
     .shaken-date-cell {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 3px 8px;
       text-align: right;
+      padding: 2px 6px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .shaken-date-cell:hover { background: var(--bg-chat); }
+    .shaken-date-num {
       font-size: 12px;
       font-weight: 700;
       color: var(--muted);
-      min-height: 24px;
-      cursor: pointer;
+      display: inline-block;
+      min-width: 20px;
+      padding: 1px 0;
+      border-radius: 10px;
     }
-    .shaken-date-cell:hover { background: var(--bg-chat); }
-    .shaken-date-cell.other-month { background: #f9fafb; opacity: .6; }
-    .shaken-date-cell.today { border-color: var(--cw-green); background: #fff2cc; }
-    .shaken-date-cell.sun { color: var(--danger); }
-    .shaken-date-cell.sat { color: #4a7fb5; }
-    .shaken-date-cell.holiday { color: var(--danger); }
+    .shaken-date-cell.other-month .shaken-date-num { opacity: .5; }
+    .shaken-date-cell.today .shaken-date-num { background: var(--cw-green); color: #fff; }
+    .shaken-date-cell.sun .shaken-date-num { color: var(--danger); }
+    .shaken-date-cell.sat .shaken-date-num { color: #4a7fb5; }
+    .shaken-date-cell.holiday .shaken-date-num { color: var(--danger); }
+    .shaken-date-cell.today.sun .shaken-date-num,
+    .shaken-date-cell.today.sat .shaken-date-num,
+    .shaken-date-cell.today.holiday .shaken-date-num { color: #fff; }
 
-    /* 日付の段とバーの段の間に、はっきりわかる余白を確保する */
+    /* 日付の段とバーの段の間に、はっきりわかる余白を確保する（同じカード内） */
     .shaken-week-bars {
       grid-template-columns: repeat(7, minmax(0, 1fr));
       margin-top: 4px;
