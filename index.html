@@ -1484,11 +1484,12 @@
       transition: opacity .1s;
       box-sizing: border-box;
       /* 隣接する別の予約バーとくっついて見えないよう、少しだけ短くする */
-      margin: 0 1.5px;
+      margin: 0 3px;
     }
     .shaken-bar:hover { opacity: .85; }
     .shaken-bar-loaner { background: #fbbf24; color: #78350f; }
     .shaken-bar-noloaner { background: var(--cw-green); color: #fff; }
+    .shaken-bar-done { background: #d1d5db; color: #555; }
 
     .shaken-list-item:hover { background: #f5f8fc; }
 
@@ -6814,7 +6815,13 @@ window.addEventListener('pagehide', function() {
   <!-- 車検予約 編集モーダル -->
   <div class="modal-overlay" id="shakenEditModal" role="dialog" aria-modal="true">
     <div class="modal" style="width:min(460px,92vw);">
-      <h2 style="font-size:14px;margin-bottom:16px;">予約を編集</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
+        <h2 style="margin:0;font-size:14px;">予約を編集</h2>
+        <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
+          style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
+          <span id="shakenEditCompleteLabel">完了</span>
+        </button>
+      </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">顧客名</label>
@@ -11081,6 +11088,7 @@ window.addEventListener('pagehide', function() {
     let shakenViewMode = 'calendar'; // 'calendar' | 'list'
     let editingShakenId = null;
     let shakenCheckinDateTouched = false; // 追加フォームで入庫日を手動編集したかどうか
+    let editingShakenCompleted = false; // 「予約を編集」モーダル内で保存前に一時的に保持する完了状態
 
     function shakenToLocalISO(d) {
       const y = d.getFullYear();
@@ -11176,13 +11184,14 @@ window.addEventListener('pagehide', function() {
           const endCol = Math.round((new Date(segEnd) - new Date(weekStart)) / 86400000) + 2;
           const isTrueStart = segStart === r.checkinDate;
           const isTrueEnd = segEnd === r.inspectionDate;
-          const colorCls = r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner';
+          // 完了済みの予約は代車の色ではなく灰色にし、チェックマークを付けて完了とわかるようにする（予定タブと同じ扱い）
+          const colorCls = r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner');
           const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
-          const fullLabel = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
+          const fullLabel = `${r.completed ? '✓ ' : ''}${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
           // 入庫のセル部分には「◯時入庫」、通検のセル部分には「顧客名・車種・車番」を表示し、
           // バーのどの位置が何を表しているか一目でわかるようにする
-          const checkinLabel = isTrueStart ? `${r.checkinTime || ''}入庫` : '';
-          const inspectionLabel = isTrueEnd ? [shakenCustomerLabel(r.customer), r.carModel, r.plateNumber].filter(Boolean).join('　') : '';
+          const checkinLabel = isTrueStart ? `${r.completed ? '✓ ' : ''}${r.checkinTime || ''}入庫` : '';
+          const inspectionLabel = isTrueEnd ? `${r.completed ? '✓ ' : ''}${[shakenCustomerLabel(r.customer), r.carModel, r.plateNumber].filter(Boolean).join('　')}` : '';
           let innerHtml = '';
           if (checkinLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(checkinLabel)}</span>`;
           if (inspectionLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;padding-left:4px;">${escapeHtml(inspectionLabel)}</span>`;
@@ -11234,7 +11243,9 @@ window.addEventListener('pagehide', function() {
 
       // 項目カード同士の隙間を無くし、1枚のシートのように見せる。
       // 各項目はborder-bottomだけを持ち、月ごとのグループ全体を1つの外枠で囲む。
-      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">全予約　${list.length}件</div>`;
+      const completedCount = list.filter(r => r.completed).length;
+      const notCompletedCount = list.length - completedCount;
+      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">全${list.length}件（完了${completedCount}件・未完了${notCompletedCount}件）</div>`;
       monthKeys.forEach(key => {
         const [y, m] = key.split('-');
         const items = groups[key];
@@ -11244,12 +11255,17 @@ window.addEventListener('pagehide', function() {
           const loanerBadge = r.loanerCar
             ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
             : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
-          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
+          // 完了マークをリスト右端に表示。未完了時も幅を確保し、右端の位置がずれないようにする
+          const completeMark = r.completed
+            ? '<span style="flex-shrink:0;width:20px;text-align:center;font-size:15px;font-weight:700;color:#22c55e;" title="完了">✓</span>'
+            : '<span style="flex-shrink:0;width:20px;"></span>';
+          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;${r.completed ? 'opacity:.6;' : ''}">
             <div style="flex:1;min-width:0;overflow:hidden;">
               <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
               <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
             </div>
             ${loanerBadge}
+            ${completeMark}
           </div>`;
         }).join('');
         html += `</div>`;
@@ -11381,12 +11397,35 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenEditCheckinTime').value = r.checkinTime || '';
       document.getElementById('shakenEditNote').value = r.note || '';
       document.getElementById('shakenEditLoaner').value = r.loanerCar ? '1' : '0';
+      editingShakenCompleted = !!r.completed;
+      renderShakenEditCompleteButton();
       openOverlay(document.getElementById('shakenEditModal'));
     }
 
     function closeShakenEditModal() {
       closeOverlay(document.getElementById('shakenEditModal'));
       editingShakenId = null;
+    }
+
+    // 「完了」ボタンの見た目を、現在の（保存前の）完了状態に合わせて切り替える（予定タブと同じ動作）
+    function renderShakenEditCompleteButton() {
+      const btn = document.getElementById('shakenEditCompleteBtn');
+      const label = document.getElementById('shakenEditCompleteLabel');
+      if (!btn) return;
+      if (editingShakenCompleted) {
+        btn.style.background = '#9ca3af';
+        btn.style.color = '#fff';
+        label.textContent = '完了済み';
+      } else {
+        btn.style.background = '#22c55e';
+        btn.style.color = '#fff';
+        label.textContent = '完了';
+      }
+    }
+
+    function toggleShakenEditComplete() {
+      editingShakenCompleted = !editingShakenCompleted;
+      renderShakenEditCompleteButton();
     }
 
     document.getElementById('shakenEditCancel').addEventListener('click', closeShakenEditModal);
@@ -11424,6 +11463,7 @@ window.addEventListener('pagehide', function() {
       r.checkinTime = checkinTime;
       r.loanerCar = loanerCar;
       r.note = note;
+      r.completed = editingShakenCompleted;
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeShakenEditModal();
@@ -11689,9 +11729,9 @@ window.addEventListener('pagehide', function() {
         const roomList = document.getElementById('roomList');
         const taskOnly = document.getElementById('sidebarTaskOnly');
         const contactWriteBtn = document.getElementById('btnContactWrite');
-        if (contactWriteBtn) contactWriteBtn.style.display = (currentTab === 'tasks') ? 'none' : '';
+        if (contactWriteBtn) contactWriteBtn.style.display = (currentTab === 'tasks' || currentTab === 'shaken') ? 'none' : '';
         const sidebarToolbar = document.querySelector('.sidebar-toolbar');
-        if (sidebarToolbar) sidebarToolbar.style.display = (currentTab === 'tasks') ? 'none' : '';
+        if (sidebarToolbar) sidebarToolbar.style.display = (currentTab === 'tasks' || currentTab === 'shaken') ? 'none' : '';
         if (currentTab === 'tasks') {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
