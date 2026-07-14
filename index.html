@@ -1410,6 +1410,58 @@
     }
     .task-cal-allday-bar:hover { opacity: .85; }
 
+    /* ===== 車検予約カレンダー ===== */
+    /* 週ごとに「日付の行」と「予約バーの行」を分け、バーは日付セルの罫線・背景の
+       影響を受けない別レイヤーとして描画する。複数日にまたがる予約はgrid-columnで
+       まとめて1つの要素として描くため、日をまたいでもズレたり途切れたりしない。 */
+    .shaken-week {
+      margin-bottom: 4px;
+    }
+    .shaken-week-dates {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 2px;
+    }
+    .shaken-date-cell {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      text-align: right;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      min-height: 20px;
+    }
+    .shaken-date-cell.other-month { background: #f9fafb; opacity: .6; }
+    .shaken-date-cell.today { border-color: var(--cw-green); background: #fff2cc; }
+    .shaken-date-cell.sun { color: var(--danger); }
+    .shaken-date-cell.sat { color: #4a7fb5; }
+    .shaken-date-cell.holiday { color: var(--danger); }
+
+    .shaken-week-bars {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .shaken-bar {
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      padding: 1px 6px;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      transition: opacity .1s;
+    }
+    .shaken-bar:hover { opacity: .85; }
+    .shaken-bar-loaner { background: #fbbf24; color: #78350f; }
+    .shaken-bar-noloaner { background: var(--cw-green); color: #fff; }
+
+    .shaken-list-item:hover { background: #f5f8fc; }
+
     .detail {
       width: var(--detail-w);
       background: var(--surface);
@@ -4363,6 +4415,7 @@
         <button type="button" class="tab" data-tab="shift" draggable="true">シフト</button>
         <button type="button" class="tab" data-tab="sales" draggable="true">販売実績表</button>
         <button type="button" class="tab" data-tab="daily" draggable="true">日常業務</button>
+        <button type="button" class="tab" data-tab="shaken" draggable="true">車検予約</button>
       </nav>
       <div style="display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;color:var(--muted);flex-shrink:0;">
         <span id="currentBranchLabel" style="font-size:15px;font-weight:700;color:#1e293b;"></span>
@@ -6193,6 +6246,46 @@ window.addEventListener('pagehide', function() {
         </div>
       </div>
     </div>
+
+    <!-- ===== 車検予約タブ ===== -->
+    <div class="tab-panel" id="panelShaken">
+      <div class="shaken-tab-wrap" style="padding:16px;height:100%;display:flex;flex-direction:column;min-height:0;">
+        <div class="shaken-toolbar" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+          <div style="font-weight:bold;font-size:16px;margin-right:6px;white-space:nowrap;">車検予約</div>
+          <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
+          <div id="shakenMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
+          <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
+          <div class="task-view-toggle" style="margin:0 0 0 6px;">
+            <button type="button" id="shakenViewCalBtn" class="active">カレンダー</button>
+            <button type="button" id="shakenViewListBtn">リスト</button>
+          </div>
+          <button type="button" id="btnAddShaken"
+            style="margin-left:auto;flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
+            ＋ 予約を追加する
+          </button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;font-size:11px;color:var(--muted);">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#fbbf24;display:inline-block;"></span>代車あり</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:var(--cw-green);display:inline-block;"></span>代車なし</span>
+        </div>
+
+        <div id="shakenCalView" style="flex:1;min-height:0;overflow-y:auto;">
+          <div class="task-cal-daynames">
+            <div class="task-cal-dayname sun">日</div>
+            <div class="task-cal-dayname">月</div>
+            <div class="task-cal-dayname">火</div>
+            <div class="task-cal-dayname">水</div>
+            <div class="task-cal-dayname">木</div>
+            <div class="task-cal-dayname">金</div>
+            <div class="task-cal-dayname sat">土</div>
+          </div>
+          <div id="shakenCalWeeks"></div>
+        </div>
+
+        <div id="shakenListView" style="display:none;flex:1;min-height:0;overflow-y:auto;"></div>
+      </div>
+    </div>
   </div>
   </div><!-- end app-row -->
 
@@ -6626,6 +6719,131 @@ window.addEventListener('pagehide', function() {
         <button type="button" id="schedEditDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
         <button type="button" id="schedEditCancel">キャンセル</button>
         <button type="button" id="schedEditSave" class="primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 車検予約 追加モーダル -->
+  <div class="modal-overlay" id="addShakenModal" role="dialog" aria-modal="true">
+    <div class="modal" style="width:min(460px,92vw);">
+      <h2 style="font-size:14px;margin-bottom:16px;">予約を追加する</h2>
+      <form id="shakenFormNew">
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">顧客名</label>
+            <input type="text" id="shakenNewCustomer" placeholder="顧客名を入力" maxlength="50" required
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車種</label>
+            <input type="text" id="shakenNewCarModel" placeholder="車種を入力" maxlength="50" required
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車番（任意）</label>
+            <input type="text" id="shakenNewPlate" placeholder="車番を入力" maxlength="30"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">通検日</label>
+            <input type="date" id="shakenNewInspectionDate" required
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+          </div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫日</label>
+              <input type="date" id="shakenNewCheckinDate" required
+                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫時間</label>
+              <input type="time" id="shakenNewCheckinTime" required
+                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
+            <div style="display:flex;gap:14px;">
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                <input type="radio" name="shakenNewLoaner" value="1"> あり
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+                <input type="radio" name="shakenNewLoaner" value="0" checked> なし
+              </label>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
+            <textarea id="shakenNewNote" placeholder="備考を入力" maxlength="500" rows="3"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;"></textarea>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="addShakenCancel">キャンセル</button>
+          <button type="submit" class="primary">追加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 車検予約 編集モーダル -->
+  <div class="modal-overlay" id="shakenEditModal" role="dialog" aria-modal="true">
+    <div class="modal" style="width:min(460px,92vw);">
+      <h2 style="font-size:14px;margin-bottom:16px;">予約を編集</h2>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">顧客名</label>
+          <input type="text" id="shakenEditCustomer" maxlength="50"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車種</label>
+          <input type="text" id="shakenEditCarModel" maxlength="50"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車番（任意）</label>
+          <input type="text" id="shakenEditPlate" maxlength="30"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">通検日</label>
+          <input type="date" id="shakenEditInspectionDate"
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫日</label>
+            <input type="date" id="shakenEditCheckinDate"
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫時間</label>
+            <input type="time" id="shakenEditCheckinTime"
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
+          <div style="display:flex;gap:14px;">
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+              <input type="radio" name="shakenEditLoaner" value="1"> あり
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
+              <input type="radio" name="shakenEditLoaner" value="0"> なし
+            </label>
+          </div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
+          <textarea id="shakenEditNote" maxlength="500" rows="3" placeholder="備考"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="shakenEditDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
+        <button type="button" id="shakenEditCancel">キャンセル</button>
+        <button type="button" id="shakenEditSave" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -7275,6 +7493,7 @@ window.addEventListener('pagehide', function() {
       'members', 'tasks', 'schedules', 'sidebarTasks', 'lastRead',
       'bookmarkCategories', 'bookmarks', 'schedulePresets',
       'timeUnit', 'scheduleTimeStart', 'scheduleTimeEnd',
+      'shakenReservations',
     ];
 
     function defaultBranchBucket() {
@@ -7296,6 +7515,7 @@ window.addEventListener('pagehide', function() {
         timeUnit: 30,
         scheduleTimeStart: '09:00',
         scheduleTimeEnd: '18:00',
+        shakenReservations: [],
       };
     }
 
@@ -8935,6 +9155,7 @@ window.addEventListener('pagehide', function() {
       { key: 'shift', label: 'シフト' },
       { key: 'sales', label: '販売実績表' },
       { key: 'daily', label: '日常業務' },
+      { key: 'shaken', label: '車検予約' },
     ];
 
     function renderAdminRetentionList() {
@@ -10814,6 +11035,344 @@ window.addEventListener('pagehide', function() {
       if (e.key === 'Enter') e.preventDefault();
     });
 
+    // ══════════════════════════════════════════════════════════
+    // 車検予約タブ（基本構造は予定タブと同じ。1カラム・カレンダーがメイン、
+    // 入庫日〜通検日にまたがる予約はグリッドの日付セルとは別レイヤーで
+    // 1本のバーとして描画し、日付セルの罫線の影響を受けないようにする）
+    // ══════════════════════════════════════════════════════════
+    let shakenCalYear = new Date().getFullYear();
+    let shakenCalMonth = new Date().getMonth();
+    let shakenViewMode = 'calendar'; // 'calendar' | 'list'
+    let editingShakenId = null;
+    let shakenCheckinDateTouched = false; // 追加フォームで入庫日を手動編集したかどうか
+
+    function shakenToLocalISO(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function shakenAddDaysISO(iso, days) {
+      const [y, m, d] = iso.split('-').map(Number);
+      const dt = new Date(y, m - 1, d + days);
+      return shakenToLocalISO(dt);
+    }
+
+    function buildShakenCalendarWeeks(year, month) {
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDow = firstDay.getDay();
+      const cells = [];
+      for (let i = 0; i < startDow; i++) {
+        cells.push({ date: new Date(year, month, 1 - (startDow - i)), current: false });
+      }
+      for (let d = 1; d <= lastDay.getDate(); d++) {
+        cells.push({ date: new Date(year, month, d), current: true });
+      }
+      while (cells.length % 7 !== 0) {
+        const last = cells[cells.length - 1].date;
+        const nd = new Date(last); nd.setDate(nd.getDate() + 1);
+        cells.push({ date: nd, current: false });
+      }
+      const weeks = [];
+      for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+      return weeks;
+    }
+
+    function renderShakenCalendar() {
+      const weeksEl = document.getElementById('shakenCalWeeks');
+      const title = document.getElementById('shakenMonthLabel');
+      if (!weeksEl) return;
+      if (!state.shakenReservations) state.shakenReservations = [];
+      title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
+
+      const today = shakenToLocalISO(new Date());
+      const weeks = buildShakenCalendarWeeks(shakenCalYear, shakenCalMonth);
+
+      weeksEl.innerHTML = weeks.map(week => {
+        const weekStart = shakenToLocalISO(week[0].date);
+        const weekEnd = shakenToLocalISO(week[6].date);
+
+        const dateCellsHtml = week.map(({ date, current }) => {
+          const iso = shakenToLocalISO(date);
+          const isToday = iso === today;
+          const dow = date.getDay();
+          const isHoliday = typeof isJapanHoliday === 'function' && isJapanHoliday(date);
+          const cls = ['shaken-date-cell', !current ? 'other-month' : '', isToday ? 'today' : '', dow === 0 ? 'sun' : '', dow === 6 ? 'sat' : '', isHoliday ? 'holiday' : ''].filter(Boolean).join(' ');
+          return `<div class="${cls}">${date.getDate()}</div>`;
+        }).join('');
+
+        const overlapping = (state.shakenReservations || [])
+          .filter(r => r.checkinDate && r.inspectionDate && r.checkinDate <= weekEnd && r.inspectionDate >= weekStart)
+          .sort((a, b) => a.checkinDate.localeCompare(b.checkinDate));
+
+        // 同じ週で期間が重なる予約は別の行に割り当てる（貪欲法）
+        const rowEndDates = [];
+        const placements = overlapping.map(r => {
+          let rowIndex = rowEndDates.findIndex(endDate => endDate < r.checkinDate);
+          if (rowIndex === -1) { rowIndex = rowEndDates.length; rowEndDates.push(r.inspectionDate); }
+          else { rowEndDates[rowIndex] = r.inspectionDate; }
+          return { r, rowIndex };
+        });
+
+        const barsHtml = placements.map(({ r, rowIndex }) => {
+          const segStart = r.checkinDate < weekStart ? weekStart : r.checkinDate;
+          const segEnd = r.inspectionDate > weekEnd ? weekEnd : r.inspectionDate;
+          const startCol = Math.round((new Date(segStart) - new Date(weekStart)) / 86400000) + 1;
+          const endCol = Math.round((new Date(segEnd) - new Date(weekStart)) / 86400000) + 2;
+          const isTrueStart = segStart === r.checkinDate;
+          const isTrueEnd = segEnd === r.inspectionDate;
+          const colorCls = r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner';
+          const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
+          const label = `${r.customer}${r.carModel ? '　' + r.carModel : ''}`;
+          return `<div class="shaken-bar ${colorCls}" data-sid="${r.id}"
+            style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};border-radius:${radius};"
+            title="${escapeHtml(label)}">${isTrueStart ? escapeHtml(label) : ''}</div>`;
+        }).join('');
+
+        const maxRows = rowEndDates.length;
+        const barsStyle = maxRows
+          ? `display:grid;grid-auto-rows:18px;gap:2px;margin-top:2px;`
+          : 'display:none;';
+
+        return `<div class="shaken-week">
+          <div class="shaken-week-dates">${dateCellsHtml}</div>
+          <div class="shaken-week-bars" style="${barsStyle}">${barsHtml}</div>
+        </div>`;
+      }).join('');
+
+      weeksEl.querySelectorAll('.shaken-bar[data-sid]').forEach(bar => {
+        bar.addEventListener('click', e => {
+          e.stopPropagation();
+          openShakenEditModal(bar.dataset.sid);
+        });
+      });
+    }
+
+    function renderShakenList() {
+      const wrap = document.getElementById('shakenListView');
+      if (!wrap) return;
+      if (!state.shakenReservations) state.shakenReservations = [];
+      const list = state.shakenReservations.slice().sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
+
+      if (!list.length) {
+        wrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 0;font-size:13px;">予約はありません</div>';
+        return;
+      }
+
+      const groups = {};
+      list.forEach(r => {
+        const key = (r.inspectionDate || '').slice(0, 7);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
+      });
+      const monthKeys = Object.keys(groups).sort();
+
+      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">全予約　${list.length}件</div>`;
+      monthKeys.forEach(key => {
+        const [y, m] = key.split('-');
+        const items = groups[key];
+        html += `<div style="font-size:13px;font-weight:700;color:var(--cw-green-dark);margin:14px 0 6px;">${y}年${Number(m)}月（${items.length}件）</div>`;
+        html += items.map(r => {
+          const loanerBadge = r.loanerCar
+            ? '<span style="background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
+            : '<span style="background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
+          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:4px;margin-bottom:6px;cursor:pointer;background:var(--surface);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:700;">${escapeHtml(r.customer || '')}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
+            </div>
+            ${loanerBadge}
+          </div>`;
+        }).join('');
+      });
+      wrap.innerHTML = html;
+
+      wrap.querySelectorAll('.shaken-list-item[data-sid]').forEach(item => {
+        item.addEventListener('click', () => openShakenEditModal(item.dataset.sid));
+      });
+    }
+
+    function renderShakenView() {
+      if (!state.shakenReservations) state.shakenReservations = [];
+      const calNavEls = [document.getElementById('shakenCalPrev'), document.getElementById('shakenMonthLabel'), document.getElementById('shakenCalNext')];
+      if (shakenViewMode === 'calendar') {
+        document.getElementById('shakenCalView').style.display = '';
+        document.getElementById('shakenListView').style.display = 'none';
+        calNavEls.forEach(el => { if (el) el.style.display = ''; });
+        renderShakenCalendar();
+      } else {
+        document.getElementById('shakenCalView').style.display = 'none';
+        document.getElementById('shakenListView').style.display = '';
+        calNavEls.forEach(el => { if (el) el.style.display = 'none'; });
+        renderShakenList();
+      }
+    }
+
+    document.getElementById('shakenViewCalBtn').addEventListener('click', () => {
+      shakenViewMode = 'calendar';
+      document.getElementById('shakenViewCalBtn').classList.add('active');
+      document.getElementById('shakenViewListBtn').classList.remove('active');
+      renderShakenView();
+    });
+    document.getElementById('shakenViewListBtn').addEventListener('click', () => {
+      shakenViewMode = 'list';
+      document.getElementById('shakenViewListBtn').classList.add('active');
+      document.getElementById('shakenViewCalBtn').classList.remove('active');
+      renderShakenView();
+    });
+    document.getElementById('shakenCalPrev').addEventListener('click', () => {
+      shakenCalMonth--;
+      if (shakenCalMonth < 0) { shakenCalMonth = 11; shakenCalYear--; }
+      renderShakenView();
+    });
+    document.getElementById('shakenCalNext').addEventListener('click', () => {
+      shakenCalMonth++;
+      if (shakenCalMonth > 11) { shakenCalMonth = 0; shakenCalYear++; }
+      renderShakenView();
+    });
+
+    // ── 追加モーダル ──
+    document.getElementById('btnAddShaken').addEventListener('click', () => {
+      document.getElementById('shakenNewCustomer').value = '';
+      document.getElementById('shakenNewCarModel').value = '';
+      document.getElementById('shakenNewPlate').value = '';
+      document.getElementById('shakenNewInspectionDate').value = '';
+      document.getElementById('shakenNewCheckinDate').value = '';
+      document.getElementById('shakenNewCheckinTime').value = '';
+      document.getElementById('shakenNewNote').value = '';
+      const loanerNo = document.querySelector('input[name="shakenNewLoaner"][value="0"]');
+      if (loanerNo) loanerNo.checked = true;
+      shakenCheckinDateTouched = false;
+      openOverlay(document.getElementById('addShakenModal'));
+      setTimeout(() => document.getElementById('shakenNewCustomer').focus(), 50);
+    });
+
+    document.getElementById('addShakenCancel').addEventListener('click', () => {
+      closeOverlay(document.getElementById('addShakenModal'));
+    });
+    document.getElementById('addShakenModal').addEventListener('click', e => {
+      if (e.target.id === 'addShakenModal') closeOverlay(document.getElementById('addShakenModal'));
+    });
+
+    // 通検日を入力したら、入庫日を「まだ手動編集していない場合に限り」前日で自動入力する
+    document.getElementById('shakenNewInspectionDate').addEventListener('input', () => {
+      const inspVal = document.getElementById('shakenNewInspectionDate').value;
+      if (inspVal && !shakenCheckinDateTouched) {
+        document.getElementById('shakenNewCheckinDate').value = shakenAddDaysISO(inspVal, -1);
+      }
+    });
+    document.getElementById('shakenNewCheckinDate').addEventListener('input', () => {
+      shakenCheckinDateTouched = true;
+    });
+
+    document.getElementById('shakenFormNew').addEventListener('submit', e => {
+      e.preventDefault();
+      const customer = document.getElementById('shakenNewCustomer').value.trim();
+      const carModel = document.getElementById('shakenNewCarModel').value.trim();
+      const plateNumber = document.getElementById('shakenNewPlate').value.trim();
+      const inspectionDate = document.getElementById('shakenNewInspectionDate').value;
+      const checkinDate = document.getElementById('shakenNewCheckinDate').value;
+      const checkinTime = document.getElementById('shakenNewCheckinTime').value;
+      const note = document.getElementById('shakenNewNote').value.trim();
+      const loanerEl = document.querySelector('input[name="shakenNewLoaner"]:checked');
+      const loanerCar = !!(loanerEl && loanerEl.value === '1');
+
+      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime) {
+        alert('顧客名・車種・通検日・入庫日・入庫時間は必須です。');
+        return;
+      }
+      if (checkinDate > inspectionDate) {
+        alert('入庫日は通検日より前（または同日）にしてください。');
+        return;
+      }
+
+      if (!state.shakenReservations) state.shakenReservations = [];
+      state.shakenReservations.push({
+        id: uid(), customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
+        loanerCar, note, ts: Date.now(),
+      });
+      saveState();
+      if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
+      closeOverlay(document.getElementById('addShakenModal'));
+      renderShakenView();
+    });
+
+    // ── 編集モーダル ──
+    function openShakenEditModal(id) {
+      const r = (state.shakenReservations || []).find(x => x.id === id);
+      if (!r) return;
+      editingShakenId = id;
+      document.getElementById('shakenEditCustomer').value = r.customer || '';
+      document.getElementById('shakenEditCarModel').value = r.carModel || '';
+      document.getElementById('shakenEditPlate').value = r.plateNumber || '';
+      document.getElementById('shakenEditInspectionDate').value = r.inspectionDate || '';
+      document.getElementById('shakenEditCheckinDate').value = r.checkinDate || '';
+      document.getElementById('shakenEditCheckinTime').value = r.checkinTime || '';
+      document.getElementById('shakenEditNote').value = r.note || '';
+      const loanerRadio = document.querySelector(`input[name="shakenEditLoaner"][value="${r.loanerCar ? '1' : '0'}"]`);
+      if (loanerRadio) loanerRadio.checked = true;
+      openOverlay(document.getElementById('shakenEditModal'));
+    }
+
+    function closeShakenEditModal() {
+      closeOverlay(document.getElementById('shakenEditModal'));
+      editingShakenId = null;
+    }
+
+    document.getElementById('shakenEditCancel').addEventListener('click', closeShakenEditModal);
+    document.getElementById('shakenEditModal').addEventListener('click', e => {
+      if (e.target.id === 'shakenEditModal') closeShakenEditModal();
+    });
+
+    document.getElementById('shakenEditSave').addEventListener('click', () => {
+      const customer = document.getElementById('shakenEditCustomer').value.trim();
+      const carModel = document.getElementById('shakenEditCarModel').value.trim();
+      const plateNumber = document.getElementById('shakenEditPlate').value.trim();
+      const inspectionDate = document.getElementById('shakenEditInspectionDate').value;
+      const checkinDate = document.getElementById('shakenEditCheckinDate').value;
+      const checkinTime = document.getElementById('shakenEditCheckinTime').value;
+      const note = document.getElementById('shakenEditNote').value.trim();
+      const loanerEl = document.querySelector('input[name="shakenEditLoaner"]:checked');
+      const loanerCar = !!(loanerEl && loanerEl.value === '1');
+
+      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime) {
+        alert('顧客名・車種・通検日・入庫日・入庫時間は必須です。');
+        return;
+      }
+      if (checkinDate > inspectionDate) {
+        alert('入庫日は通検日より前（または同日）にしてください。');
+        return;
+      }
+
+      const r = (state.shakenReservations || []).find(x => x.id === editingShakenId);
+      if (!r) { closeShakenEditModal(); return; }
+      r.customer = customer;
+      r.carModel = carModel;
+      r.plateNumber = plateNumber;
+      r.inspectionDate = inspectionDate;
+      r.checkinDate = checkinDate;
+      r.checkinTime = checkinTime;
+      r.loanerCar = loanerCar;
+      r.note = note;
+      saveState();
+      if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
+      closeShakenEditModal();
+      renderShakenView();
+    });
+
+    document.getElementById('shakenEditDelete').addEventListener('click', () => {
+      openModal('予約を削除', 'この予約を削除しますか？', () => {
+        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([editingShakenId]);
+        state.shakenReservations = (state.shakenReservations || []).filter(x => x.id !== editingShakenId);
+        saveState();
+        if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet('スプレッドシートから削除しました');
+        closeShakenEditModal();
+        renderShakenView();
+      });
+    });
+
     // ── 編集モーダル ──
     let editTargetId = null;
 
@@ -10991,9 +11550,10 @@ window.addEventListener('pagehide', function() {
         document.getElementById('panelShift').classList.toggle('active', currentTab === 'shift');
         document.getElementById('panelSales').classList.toggle('active', currentTab === 'sales');
         document.getElementById('panelDaily').classList.toggle('active', currentTab === 'daily');
+        document.getElementById('panelShaken').classList.toggle('active', currentTab === 'shaken');
 
         // サイドバータイトルをタブ名に連動
-        const titles = { chat: '連絡ノート', tasks: '予定', kasime: '仮締め', shift: 'シフト', sales: '販売実績表', daily: '日常業務' };
+        const titles = { chat: '連絡ノート', tasks: '予定', kasime: '仮締め', shift: 'シフト', sales: '販売実績表', daily: '日常業務', shaken: '車検予約' };
         document.getElementById('sidebarTitle').textContent = titles[currentTab] || currentTab;
 
         // チャット専用エリア（検索・ブックマーク）の表示切替
@@ -11052,6 +11612,14 @@ window.addEventListener('pagehide', function() {
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = 'none';
           if (typeof renderDailyTable === 'function') renderDailyTable();
+        } else if (currentTab === 'shaken') {
+          chatOnly.style.display = 'none';
+          roomList.style.display = 'none';
+          taskOnly.style.display = 'none';
+          // 車検予約も独自レイアウト（1カラム）のためメインサイドバーを非表示
+          const mainSidebar = document.getElementById('sidebar');
+          if (mainSidebar) mainSidebar.style.display = 'none';
+          if (typeof renderShakenView === 'function') renderShakenView();
         } else {
           chatOnly.style.display = '';
           roomList.style.display = '';
@@ -11929,6 +12497,20 @@ window.addEventListener('pagehide', function() {
           if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
           if (typeof renderTaskCalendar === 'function') renderTaskCalendar();
           if (typeof render4ColTasks === 'function') render4ColTasks();
+        }
+      }
+
+      // 車検予約（通検日を基準に判定する。通検日が過ぎるまでは保管期間の対象にしない）
+      if (limits.shaken > 0) {
+        const cutoffISO = monthsAgoCutoffISO(limits.shaken);
+        const oldIds = (state.shakenReservations || []).filter(r => r.inspectionDate && r.inspectionDate < cutoffISO).map(r => r.id);
+        if (oldIds.length) {
+          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(oldIds);
+          const oldIdSet = new Set(oldIds);
+          state.shakenReservations = (state.shakenReservations || []).filter(r => !oldIdSet.has(r.id));
+          saveState();
+          if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
+          if (typeof renderShakenView === 'function') renderShakenView();
         }
       }
 
@@ -14197,6 +14779,7 @@ function getSyncKeys(branchName) {
     `shiftDeadline_${branchName}`,
     `schedules_${branchName}`,
     `sidebarTasks_${branchName}`,
+    `shakenReservations_${branchName}`,
   ];
 }
 
@@ -14226,6 +14809,8 @@ function getSyncKeysForTab(tabBtnId, branchName) {
       return [`schedules_${branchName}`];
     case 'sidebarTask':
       return [`sidebarTasks_${branchName}`];
+    case 'shaken':
+      return [`shakenReservations_${branchName}`];
     case 'state':
       return ['kawakyu-chatwork-v5'];
     default:
@@ -14526,6 +15111,24 @@ async function mergeRemoteSidebarTasksBeforeSave(branchName, spreadsheetId) {
   }
 }
 
+// 車検予約タブも同様に独立管理。
+async function mergeRemoteShakenBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof ensureBranchBucket !== 'function') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data[`shakenReservations_${branchName}`];
+    if (!raw) return;
+    const remoteReservations = JSON.parse(raw);
+    const bucket = ensureBranchBucket(branchName);
+    bucket.shakenReservations = mergeArrayById(bucket.shakenReservations, remoteReservations);
+    saveState();
+    localStorage.setItem(`shakenReservations_${branchName}`, JSON.stringify(bucket.shakenReservations));
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
 // アプリ → スプレッドシートへ保存
 // keysOverride省略時は全キーを対象にする（全営業所への一括同期など）。
 // タブ別保存では、そのタブに関係するキーだけに絞り込んで渡すことで、
@@ -14551,6 +15154,9 @@ async function syncToSheet(branchName, keysOverride) {
   }
   if (keys.includes(`sidebarTasks_${branchName}`)) {
     await mergeRemoteSidebarTasksBeforeSave(branchName, spreadsheetId);
+  }
+  if (keys.includes(`shakenReservations_${branchName}`)) {
+    await mergeRemoteShakenBeforeSave(branchName, spreadsheetId);
   }
   const data = {};
   keys.forEach(k => {
@@ -14605,9 +15211,11 @@ async function doSyncFromSheet(branchName) {
   // 画面に反映されない（stateはkawakyu-chatwork-v5からしか復元されないため）。
   const scheduleKey = `schedules_${branchName}`;
   const sidebarTaskKey = `sidebarTasks_${branchName}`;
+  const shakenKey = `shakenReservations_${branchName}`;
   const hasScheduleUpdate = result.data && result.data[scheduleKey] !== undefined && result.data[scheduleKey] !== null && result.data[scheduleKey] !== '';
   const hasSidebarTaskUpdate = result.data && result.data[sidebarTaskKey] !== undefined && result.data[sidebarTaskKey] !== null && result.data[sidebarTaskKey] !== '';
-  if (hasScheduleUpdate || hasSidebarTaskUpdate) {
+  const hasShakenUpdate = result.data && result.data[shakenKey] !== undefined && result.data[shakenKey] !== null && result.data[shakenKey] !== '';
+  if (hasScheduleUpdate || hasSidebarTaskUpdate || hasShakenUpdate) {
     try {
       const rawState = localStorage.getItem('kawakyu-chatwork-v5');
       if (rawState) {
@@ -14616,6 +15224,7 @@ async function doSyncFromSheet(branchName) {
         if (!parsed.branchData[branchName]) parsed.branchData[branchName] = {};
         if (hasScheduleUpdate) parsed.branchData[branchName].schedules = JSON.parse(result.data[scheduleKey]);
         if (hasSidebarTaskUpdate) parsed.branchData[branchName].sidebarTasks = JSON.parse(result.data[sidebarTaskKey]);
+        if (hasShakenUpdate) parsed.branchData[branchName].shakenReservations = JSON.parse(result.data[shakenKey]);
         localStorage.setItem('kawakyu-chatwork-v5', JSON.stringify(parsed));
       }
     } catch (e) {}
@@ -14708,6 +15317,12 @@ function sidebarTaskSaveToSheet(successMsg) {
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
   if (branchName) localStorage.setItem(`sidebarTasks_${branchName}`, JSON.stringify(state.sidebarTasks || []));
   return _tabSaveToSheet('sidebarTask', successMsg);
+}
+// 車検予約タブも同様に独立した保存キーを使う。
+function shakenSaveToSheet(successMsg) {
+  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
+  if (branchName) localStorage.setItem(`shakenReservations_${branchName}`, JSON.stringify(state.shakenReservations || []));
+  return _tabSaveToSheet('shaken', successMsg);
 }
 
 // 営業所一覧・管理者パスワードなど「全営業所で共有されるデータ」の変更用。
