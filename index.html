@@ -11284,19 +11284,20 @@ window.addEventListener('pagehide', function() {
     });
 
     // ── 追加モーダル ──
-    // prefillCheckinDate: 日別詳細モーダルから開いた場合、その日を入庫日として入れておく
-    function openAddShakenModal(prefillCheckinDate) {
+    // prefillInspectionDate: 日別詳細モーダルから開いた場合、クリックした日を通検日として入れ、
+    // 入庫日はその前日をデフォルト表示する（通常の自動補完と同じ扱いにする）
+    function openAddShakenModal(prefillInspectionDate) {
       document.getElementById('shakenNewCustomer').value = '';
       document.getElementById('shakenNewCarModel').value = '';
       document.getElementById('shakenNewPlate').value = '';
-      document.getElementById('shakenNewInspectionDate').value = '';
-      document.getElementById('shakenNewCheckinDate').value = prefillCheckinDate || '';
-      document.getElementById('shakenNewCheckinTime').value = '';
+      document.getElementById('shakenNewInspectionDate').value = prefillInspectionDate || '';
+      document.getElementById('shakenNewCheckinDate').value = prefillInspectionDate ? shakenAddDaysISO(prefillInspectionDate, -1) : '';
+      document.getElementById('shakenNewCheckinTime').value = '12:00';
       document.getElementById('shakenNewNote').value = '';
       // 選び忘れを防ぐため、代車の有無はデフォルトでどちらも選択されていない状態にする
       document.getElementById('shakenNewLoaner').value = '';
-      // 入庫日を指定して開いた場合は、通検日を入力しても自動上書きしない
-      shakenCheckinDateTouched = !!prefillCheckinDate;
+      // 通常の自動補完と同じ扱いにする（通検日を変更すれば入庫日も追従する）
+      shakenCheckinDateTouched = false;
       openOverlay(document.getElementById('addShakenModal'));
       setTimeout(() => document.getElementById('shakenNewCustomer').focus(), 50);
     }
@@ -11452,7 +11453,7 @@ window.addEventListener('pagehide', function() {
         list.innerHTML = '<div class="day-detail-empty">この日の予定はありません</div>';
       } else {
         list.innerHTML = events.map(({ type, r }) => {
-          const label = type === 'checkin' ? `${r.checkinTime || ''}入庫` : '通検';
+          const label = type === 'checkin' ? `入庫${r.checkinTime || ''}` : '通検';
           return `
           <div class="day-detail-item" data-sid="${r.id}">
             <div class="day-detail-time">${label}</div>
