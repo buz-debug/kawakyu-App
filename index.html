@@ -6822,9 +6822,9 @@ window.addEventListener('pagehide', function() {
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
         <h2 style="margin:0;font-size:14px;">予約を編集</h2>
         <div style="display:flex;align-items:center;gap:8px;">
-          <button type="button" id="shakenEditVoidBtn"
-            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--danger);color:#fff;">
-            車検キャンセル
+          <button type="button" id="shakenEditVoidBtn" onclick="toggleShakenEditVoid()"
+            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--danger);color:#fff;transition:background .15s,color .15s;">
+            <span id="shakenEditVoidLabel">車検キャンセル</span>
           </button>
           <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
             style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
@@ -11110,6 +11110,7 @@ window.addEventListener('pagehide', function() {
     let editingShakenId = null;
     let shakenCheckinDateTouched = false; // 追加フォームで入庫日を手動編集したかどうか
     let editingShakenCompleted = false; // 「予約を編集」モーダル内で保存前に一時的に保持する完了状態
+    let editingShakenCancelled = false; // 同様に、保存前に一時的に保持する車検キャンセル状態
 
     function shakenToLocalISO(d) {
       const y = d.getFullYear();
@@ -11420,6 +11421,8 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenEditLoaner').value = r.loanerCar ? '1' : '0';
       editingShakenCompleted = !!r.completed;
       renderShakenEditCompleteButton();
+      editingShakenCancelled = !!r.cancelled;
+      renderShakenEditVoidButton();
       openOverlay(document.getElementById('shakenEditModal'));
     }
 
@@ -11447,6 +11450,28 @@ window.addEventListener('pagehide', function() {
     function toggleShakenEditComplete() {
       editingShakenCompleted = !editingShakenCompleted;
       renderShakenEditCompleteButton();
+    }
+
+    // 「車検キャンセル」ボタンも「完了」ボタンと同様、押すたびにキャンセル⇔キャンセル解除を
+    // 繰り返すトグルとして扱い、実際の反映は保存時に行う
+    function renderShakenEditVoidButton() {
+      const btn = document.getElementById('shakenEditVoidBtn');
+      const label = document.getElementById('shakenEditVoidLabel');
+      if (!btn) return;
+      if (editingShakenCancelled) {
+        btn.style.background = '#9ca3af';
+        btn.style.color = '#fff';
+        label.textContent = 'キャンセル解除';
+      } else {
+        btn.style.background = 'var(--danger)';
+        btn.style.color = '#fff';
+        label.textContent = '車検キャンセル';
+      }
+    }
+
+    function toggleShakenEditVoid() {
+      editingShakenCancelled = !editingShakenCancelled;
+      renderShakenEditVoidButton();
     }
 
     document.getElementById('shakenEditCancel').addEventListener('click', closeShakenEditModal);
@@ -11485,6 +11510,7 @@ window.addEventListener('pagehide', function() {
       r.loanerCar = loanerCar;
       r.note = note;
       r.completed = editingShakenCompleted;
+      r.cancelled = editingShakenCancelled;
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeShakenEditModal();
@@ -11497,19 +11523,6 @@ window.addEventListener('pagehide', function() {
         state.shakenReservations = (state.shakenReservations || []).filter(x => x.id !== editingShakenId);
         saveState();
         if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet('スプレッドシートから削除しました');
-        closeShakenEditModal();
-        renderShakenView();
-      });
-    });
-
-    // 車検キャンセル：削除とは異なり記録は残したまま、カレンダー・リストの通常表示からは外す
-    document.getElementById('shakenEditVoidBtn').addEventListener('click', () => {
-      openModal('車検キャンセル', 'この予約をキャンセルしますか？キャンセルすると、カレンダーとリスト表示には表示されなくなります（「車検キャンセル一覧」から確認できます）。', () => {
-        const r = (state.shakenReservations || []).find(x => x.id === editingShakenId);
-        if (!r) { closeShakenEditModal(); return; }
-        r.cancelled = true;
-        saveState();
-        if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet('車検をキャンセルしました');
         closeShakenEditModal();
         renderShakenView();
       });
