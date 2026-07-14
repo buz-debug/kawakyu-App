@@ -1415,7 +1415,7 @@
        影響を受けない別レイヤーとして描画する。複数日にまたがる予約はgrid-columnで
        まとめて1つの要素として描くため、日をまたいでもズレたり途切れたりしない。 */
     .shaken-week {
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
     .shaken-week-dates {
       display: grid;
@@ -1426,21 +1426,25 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 4px;
-      padding: 2px 6px;
+      padding: 3px 8px;
       text-align: right;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--muted);
-      min-height: 20px;
+      min-height: 24px;
+      cursor: pointer;
     }
+    .shaken-date-cell:hover { background: var(--bg-chat); }
     .shaken-date-cell.other-month { background: #f9fafb; opacity: .6; }
     .shaken-date-cell.today { border-color: var(--cw-green); background: #fff2cc; }
     .shaken-date-cell.sun { color: var(--danger); }
     .shaken-date-cell.sat { color: #4a7fb5; }
     .shaken-date-cell.holiday { color: var(--danger); }
 
+    /* 日付の段とバーの段の間に、はっきりわかる余白を確保する */
     .shaken-week-bars {
       grid-template-columns: repeat(7, minmax(0, 1fr));
+      margin-top: 4px;
     }
 
     .shaken-bar {
@@ -6255,10 +6259,7 @@ window.addEventListener('pagehide', function() {
           <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
           <div id="shakenMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
-          <div class="task-view-toggle" style="margin:0 0 0 6px;">
-            <button type="button" id="shakenViewCalBtn" class="active">カレンダー</button>
-            <button type="button" id="shakenViewListBtn">リスト</button>
-          </div>
+          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn" style="margin-left:6px;">リスト表示</button>
           <button type="button" id="btnAddShaken"
             style="margin-left:auto;flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             ＋ 予約を追加する
@@ -6844,6 +6845,19 @@ window.addEventListener('pagehide', function() {
         <button type="button" id="shakenEditDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
         <button type="button" id="shakenEditCancel">キャンセル</button>
         <button type="button" id="shakenEditSave" class="primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 車検予約 日別詳細モーダル -->
+  <div class="modal-overlay" id="shakenDayDetailModal" role="dialog" aria-modal="true">
+    <div class="modal day-detail-modal">
+      <h2 id="shakenDayDetailTitle" style="font-size:15px;"></h2>
+      <div class="day-detail-list" id="shakenDayDetailList"></div>
+      <p class="settings-note" style="margin-top:4px;margin-bottom:12px;">項目をクリックすると内容を編集できます</p>
+      <div class="modal-actions">
+        <button type="button" id="shakenDayDetailAdd" style="margin-right:auto;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;">＋ 予約を追加する</button>
+        <button type="button" id="shakenDayDetailClose">閉じる</button>
       </div>
     </div>
   </div>
@@ -11059,6 +11073,11 @@ window.addEventListener('pagehide', function() {
       return shakenToLocalISO(dt);
     }
 
+    // 表示のたびに毎回「様」を付ける（入力データ自体には付けない）
+    function shakenCustomerLabel(name) {
+      return name ? `${name}様` : '';
+    }
+
     function buildShakenCalendarWeeks(year, month) {
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -11100,7 +11119,7 @@ window.addEventListener('pagehide', function() {
           const dow = date.getDay();
           const isHoliday = typeof isJapanHoliday === 'function' && isJapanHoliday(date);
           const cls = ['shaken-date-cell', !current ? 'other-month' : '', isToday ? 'today' : '', dow === 0 ? 'sun' : '', dow === 6 ? 'sat' : '', isHoliday ? 'holiday' : ''].filter(Boolean).join(' ');
-          return `<div class="${cls}">${date.getDate()}</div>`;
+          return `<div class="${cls}" data-date="${iso}"><span class="shaken-date-num">${date.getDate()}</span></div>`;
         }).join('');
 
         const overlapping = (state.shakenReservations || [])
@@ -11125,7 +11144,7 @@ window.addEventListener('pagehide', function() {
           const isTrueEnd = segEnd === r.inspectionDate;
           const colorCls = r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner';
           const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
-          const label = `${r.customer}${r.carModel ? '　' + r.carModel : ''}`;
+          const label = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
           return `<div class="shaken-bar ${colorCls}" data-sid="${r.id}"
             style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};border-radius:${radius};"
             title="${escapeHtml(label)}">${isTrueStart ? escapeHtml(label) : ''}</div>`;
@@ -11133,7 +11152,7 @@ window.addEventListener('pagehide', function() {
 
         const maxRows = rowEndDates.length;
         const barsStyle = maxRows
-          ? `display:grid;grid-auto-rows:18px;gap:2px;margin-top:2px;`
+          ? `display:grid;grid-auto-rows:18px;gap:2px;`
           : 'display:none;';
 
         return `<div class="shaken-week">
@@ -11147,6 +11166,10 @@ window.addEventListener('pagehide', function() {
           e.stopPropagation();
           openShakenEditModal(bar.dataset.sid);
         });
+      });
+
+      weeksEl.querySelectorAll('.shaken-date-cell[data-date]').forEach(cell => {
+        cell.addEventListener('click', () => openShakenDayDetailModal(cell.dataset.date));
       });
     }
 
@@ -11176,12 +11199,12 @@ window.addEventListener('pagehide', function() {
         html += `<div style="font-size:13px;font-weight:700;color:var(--cw-green-dark);margin:14px 0 6px;">${y}年${Number(m)}月（${items.length}件）</div>`;
         html += items.map(r => {
           const loanerBadge = r.loanerCar
-            ? '<span style="background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
-            : '<span style="background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
-          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:4px;margin-bottom:6px;cursor:pointer;background:var(--surface);">
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:700;">${escapeHtml(r.customer || '')}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
+            ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
+            : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
+          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:4px;margin-bottom:6px;cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
+            <div style="flex:1;min-width:0;overflow:hidden;">
+              <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
             </div>
             ${loanerBadge}
           </div>`;
@@ -11197,29 +11220,24 @@ window.addEventListener('pagehide', function() {
     function renderShakenView() {
       if (!state.shakenReservations) state.shakenReservations = [];
       const calNavEls = [document.getElementById('shakenCalPrev'), document.getElementById('shakenMonthLabel'), document.getElementById('shakenCalNext')];
+      const toggleBtn = document.getElementById('shakenViewToggleBtn');
       if (shakenViewMode === 'calendar') {
         document.getElementById('shakenCalView').style.display = '';
         document.getElementById('shakenListView').style.display = 'none';
         calNavEls.forEach(el => { if (el) el.style.display = ''; });
+        if (toggleBtn) toggleBtn.textContent = 'リスト表示';
         renderShakenCalendar();
       } else {
         document.getElementById('shakenCalView').style.display = 'none';
         document.getElementById('shakenListView').style.display = '';
         calNavEls.forEach(el => { if (el) el.style.display = 'none'; });
+        if (toggleBtn) toggleBtn.textContent = 'カレンダー表示';
         renderShakenList();
       }
     }
 
-    document.getElementById('shakenViewCalBtn').addEventListener('click', () => {
-      shakenViewMode = 'calendar';
-      document.getElementById('shakenViewCalBtn').classList.add('active');
-      document.getElementById('shakenViewListBtn').classList.remove('active');
-      renderShakenView();
-    });
-    document.getElementById('shakenViewListBtn').addEventListener('click', () => {
-      shakenViewMode = 'list';
-      document.getElementById('shakenViewListBtn').classList.add('active');
-      document.getElementById('shakenViewCalBtn').classList.remove('active');
+    document.getElementById('shakenViewToggleBtn').addEventListener('click', () => {
+      shakenViewMode = shakenViewMode === 'calendar' ? 'list' : 'calendar';
       renderShakenView();
     });
     document.getElementById('shakenCalPrev').addEventListener('click', () => {
@@ -11234,19 +11252,25 @@ window.addEventListener('pagehide', function() {
     });
 
     // ── 追加モーダル ──
-    document.getElementById('btnAddShaken').addEventListener('click', () => {
+    // prefillCheckinDate: 日別詳細モーダルから開いた場合、その日を入庫日として入れておく
+    function openAddShakenModal(prefillCheckinDate) {
       document.getElementById('shakenNewCustomer').value = '';
       document.getElementById('shakenNewCarModel').value = '';
       document.getElementById('shakenNewPlate').value = '';
       document.getElementById('shakenNewInspectionDate').value = '';
-      document.getElementById('shakenNewCheckinDate').value = '';
+      document.getElementById('shakenNewCheckinDate').value = prefillCheckinDate || '';
       document.getElementById('shakenNewCheckinTime').value = '';
       document.getElementById('shakenNewNote').value = '';
       const loanerNo = document.querySelector('input[name="shakenNewLoaner"][value="0"]');
       if (loanerNo) loanerNo.checked = true;
-      shakenCheckinDateTouched = false;
+      // 入庫日を指定して開いた場合は、通検日を入力しても自動上書きしない
+      shakenCheckinDateTouched = !!prefillCheckinDate;
       openOverlay(document.getElementById('addShakenModal'));
       setTimeout(() => document.getElementById('shakenNewCustomer').focus(), 50);
+    }
+
+    document.getElementById('btnAddShaken').addEventListener('click', () => {
+      openAddShakenModal();
     });
 
     document.getElementById('addShakenCancel').addEventListener('click', () => {
@@ -11371,6 +11395,54 @@ window.addEventListener('pagehide', function() {
         closeShakenEditModal();
         renderShakenView();
       });
+    });
+
+    // ── 日別詳細モーダル（予定タブの日別詳細と同様、日付クリックでその日の予約一覧を表示） ──
+    function openShakenDayDetailModal(iso) {
+      document.getElementById('shakenDayDetailModal').dataset.iso = iso;
+      const [y, m, d] = iso.split('-').map(Number);
+      const dow = ['日', '月', '火', '水', '木', '金', '土'][new Date(y, m - 1, d).getDay()];
+      document.getElementById('shakenDayDetailTitle').textContent = `${y}年${m}月${d}日（${dow}）`;
+
+      const items = (state.shakenReservations || [])
+        .filter(r => r.checkinDate && r.inspectionDate && r.checkinDate <= iso && r.inspectionDate >= iso)
+        .sort((a, b) => (a.checkinTime || '').localeCompare(b.checkinTime || ''));
+
+      const list = document.getElementById('shakenDayDetailList');
+      if (!items.length) {
+        list.innerHTML = '<div class="day-detail-empty">この日の予約はありません</div>';
+      } else {
+        list.innerHTML = items.map(r => `
+          <div class="day-detail-item" data-sid="${r.id}">
+            <div class="day-detail-time">${r.checkinTime || '-'}</div>
+            <div>
+              <div class="day-detail-text">${escapeHtml(shakenCustomerLabel(r.customer))}　${escapeHtml(r.carModel || '')}${r.plateNumber ? `　<span style="color:var(--muted);">${escapeHtml(r.plateNumber)}</span>` : ''}
+                ${r.loanerCar ? '<span style="margin-left:6px;background:#fbbf24;color:#78350f;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:700;">代車あり</span>' : ''}
+              </div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">入庫：${r.checkinDate}　→　通検：${r.inspectionDate}</div>
+              ${r.note ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;">${escapeHtml(r.note)}</div>` : ''}
+            </div>
+          </div>`).join('');
+        list.querySelectorAll('.day-detail-item').forEach(item => {
+          item.addEventListener('click', () => {
+            closeOverlay(document.getElementById('shakenDayDetailModal'));
+            openShakenEditModal(item.dataset.sid);
+          });
+        });
+      }
+      openOverlay(document.getElementById('shakenDayDetailModal'));
+    }
+
+    document.getElementById('shakenDayDetailClose').addEventListener('click', () => {
+      closeOverlay(document.getElementById('shakenDayDetailModal'));
+    });
+    document.getElementById('shakenDayDetailModal').addEventListener('click', e => {
+      if (e.target.id === 'shakenDayDetailModal') closeOverlay(document.getElementById('shakenDayDetailModal'));
+    });
+    document.getElementById('shakenDayDetailAdd').addEventListener('click', () => {
+      const iso = document.getElementById('shakenDayDetailModal').dataset.iso || '';
+      closeOverlay(document.getElementById('shakenDayDetailModal'));
+      openAddShakenModal(iso);
     });
 
     // ── 編集モーダル ──
