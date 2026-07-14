@@ -6291,6 +6291,10 @@ window.addEventListener('pagehide', function() {
             style="margin-left:auto;flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             ＋ 予約を追加する
           </button>
+          <button type="button" id="btnShakenCancelledList"
+            style="flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--surface);color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
+            車検キャンセル一覧
+          </button>
         </div>
 
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;font-size:11px;color:var(--muted);">
@@ -6817,10 +6821,16 @@ window.addEventListener('pagehide', function() {
     <div class="modal" style="width:min(460px,92vw);">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
         <h2 style="margin:0;font-size:14px;">予約を編集</h2>
-        <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
-          style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
-          <span id="shakenEditCompleteLabel">完了</span>
-        </button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" id="shakenEditVoidBtn"
+            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--danger);color:#fff;">
+            車検キャンセル
+          </button>
+          <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
+            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
+            <span id="shakenEditCompleteLabel">完了</span>
+          </button>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
         <div>
@@ -6887,6 +6897,17 @@ window.addEventListener('pagehide', function() {
       <div class="modal-actions">
         <button type="button" id="shakenDayDetailAdd" style="margin-right:auto;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;">＋ 予約を追加する</button>
         <button type="button" id="shakenDayDetailClose">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 車検キャンセル一覧モーダル -->
+  <div class="modal-overlay" id="shakenCancelledModal" role="dialog" aria-modal="true">
+    <div class="modal" style="width:min(480px,92vw);max-height:80vh;display:flex;flex-direction:column;">
+      <h2 style="font-size:14px;margin-bottom:12px;flex-shrink:0;">車検キャンセル一覧</h2>
+      <div id="shakenCancelledList" style="flex:1;overflow-y:auto;margin-bottom:12px;"></div>
+      <div class="modal-actions" style="flex-shrink:0;">
+        <button type="button" id="shakenCancelledClose">閉じる</button>
       </div>
     </div>
   </div>
@@ -11151,7 +11172,7 @@ window.addEventListener('pagehide', function() {
         const weekEnd = shakenToLocalISO(week[6].date);
 
         const overlapping = (state.shakenReservations || [])
-          .filter(r => r.checkinDate && r.inspectionDate && r.checkinDate <= weekEnd && r.inspectionDate >= weekStart)
+          .filter(r => !r.cancelled && r.checkinDate && r.inspectionDate && r.checkinDate <= weekEnd && r.inspectionDate >= weekStart)
           .sort((a, b) => a.checkinDate.localeCompare(b.checkinDate));
 
         // 同じ週で期間が重なる予約は別の行に割り当てる（貪欲法）
@@ -11226,7 +11247,7 @@ window.addEventListener('pagehide', function() {
       const wrap = document.getElementById('shakenListView');
       if (!wrap) return;
       if (!state.shakenReservations) state.shakenReservations = [];
-      const list = state.shakenReservations.slice().sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
+      const list = state.shakenReservations.filter(r => !r.cancelled).sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
 
       if (!list.length) {
         wrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 0;font-size:13px;">予約はありません</div>';
@@ -11481,6 +11502,60 @@ window.addEventListener('pagehide', function() {
       });
     });
 
+    // 車検キャンセル：削除とは異なり記録は残したまま、カレンダー・リストの通常表示からは外す
+    document.getElementById('shakenEditVoidBtn').addEventListener('click', () => {
+      openModal('車検キャンセル', 'この予約をキャンセルしますか？キャンセルすると、カレンダーとリスト表示には表示されなくなります（「車検キャンセル一覧」から確認できます）。', () => {
+        const r = (state.shakenReservations || []).find(x => x.id === editingShakenId);
+        if (!r) { closeShakenEditModal(); return; }
+        r.cancelled = true;
+        saveState();
+        if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet('車検をキャンセルしました');
+        closeShakenEditModal();
+        renderShakenView();
+      });
+    });
+
+    // ── 車検キャンセル一覧 ──
+    function renderShakenCancelledList() {
+      const wrap = document.getElementById('shakenCancelledList');
+      if (!wrap) return;
+      const items = (state.shakenReservations || []).filter(r => r.cancelled)
+        .sort((a, b) => (b.inspectionDate || '').localeCompare(a.inspectionDate || ''));
+      if (!items.length) {
+        wrap.innerHTML = '<div class="day-detail-empty">キャンセルされた予約はありません</div>';
+        return;
+      }
+      wrap.innerHTML = items.map(r => {
+        const loanerBadge = r.loanerCar
+          ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
+          : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
+        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);">
+          <div style="flex:1;min-width:0;overflow:hidden;">
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
+          </div>
+          ${loanerBadge}
+        </div>`;
+      }).join('');
+      wrap.querySelectorAll('.shaken-list-item[data-sid]').forEach(item => {
+        item.addEventListener('click', () => {
+          closeOverlay(document.getElementById('shakenCancelledModal'));
+          openShakenEditModal(item.dataset.sid);
+        });
+      });
+    }
+
+    document.getElementById('btnShakenCancelledList').addEventListener('click', () => {
+      renderShakenCancelledList();
+      openOverlay(document.getElementById('shakenCancelledModal'));
+    });
+    document.getElementById('shakenCancelledClose').addEventListener('click', () => {
+      closeOverlay(document.getElementById('shakenCancelledModal'));
+    });
+    document.getElementById('shakenCancelledModal').addEventListener('click', e => {
+      if (e.target.id === 'shakenCancelledModal') closeOverlay(document.getElementById('shakenCancelledModal'));
+    });
+
     // ── 日別詳細モーダル（予定タブの日別詳細と同様、日付クリックでその日の予約一覧を表示） ──
     function openShakenDayDetailModal(iso) {
       document.getElementById('shakenDayDetailModal').dataset.iso = iso;
@@ -11497,6 +11572,7 @@ window.addEventListener('pagehide', function() {
       // （同日に両方が該当する場合は、それぞれ別項目として表示する）。
       const events = [];
       (state.shakenReservations || []).forEach(r => {
+        if (r.cancelled) return;
         if (r.checkinDate === iso) events.push({ type: 'checkin', sortKey: r.checkinTime || '', r });
         if (r.inspectionDate === iso) events.push({ type: 'inspection', sortKey: '99:99', r });
       });
