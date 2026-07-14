@@ -11135,7 +11135,7 @@ window.addEventListener('pagehide', function() {
       // 日付の数字用に確保する高さと、バー1本分の高さ・行間。
       // 日付セルの最小高さは、その週で最も予定が重なっている段数に合わせて伸ばし、
       // オーバーレイ（バー層）もちょうど同じ範囲に重なるようにする。
-      const DATE_NUM_AREA = 22;
+      const DATE_NUM_AREA = 30;
       const BAR_ROW_H = 16;
       const BAR_GAP = 2;
 
@@ -11431,29 +11431,39 @@ window.addEventListener('pagehide', function() {
     // ── 日別詳細モーダル（予定タブの日別詳細と同様、日付クリックでその日の予約一覧を表示） ──
     function openShakenDayDetailModal(iso) {
       document.getElementById('shakenDayDetailModal').dataset.iso = iso;
-      const [y, m, d] = iso.split('-').map(Number);
-      const dow = ['日', '月', '火', '水', '木', '金', '土'][new Date(y, m - 1, d).getDay()];
-      document.getElementById('shakenDayDetailTitle').textContent = `${y}年${m}月${d}日（${dow}）`;
+      // 日付そのものは表示しない（クリックした日は分かっているため不要）
+      const titleEl = document.getElementById('shakenDayDetailTitle');
+      titleEl.textContent = '';
+      titleEl.style.display = 'none';
 
-      const items = (state.shakenReservations || [])
-        .filter(r => r.checkinDate && r.inspectionDate && r.checkinDate <= iso && r.inspectionDate >= iso)
-        .sort((a, b) => (a.checkinTime || '').localeCompare(b.checkinTime || ''));
+      // 「その日に何が起きるか」だけを見せる。入庫〜通検の期間全体を出すと
+      // 「今日は入庫なのか通検なのか」が分かりづらいため、その日が入庫日なら
+      // 「◯時入庫」、通検日なら「通検」という単発の予定として扱う
+      // （同日に両方が該当する場合は、それぞれ別項目として表示する）。
+      const events = [];
+      (state.shakenReservations || []).forEach(r => {
+        if (r.checkinDate === iso) events.push({ type: 'checkin', sortKey: r.checkinTime || '', r });
+        if (r.inspectionDate === iso) events.push({ type: 'inspection', sortKey: '99:99', r });
+      });
+      events.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
       const list = document.getElementById('shakenDayDetailList');
-      if (!items.length) {
-        list.innerHTML = '<div class="day-detail-empty">この日の予約はありません</div>';
+      if (!events.length) {
+        list.innerHTML = '<div class="day-detail-empty">この日の予定はありません</div>';
       } else {
-        list.innerHTML = items.map(r => `
+        list.innerHTML = events.map(({ type, r }) => {
+          const label = type === 'checkin' ? `${r.checkinTime || ''}入庫` : '通検';
+          return `
           <div class="day-detail-item" data-sid="${r.id}">
-            <div class="day-detail-time">${r.checkinTime || '-'}</div>
+            <div class="day-detail-time">${label}</div>
             <div>
               <div class="day-detail-text">${escapeHtml(shakenCustomerLabel(r.customer))}　${escapeHtml(r.carModel || '')}${r.plateNumber ? `　<span style="color:var(--muted);">${escapeHtml(r.plateNumber)}</span>` : ''}
                 ${r.loanerCar ? '<span style="margin-left:6px;background:#fbbf24;color:#78350f;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:700;">代車あり</span>' : ''}
               </div>
-              <div style="font-size:12px;color:var(--muted);margin-top:2px;">入庫：${r.checkinDate}　→　通検：${r.inspectionDate}</div>
               ${r.note ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;">${escapeHtml(r.note)}</div>` : ''}
             </div>
-          </div>`).join('');
+          </div>`;
+        }).join('');
         list.querySelectorAll('.day-detail-item').forEach(item => {
           item.addEventListener('click', () => {
             closeOverlay(document.getElementById('shakenDayDetailModal'));
