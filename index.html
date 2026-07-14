@@ -1480,12 +1480,11 @@
       padding: 1px 6px;
       display: flex;
       align-items: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
       cursor: pointer;
       transition: opacity .1s;
       box-sizing: border-box;
+      /* 隣接する別の予約バーとくっついて見えないよう、少しだけ短くする */
+      margin: 0 1.5px;
     }
     .shaken-bar:hover { opacity: .85; }
     .shaken-bar-loaner { background: #fbbf24; color: #78350f; }
@@ -11159,7 +11158,7 @@ window.addEventListener('pagehide', function() {
         const barsAreaHeight = maxRows ? maxRows * BAR_ROW_H + Math.max(0, maxRows - 1) * BAR_GAP : 0;
         // 予定タブのカレンダーセル（.task-cal-cell、min-height:72px）と同じ大きさを
         // デフォルトとし、予定が多く重なる週だけそれより高くする
-        const cellMinHeight = Math.max(72, DATE_NUM_AREA + barsAreaHeight + 8);
+        const cellMinHeight = Math.max(72, DATE_NUM_AREA + barsAreaHeight + 14);
 
         const dateCellsHtml = week.map(({ date, current }) => {
           const iso = shakenToLocalISO(date);
@@ -11179,10 +11178,17 @@ window.addEventListener('pagehide', function() {
           const isTrueEnd = segEnd === r.inspectionDate;
           const colorCls = r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner';
           const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
-          const label = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
+          const fullLabel = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
+          // 入庫のセル部分には「◯時入庫」、通検のセル部分には「顧客名・車種・車番」を表示し、
+          // バーのどの位置が何を表しているか一目でわかるようにする
+          const checkinLabel = isTrueStart ? `${r.checkinTime || ''}入庫` : '';
+          const inspectionLabel = isTrueEnd ? [shakenCustomerLabel(r.customer), r.carModel, r.plateNumber].filter(Boolean).join('　') : '';
+          let innerHtml = '';
+          if (checkinLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(checkinLabel)}</span>`;
+          if (inspectionLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;padding-left:4px;">${escapeHtml(inspectionLabel)}</span>`;
           return `<div class="shaken-bar ${colorCls}" data-sid="${r.id}"
             style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};border-radius:${radius};height:${BAR_ROW_H}px;"
-            title="${escapeHtml(label)}">${isTrueStart ? escapeHtml(label) : ''}</div>`;
+            title="${escapeHtml(fullLabel)}">${innerHtml}</div>`;
         }).join('');
 
         const overlayStyle = maxRows
@@ -11438,10 +11444,12 @@ window.addEventListener('pagehide', function() {
     // ── 日別詳細モーダル（予定タブの日別詳細と同様、日付クリックでその日の予約一覧を表示） ──
     function openShakenDayDetailModal(iso) {
       document.getElementById('shakenDayDetailModal').dataset.iso = iso;
-      // 日付そのものは表示しない（クリックした日は分かっているため不要）
+      // 予定タブの日別詳細と同様、日付をタイトルとして表示する
+      const [ty, tm, td] = iso.split('-').map(Number);
+      const tdow = ['日', '月', '火', '水', '木', '金', '土'][new Date(ty, tm - 1, td).getDay()];
       const titleEl = document.getElementById('shakenDayDetailTitle');
-      titleEl.textContent = '';
-      titleEl.style.display = 'none';
+      titleEl.textContent = `${ty}年${tm}月${td}日（${tdow}）`;
+      titleEl.style.display = '';
 
       // 「その日に何が起きるか」だけを見せる。入庫〜通検の期間全体を出すと
       // 「今日は入庫なのか通検なのか」が分かりづらいため、その日が入庫日なら
