@@ -1411,15 +1411,12 @@
     .task-cal-allday-bar:hover { opacity: .85; }
 
     /* ===== 車検予約カレンダー ===== */
-    /* 週ごとに1枚のカードにまとめ、日付とバーが同じ背景・枠の中に収まることで
-       一体感を出す（個々の日付セルの罫線は廃止し、数字のみ表示）。
-       複数日にまたがる予約はgrid-columnでまとめて1つの要素として描くため、
-       日をまたいでもズレたり途切れたりしない。 */
+    /* 日付は罫線付きのマス目に戻し、予定バーはその上に重ねる別レイヤー（絶対配置）
+       として描画する。バーは複数日をまとめて1つの要素として描くため、
+       セルの罫線・すきまの上に覆いかぶさり「セルの枠を突き破って隣のセルまで
+       伸びている」ように見える。 */
     .shaken-week {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px;
+      position: relative;
       margin-bottom: 6px;
     }
     .shaken-week-dates {
@@ -1428,10 +1425,13 @@
       gap: 2px;
     }
     .shaken-date-cell {
-      text-align: right;
-      padding: 2px 6px;
-      cursor: pointer;
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: 4px;
+      padding: 3px 6px;
+      text-align: right;
+      cursor: pointer;
+      box-sizing: border-box;
     }
     .shaken-date-cell:hover { background: var(--bg-chat); }
     .shaken-date-num {
@@ -1443,7 +1443,7 @@
       padding: 1px 0;
       border-radius: 10px;
     }
-    .shaken-date-cell.other-month .shaken-date-num { opacity: .5; }
+    .shaken-date-cell.other-month { background: #f9fafb; opacity: .6; }
     .shaken-date-cell.today .shaken-date-num { background: var(--cw-green); color: #fff; }
     .shaken-date-cell.sun .shaken-date-num { color: var(--danger); }
     .shaken-date-cell.sat .shaken-date-num { color: #4a7fb5; }
@@ -1452,13 +1452,22 @@
     .shaken-date-cell.today.sat .shaken-date-num,
     .shaken-date-cell.today.holiday .shaken-date-num { color: #fff; }
 
-    /* 日付の段とバーの段の間に、はっきりわかる余白を確保する（同じカード内） */
-    .shaken-week-bars {
+    /* バーのオーバーレイ層。日付グリッドと同じ列構成にすることで、バーの左右端が
+       セルの境界とぴったり揃い、複数日にまたがるバーがセルの枠線・すきまを
+       覆って1本につながって見える。overlay自体はクリックを透過させ、
+       バー本体だけクリックを受け付ける。 */
+    .shaken-week-bars-overlay {
+      position: absolute;
+      left: 0;
+      right: 0;
+      display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
-      margin-top: 4px;
+      gap: 2px;
+      pointer-events: none;
     }
 
     .shaken-bar {
+      pointer-events: auto;
       font-size: 10px;
       font-weight: 700;
       color: #fff;
@@ -1470,6 +1479,7 @@
       text-overflow: ellipsis;
       cursor: pointer;
       transition: opacity .1s;
+      box-sizing: border-box;
     }
     .shaken-bar:hover { opacity: .85; }
     .shaken-bar-loaner { background: #fbbf24; color: #78350f; }
@@ -11116,18 +11126,16 @@ window.addEventListener('pagehide', function() {
       const today = shakenToLocalISO(new Date());
       const weeks = buildShakenCalendarWeeks(shakenCalYear, shakenCalMonth);
 
+      // 日付の数字用に確保する高さと、バー1本分の高さ・行間。
+      // 日付セルの最小高さは、その週で最も予定が重なっている段数に合わせて伸ばし、
+      // オーバーレイ（バー層）もちょうど同じ範囲に重なるようにする。
+      const DATE_NUM_AREA = 22;
+      const BAR_ROW_H = 16;
+      const BAR_GAP = 2;
+
       weeksEl.innerHTML = weeks.map(week => {
         const weekStart = shakenToLocalISO(week[0].date);
         const weekEnd = shakenToLocalISO(week[6].date);
-
-        const dateCellsHtml = week.map(({ date, current }) => {
-          const iso = shakenToLocalISO(date);
-          const isToday = iso === today;
-          const dow = date.getDay();
-          const isHoliday = typeof isJapanHoliday === 'function' && isJapanHoliday(date);
-          const cls = ['shaken-date-cell', !current ? 'other-month' : '', isToday ? 'today' : '', dow === 0 ? 'sun' : '', dow === 6 ? 'sat' : '', isHoliday ? 'holiday' : ''].filter(Boolean).join(' ');
-          return `<div class="${cls}" data-date="${iso}"><span class="shaken-date-num">${date.getDate()}</span></div>`;
-        }).join('');
 
         const overlapping = (state.shakenReservations || [])
           .filter(r => r.checkinDate && r.inspectionDate && r.checkinDate <= weekEnd && r.inspectionDate >= weekStart)
@@ -11141,6 +11149,18 @@ window.addEventListener('pagehide', function() {
           else { rowEndDates[rowIndex] = r.inspectionDate; }
           return { r, rowIndex };
         });
+        const maxRows = rowEndDates.length;
+        const barsAreaHeight = maxRows ? maxRows * BAR_ROW_H + Math.max(0, maxRows - 1) * BAR_GAP : 0;
+        const cellMinHeight = DATE_NUM_AREA + barsAreaHeight + 8;
+
+        const dateCellsHtml = week.map(({ date, current }) => {
+          const iso = shakenToLocalISO(date);
+          const isToday = iso === today;
+          const dow = date.getDay();
+          const isHoliday = typeof isJapanHoliday === 'function' && isJapanHoliday(date);
+          const cls = ['shaken-date-cell', !current ? 'other-month' : '', isToday ? 'today' : '', dow === 0 ? 'sun' : '', dow === 6 ? 'sat' : '', isHoliday ? 'holiday' : ''].filter(Boolean).join(' ');
+          return `<div class="${cls}" data-date="${iso}" style="min-height:${cellMinHeight}px;"><span class="shaken-date-num">${date.getDate()}</span></div>`;
+        }).join('');
 
         const barsHtml = placements.map(({ r, rowIndex }) => {
           const segStart = r.checkinDate < weekStart ? weekStart : r.checkinDate;
@@ -11153,18 +11173,17 @@ window.addEventListener('pagehide', function() {
           const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
           const label = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
           return `<div class="shaken-bar ${colorCls}" data-sid="${r.id}"
-            style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};border-radius:${radius};"
+            style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};border-radius:${radius};height:${BAR_ROW_H}px;"
             title="${escapeHtml(label)}">${isTrueStart ? escapeHtml(label) : ''}</div>`;
         }).join('');
 
-        const maxRows = rowEndDates.length;
-        const barsStyle = maxRows
-          ? `display:grid;grid-auto-rows:18px;gap:2px;`
+        const overlayStyle = maxRows
+          ? `top:${DATE_NUM_AREA}px;grid-auto-rows:${BAR_ROW_H}px;`
           : 'display:none;';
 
         return `<div class="shaken-week">
           <div class="shaken-week-dates">${dateCellsHtml}</div>
-          <div class="shaken-week-bars" style="${barsStyle}">${barsHtml}</div>
+          <div class="shaken-week-bars-overlay" style="${overlayStyle}">${barsHtml}</div>
         </div>`;
       }).join('');
 
