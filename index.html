@@ -11281,7 +11281,7 @@ window.addEventListener('pagehide', function() {
           const completeMark = r.completed
             ? '<span style="flex-shrink:0;width:20px;text-align:center;font-size:15px;font-weight:700;color:#22c55e;" title="完了">✓</span>'
             : '<span style="flex-shrink:0;width:20px;"></span>';
-          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;${r.completed ? 'opacity:.6;' : ''}">
+          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
             <div style="flex:1;min-width:0;overflow:hidden;">
               <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
               <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
@@ -11533,7 +11533,7 @@ window.addEventListener('pagehide', function() {
       const wrap = document.getElementById('shakenCancelledList');
       if (!wrap) return;
       const items = (state.shakenReservations || []).filter(r => r.cancelled)
-        .sort((a, b) => (b.inspectionDate || '').localeCompare(a.inspectionDate || ''));
+        .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
       if (!items.length) {
         wrap.innerHTML = '<div class="day-detail-empty">キャンセルされた予約はありません</div>';
         return;
