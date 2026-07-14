@@ -6256,10 +6256,10 @@ window.addEventListener('pagehide', function() {
       <div class="shaken-tab-wrap" style="padding:16px;height:100%;display:flex;flex-direction:column;min-height:0;">
         <div class="shaken-toolbar" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
           <div style="font-weight:bold;font-size:16px;margin-right:6px;white-space:nowrap;">車検予約</div>
+          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
           <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
           <div id="shakenMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
-          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn" style="margin-left:6px;">リスト表示</button>
           <button type="button" id="btnAddShaken"
             style="margin-left:auto;flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             ＋ 予約を追加する
@@ -6764,14 +6764,12 @@ window.addEventListener('pagehide', function() {
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
-            <div style="display:flex;gap:14px;">
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                <input type="radio" name="shakenNewLoaner" value="1"> あり
-              </label>
-              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-                <input type="radio" name="shakenNewLoaner" value="0" checked> なし
-              </label>
-            </div>
+            <select id="shakenNewLoaner" required
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+              <option value="" selected disabled>選択してください</option>
+              <option value="1">あり</option>
+              <option value="0">なし</option>
+            </select>
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
@@ -6826,14 +6824,12 @@ window.addEventListener('pagehide', function() {
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
-          <div style="display:flex;gap:14px;">
-            <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-              <input type="radio" name="shakenEditLoaner" value="1"> あり
-            </label>
-            <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer;">
-              <input type="radio" name="shakenEditLoaner" value="0"> なし
-            </label>
-          </div>
+          <select id="shakenEditLoaner" required
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+            <option value="" selected disabled>選択してください</option>
+            <option value="1">あり</option>
+            <option value="0">なし</option>
+          </select>
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
@@ -11261,8 +11257,8 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenNewCheckinDate').value = prefillCheckinDate || '';
       document.getElementById('shakenNewCheckinTime').value = '';
       document.getElementById('shakenNewNote').value = '';
-      const loanerNo = document.querySelector('input[name="shakenNewLoaner"][value="0"]');
-      if (loanerNo) loanerNo.checked = true;
+      // 選び忘れを防ぐため、代車の有無はデフォルトでどちらも選択されていない状態にする
+      document.getElementById('shakenNewLoaner').value = '';
       // 入庫日を指定して開いた場合は、通検日を入力しても自動上書きしない
       shakenCheckinDateTouched = !!prefillCheckinDate;
       openOverlay(document.getElementById('addShakenModal'));
@@ -11300,13 +11296,13 @@ window.addEventListener('pagehide', function() {
       const checkinDate = document.getElementById('shakenNewCheckinDate').value;
       const checkinTime = document.getElementById('shakenNewCheckinTime').value;
       const note = document.getElementById('shakenNewNote').value.trim();
-      const loanerEl = document.querySelector('input[name="shakenNewLoaner"]:checked');
-      const loanerCar = !!(loanerEl && loanerEl.value === '1');
+      const loanerVal = document.getElementById('shakenNewLoaner').value;
 
-      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime) {
-        alert('顧客名・車種・通検日・入庫日・入庫時間は必須です。');
+      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || loanerVal === '') {
+        alert('顧客名・車種・通検日・入庫日・入庫時間・代車の有無は必須です。');
         return;
       }
+      const loanerCar = loanerVal === '1';
       if (checkinDate > inspectionDate) {
         alert('入庫日は通検日より前（または同日）にしてください。');
         return;
@@ -11335,8 +11331,7 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenEditCheckinDate').value = r.checkinDate || '';
       document.getElementById('shakenEditCheckinTime').value = r.checkinTime || '';
       document.getElementById('shakenEditNote').value = r.note || '';
-      const loanerRadio = document.querySelector(`input[name="shakenEditLoaner"][value="${r.loanerCar ? '1' : '0'}"]`);
-      if (loanerRadio) loanerRadio.checked = true;
+      document.getElementById('shakenEditLoaner').value = r.loanerCar ? '1' : '0';
       openOverlay(document.getElementById('shakenEditModal'));
     }
 
@@ -11358,13 +11353,13 @@ window.addEventListener('pagehide', function() {
       const checkinDate = document.getElementById('shakenEditCheckinDate').value;
       const checkinTime = document.getElementById('shakenEditCheckinTime').value;
       const note = document.getElementById('shakenEditNote').value.trim();
-      const loanerEl = document.querySelector('input[name="shakenEditLoaner"]:checked');
-      const loanerCar = !!(loanerEl && loanerEl.value === '1');
+      const loanerVal = document.getElementById('shakenEditLoaner').value;
 
-      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime) {
-        alert('顧客名・車種・通検日・入庫日・入庫時間は必須です。');
+      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || loanerVal === '') {
+        alert('顧客名・車種・通検日・入庫日・入庫時間・代車の有無は必須です。');
         return;
       }
+      const loanerCar = loanerVal === '1';
       if (checkinDate > inspectionDate) {
         alert('入庫日は通検日より前（または同日）にしてください。');
         return;
