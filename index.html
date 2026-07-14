@@ -1411,25 +1411,30 @@
     .task-cal-allday-bar:hover { opacity: .85; }
 
     /* ===== 車検予約カレンダー ===== */
-    /* 日付は罫線付きのマス目に戻し、予定バーはその上に重ねる別レイヤー（絶対配置）
-       として描画する。バーは複数日をまとめて1つの要素として描くため、
-       セルの罫線・すきまの上に覆いかぶさり「セルの枠を突き破って隣のセルまで
-       伸びている」ように見える。 */
+    /* 日付セル同士の余白を無くし、罫線だけで区切られた1枚のシートに見えるようにする。
+       各セルはright/bottomの罫線だけを持ち、外周は#shakenCalWeeksのborderで囲む
+       ことで、罫線が二重に太くならないようにしている。
+       予定バーはその上に重ねる別レイヤー（絶対配置）として描画し、複数日をまとめて
+       1つの要素として描くことで、セルの罫線の上に覆いかぶさり「セルの枠を
+       突き破って隣のセルまで伸びている」ように見える。 */
+    #shakenCalWeeks {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
     .shaken-week {
       position: relative;
-      margin-bottom: 6px;
     }
     .shaken-week-dates {
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 2px;
     }
     .shaken-date-cell {
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 4px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
       padding: 3px 6px;
-      text-align: right;
+      text-align: left;
       cursor: pointer;
       box-sizing: border-box;
     }
@@ -1453,8 +1458,8 @@
     .shaken-date-cell.today.holiday .shaken-date-num { color: #fff; }
 
     /* バーのオーバーレイ層。日付グリッドと同じ列構成にすることで、バーの左右端が
-       セルの境界とぴったり揃い、複数日にまたがるバーがセルの枠線・すきまを
-       覆って1本につながって見える。overlay自体はクリックを透過させ、
+       セルの境界とぴったり揃い、複数日にまたがるバーがセルの罫線を覆って
+       1本につながって見える。overlay自体はクリックを透過させ、
        バー本体だけクリックを受け付ける。 */
     .shaken-week-bars-overlay {
       position: absolute;
@@ -1462,7 +1467,8 @@
       right: 0;
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 2px;
+      column-gap: 0;
+      row-gap: 2px;
       pointer-events: none;
     }
 
