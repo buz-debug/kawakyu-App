@@ -6319,6 +6319,8 @@ window.addEventListener('pagehide', function() {
         </div>
 
         <div id="shakenListView" style="display:none;flex:1;min-height:0;overflow-y:auto;"></div>
+
+        <div id="shakenCancelledView" style="display:none;flex:1;min-height:0;overflow-y:auto;"></div>
       </div>
     </div>
   </div>
@@ -6904,16 +6906,6 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
-  <!-- 車検キャンセル一覧モーダル -->
-  <div class="modal-overlay" id="shakenCancelledModal" role="dialog" aria-modal="true">
-    <div class="modal" style="width:min(480px,92vw);max-height:80vh;display:flex;flex-direction:column;">
-      <h2 style="font-size:14px;margin-bottom:12px;flex-shrink:0;">車検キャンセル一覧</h2>
-      <div id="shakenCancelledList" style="flex:1;overflow-y:auto;margin-bottom:12px;"></div>
-      <div class="modal-actions" style="flex-shrink:0;">
-        <button type="button" id="shakenCancelledClose">閉じる</button>
-      </div>
-    </div>
-  </div>
 
   <!-- ===== 終日予定入力不可の警告モーダル ===== -->
   <div id="scheduleBlockedWarningModal" class="sf-modal sf-unsaved-warning-modal">
@@ -11314,19 +11306,18 @@ window.addEventListener('pagehide', function() {
 
     function renderShakenView() {
       if (!state.shakenReservations) state.shakenReservations = [];
-      // リスト表示もカレンダーと同じく月送りUIを使い、1ヶ月分だけを表示する
+      // カレンダー・リスト・キャンセル一覧のすべてで同じ月送りUIを使い、1ヶ月分だけを表示する
       const toggleBtn = document.getElementById('shakenViewToggleBtn');
-      if (shakenViewMode === 'calendar') {
-        document.getElementById('shakenCalView').style.display = '';
-        document.getElementById('shakenListView').style.display = 'none';
-        if (toggleBtn) toggleBtn.textContent = 'リスト表示';
-        renderShakenCalendar();
-      } else {
-        document.getElementById('shakenCalView').style.display = 'none';
-        document.getElementById('shakenListView').style.display = '';
-        if (toggleBtn) toggleBtn.textContent = 'カレンダー表示';
-        renderShakenList();
-      }
+      const calViewEl = document.getElementById('shakenCalView');
+      const listViewEl = document.getElementById('shakenListView');
+      const cancelledViewEl = document.getElementById('shakenCancelledView');
+      calViewEl.style.display = shakenViewMode === 'calendar' ? '' : 'none';
+      listViewEl.style.display = shakenViewMode === 'list' ? '' : 'none';
+      cancelledViewEl.style.display = shakenViewMode === 'cancelled' ? '' : 'none';
+      if (toggleBtn) toggleBtn.textContent = shakenViewMode === 'calendar' ? 'リスト表示' : 'カレンダー表示';
+      if (shakenViewMode === 'calendar') renderShakenCalendar();
+      else if (shakenViewMode === 'list') renderShakenList();
+      else renderShakenCancelledList();
     }
 
     document.getElementById('shakenViewToggleBtn').addEventListener('click', () => {
@@ -11540,44 +11531,55 @@ window.addEventListener('pagehide', function() {
     });
 
     // ── 車検キャンセル一覧 ──
+    // 車検キャンセル一覧（リスト表示と同じ見た目・幅・月送りUIで、右カラム全体に表示する）
     function renderShakenCancelledList() {
-      const wrap = document.getElementById('shakenCancelledList');
+      const wrap = document.getElementById('shakenCancelledView');
       if (!wrap) return;
-      const items = (state.shakenReservations || []).filter(r => r.cancelled)
+
+      const title = document.getElementById('shakenMonthLabel');
+      if (title) title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
+      const monthKey = `${shakenCalYear}-${String(shakenCalMonth + 1).padStart(2, '0')}`;
+
+      const items = (state.shakenReservations || [])
+        .filter(r => r.cancelled && (r.inspectionDate || '').slice(0, 7) === monthKey)
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
+
+      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">キャンセル${items.length}件</div>`;
+
       if (!items.length) {
-        wrap.innerHTML = '<div class="day-detail-empty">キャンセルされた予約はありません</div>';
+        html += '<div style="text-align:center;color:#aaa;padding:40px 0;font-size:13px;">この月にキャンセルされた予約はありません</div>';
+        wrap.innerHTML = html;
         return;
       }
-      wrap.innerHTML = items.map(r => {
+
+      html += `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
+      html += items.map(r => {
         const loanerBadge = r.loanerCar
           ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
           : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
-        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);">
+        const noteLine = r.note
+          ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">備考：${escapeHtml(r.note)}</div>`
+          : '';
+        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
           <div style="flex:1;min-width:0;overflow:hidden;">
             <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
+            ${noteLine}
           </div>
           ${loanerBadge}
         </div>`;
       }).join('');
+      html += `</div>`;
+      wrap.innerHTML = html;
+
       wrap.querySelectorAll('.shaken-list-item[data-sid]').forEach(item => {
-        item.addEventListener('click', () => {
-          closeOverlay(document.getElementById('shakenCancelledModal'));
-          openShakenEditModal(item.dataset.sid);
-        });
+        item.addEventListener('click', () => openShakenEditModal(item.dataset.sid));
       });
     }
 
     document.getElementById('btnShakenCancelledList').addEventListener('click', () => {
-      renderShakenCancelledList();
-      openOverlay(document.getElementById('shakenCancelledModal'));
-    });
-    document.getElementById('shakenCancelledClose').addEventListener('click', () => {
-      closeOverlay(document.getElementById('shakenCancelledModal'));
-    });
-    document.getElementById('shakenCancelledModal').addEventListener('click', e => {
-      if (e.target.id === 'shakenCancelledModal') closeOverlay(document.getElementById('shakenCancelledModal'));
+      shakenViewMode = 'cancelled';
+      renderShakenView();
     });
 
     // ── 日別詳細モーダル（予定タブの日別詳細と同様、日付クリックでその日の予約一覧を表示） ──
