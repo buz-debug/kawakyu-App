@@ -1490,6 +1490,7 @@
     .shaken-bar-loaner { background: #fbbf24; color: #78350f; }
     .shaken-bar-noloaner { background: var(--cw-green); color: #fff; }
     .shaken-bar-done { background: #d1d5db; color: #555; }
+    .shaken-bar-othermonth { background: #e5e7eb; color: #9ca3af; }
 
     .shaken-list-item:hover { background: #f5f8fc; }
 
@@ -11160,6 +11161,11 @@ window.addEventListener('pagehide', function() {
 
       const today = shakenToLocalISO(new Date());
       const weeks = buildShakenCalendarWeeks(shakenCalYear, shakenCalMonth);
+      // 「何月分の予約か」は通検日を基準に判定する（リスト表示と同じルール。このタブが扱う
+      // 車検すべてに共通のルールとして扱う）。前月末に入庫・当月1日に通検なら当月分、
+      // 当月末に入庫・翌月1日に通検なら翌月分になる。カレンダーの前後月にまたがって
+      // 表示されるバーのうち、この基準で「当月分ではない」ものはグレーアウトする。
+      const currentMonthKey = `${shakenCalYear}-${String(shakenCalMonth + 1).padStart(2, '0')}`;
 
       // 日付の数字用に確保する高さと、バー1本分の高さ・行間。
       // 日付セルの最小高さは、その週で最も予定が重なっている段数に合わせて伸ばし、
@@ -11206,8 +11212,12 @@ window.addEventListener('pagehide', function() {
           const endCol = Math.round((new Date(segEnd) - new Date(weekStart)) / 86400000) + 2;
           const isTrueStart = segStart === r.checkinDate;
           const isTrueEnd = segEnd === r.inspectionDate;
+          // 通検日が当月分でない予約（前後月のセルにはみ出して表示されているもの）はグレーアウトする。
           // 完了済みの予約は代車の色ではなく灰色にし、チェックマークを付けて完了とわかるようにする（予定タブと同じ扱い）
-          const colorCls = r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner');
+          const belongsToCurrentMonth = (r.inspectionDate || '').slice(0, 7) === currentMonthKey;
+          const colorCls = !belongsToCurrentMonth
+            ? 'shaken-bar-othermonth'
+            : (r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner'));
           const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
           const fullLabel = `${r.completed ? '✓ ' : ''}${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
           // 入庫のセル部分には「◯時入庫」、通検のセル部分には「顧客名・車種・車番」を表示し、
@@ -11248,50 +11258,50 @@ window.addEventListener('pagehide', function() {
       const wrap = document.getElementById('shakenListView');
       if (!wrap) return;
       if (!state.shakenReservations) state.shakenReservations = [];
-      const list = state.shakenReservations.filter(r => !r.cancelled).sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
 
-      if (!list.length) {
-        wrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 0;font-size:13px;">予約はありません</div>';
-        return;
-      }
+      // カレンダーと同じ月送りUIを使い、通検日がその月にあるものだけを1ヶ月分表示する
+      const title = document.getElementById('shakenMonthLabel');
+      if (title) title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
+      const monthKey = `${shakenCalYear}-${String(shakenCalMonth + 1).padStart(2, '0')}`;
 
-      const groups = {};
-      list.forEach(r => {
-        const key = (r.inspectionDate || '').slice(0, 7);
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(r);
-      });
-      const monthKeys = Object.keys(groups).sort();
+      const list = state.shakenReservations
+        .filter(r => !r.cancelled && (r.inspectionDate || '').slice(0, 7) === monthKey)
+        .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
 
-      // 項目カード同士の隙間を無くし、1枚のシートのように見せる。
-      // 各項目はborder-bottomだけを持ち、月ごとのグループ全体を1つの外枠で囲む。
       const completedCount = list.filter(r => r.completed).length;
       const notCompletedCount = list.length - completedCount;
       let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">全${list.length}件（完了${completedCount}件・未完了${notCompletedCount}件）</div>`;
-      monthKeys.forEach(key => {
-        const [y, m] = key.split('-');
-        const items = groups[key];
-        html += `<div style="font-size:13px;font-weight:700;color:var(--cw-green-dark);margin:14px 0 6px;">${y}年${Number(m)}月（${items.length}件）</div>`;
-        html += `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
-        html += items.map(r => {
-          const loanerBadge = r.loanerCar
-            ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
-            : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
-          // 完了マークをリスト右端に表示。未完了時も幅を確保し、右端の位置がずれないようにする
-          const completeMark = r.completed
-            ? '<span style="flex-shrink:0;width:20px;text-align:center;font-size:15px;font-weight:700;color:#22c55e;" title="完了">✓</span>'
-            : '<span style="flex-shrink:0;width:20px;"></span>';
-          return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
-            <div style="flex:1;min-width:0;overflow:hidden;">
-              <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
-              <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
-            </div>
-            ${loanerBadge}
-            ${completeMark}
-          </div>`;
-        }).join('');
-        html += `</div>`;
-      });
+
+      if (!list.length) {
+        html += '<div style="text-align:center;color:#aaa;padding:40px 0;font-size:13px;">この月の予約はありません</div>';
+        wrap.innerHTML = html;
+        return;
+      }
+
+      // 項目カード同士の隙間を無くし、1枚のシートのように見せる。各項目はborder-bottomだけを持つ。
+      html += `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
+      html += list.map(r => {
+        const loanerBadge = r.loanerCar
+          ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
+          : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
+        // 完了マークをリスト右端に表示。未完了時も幅を確保し、右端の位置がずれないようにする
+        const completeMark = r.completed
+          ? '<span style="flex-shrink:0;width:20px;text-align:center;font-size:15px;font-weight:700;color:#22c55e;" title="完了">✓</span>'
+          : '<span style="flex-shrink:0;width:20px;"></span>';
+        const noteLine = r.note
+          ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">備考：${escapeHtml(r.note)}</div>`
+          : '';
+        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
+          <div style="flex:1;min-width:0;overflow:hidden;">
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}</div>
+            ${noteLine}
+          </div>
+          ${loanerBadge}
+          ${completeMark}
+        </div>`;
+      }).join('');
+      html += `</div>`;
       wrap.innerHTML = html;
 
       wrap.querySelectorAll('.shaken-list-item[data-sid]').forEach(item => {
@@ -11301,18 +11311,16 @@ window.addEventListener('pagehide', function() {
 
     function renderShakenView() {
       if (!state.shakenReservations) state.shakenReservations = [];
-      const calNavEls = [document.getElementById('shakenCalPrev'), document.getElementById('shakenMonthLabel'), document.getElementById('shakenCalNext')];
+      // リスト表示もカレンダーと同じく月送りUIを使い、1ヶ月分だけを表示する
       const toggleBtn = document.getElementById('shakenViewToggleBtn');
       if (shakenViewMode === 'calendar') {
         document.getElementById('shakenCalView').style.display = '';
         document.getElementById('shakenListView').style.display = 'none';
-        calNavEls.forEach(el => { if (el) el.style.display = ''; });
         if (toggleBtn) toggleBtn.textContent = 'リスト表示';
         renderShakenCalendar();
       } else {
         document.getElementById('shakenCalView').style.display = 'none';
         document.getElementById('shakenListView').style.display = '';
-        calNavEls.forEach(el => { if (el) el.style.display = 'none'; });
         if (toggleBtn) toggleBtn.textContent = 'カレンダー表示';
         renderShakenList();
       }
