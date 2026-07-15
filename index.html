@@ -5137,6 +5137,10 @@ function recalc() {
 
 /* ===== SAVE ===== */
 function saveRecord() {
+  if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(kasimeViewBranch)) {
+    if (typeof showBranchReadOnlyWarning === 'function') showBranchReadOnlyWarning();
+    return false;
+  }
   const person = document.getElementById('personSelect').value.trim();
   if (!person) { showToast('担当者名を入力してください'); return false; }
 
@@ -5433,6 +5437,10 @@ function closeDetail() {
 })();
 function deleteCurrentRecord() {
   if (currentDetailId === null) return;
+  if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(kasimeViewBranch)) {
+    if (typeof showBranchReadOnlyWarning === 'function') showBranchReadOnlyWarning();
+    return;
+  }
   if (!confirm('この記録を削除しますか？\nこの操作は取り消せません。')) return;
   records = records.filter(r => r.id !== currentDetailId);
   persist();
@@ -6289,11 +6297,15 @@ window.addEventListener('pagehide', function() {
           <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
           <div id="shakenMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
-          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
+          <div id="shakenBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
+            <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
+            <select id="shakenBranchSwitcherSelect" onchange="switchShakenViewBranch(this.value)" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
+          </div>
           <button type="button" id="btnAddShaken"
             style="margin-left:auto;flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             ＋ 予約を追加する
           </button>
+          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
           <button type="button" id="btnShakenCancelledList"
             style="flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--surface);color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             車検キャンセル一覧
@@ -9573,6 +9585,11 @@ window.addEventListener('pagehide', function() {
     }
 
     function onSalesDailyInput(day, item, value, inputEl) {
+      if (isBranchViewReadOnly(salesViewBranch)) {
+        showBranchReadOnlyWarning();
+        if (inputEl) inputEl.value = (salesRecords[salesRecordKey(day)] || {})[item] ?? '';
+        return;
+      }
       const halfWidthValue = toHalfWidthNumber(value);
       if (inputEl) { inputEl.value = halfWidthValue; }
       const key = salesRecordKey(day);
@@ -10076,7 +10093,7 @@ window.addEventListener('pagehide', function() {
           const val = dayRecord[item.id];
           cumulative[item.id] += (typeof val === 'number') ? val : 0;
           bodyHtml += `<td class="sales-daily-col"><input type="text" inputmode="decimal" class="sales-daily-input" data-day="${d}" data-item-index="${itemIndex}" data-committed="true" value="${val !== undefined ? val : ''}"
-            onfocus="this.select()"
+            onfocus="if (isBranchViewReadOnly(salesViewBranch)) { this.blur(); showBranchReadOnlyWarning(); } else { this.select(); }"
             oninput="this.dataset.committed='false'"
             onkeydown="handleSalesInputKeydown(event, ${d}, ${itemIndex})"
             onblur="handleSalesInputBlur(event, ${d}, ${itemIndex})"></td>`;
@@ -10600,6 +10617,12 @@ window.addEventListener('pagehide', function() {
       salesViewBranch = null;
       switchSalesViewBranch(state.currentBranch, true);
       renderSalesBranchSwitcher();
+      // 車検予約タブの閲覧営業所も、ログインした営業所に合わせ直す（ログイン時は通知を出さない）
+      if (typeof switchShakenViewBranch === 'function') {
+        shakenViewBranch = null;
+        switchShakenViewBranch(state.currentBranch, true);
+      }
+      if (typeof renderShakenBranchSwitcher === 'function') renderShakenBranchSwitcher();
       // 日常業務も、ログインした営業所のデータに切り替える
       if (typeof loadDailyTaskData === 'function') {
         loadDailyTaskData();
@@ -10840,6 +10863,12 @@ window.addEventListener('pagehide', function() {
     function openModal(title, text, onOk) {
       document.getElementById('modalTitle').textContent = title;
       document.getElementById('modalText').textContent = text;
+      // 直前にshowBranchReadOnlyWarning()等がボタン表示をカスタマイズしている場合があるため、
+      // 通常の確認ダイアログを開く際は毎回デフォルト表示に戻す
+      const cancelBtn = document.getElementById('modalCancel');
+      const okBtn = document.getElementById('modalOk');
+      if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = 'キャンセル'; }
+      if (okBtn) { okBtn.textContent = 'OK'; }
       openOverlay(document.getElementById('confirmModal'));
       modalCallback = onOk;
     }
@@ -10847,6 +10876,24 @@ window.addEventListener('pagehide', function() {
     function closeModal() {
       closeOverlay(document.getElementById('confirmModal'));
       modalCallback = null;
+    }
+
+    // ===== 営業所切り替えセレクターの「閲覧のみ」ルール =====
+    // 「営業所切り替えセレクター」で自分のログイン営業所（state.currentBranch）以外を
+    // 表示している場合、そのタブは閲覧専用となり、書き込み・削除など一切の編集を禁止する。
+    // ※管理者モードでの全営業所設定や、本社ログインでの販売実績表・項目設定など、
+    //   このセレクターを介さない別の仕組みには適用されない。連絡ノートの他営業所への
+    //   メンション機能もこのルールとは無関係で、影響を受けない。
+    function isBranchViewReadOnly(viewBranch) {
+      return typeof state !== 'undefined' && !!state.currentBranch && !!viewBranch && viewBranch !== state.currentBranch;
+    }
+
+    function showBranchReadOnlyWarning() {
+      openModal('閲覧のみ', '他営業所のデータは閲覧のみ可能です。書き込みや削除などの編集はできません。', null);
+      const cancelBtn = document.getElementById('modalCancel');
+      const okBtn = document.getElementById('modalOk');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      if (okBtn) okBtn.textContent = '閉じる';
     }
 
     function exportData() {
@@ -11107,6 +11154,40 @@ window.addEventListener('pagehide', function() {
     let shakenCheckinDateTouched = false; // 追加フォームで入庫日を手動編集したかどうか
     let editingShakenCompleted = false; // 「予約を編集」モーダル内で保存前に一時的に保持する完了状態
     let editingShakenCancelled = false; // 同様に、保存前に一時的に保持する車検キャンセル状態
+    // 販売実績表・シフトタブと同じ「営業所切り替えセレクター」。ログイン中の営業所とは別に、
+    // 閲覧（および編集）対象の営業所を切り替えられるようにする。
+    let shakenViewBranch = (typeof state !== 'undefined' && state.currentBranch) ? state.currentBranch : '本社';
+
+    // 予定タブのschedules等と同様、車検予約データはstate.branchData[営業所名]に per-branch で
+    // 保持されている。ただしstate.shakenReservationsは常にstate.currentBranch（実際のログイン営業所）
+    // を指すアクセサのため、閲覧営業所を切り替え可能にするにはこちらを使い、
+    // shakenViewBranchが指す営業所のバケットを直接読み書きする。
+    function shakenBucket() {
+      return (typeof ensureBranchBucket === 'function') ? ensureBranchBucket(shakenViewBranch) : { shakenReservations: [] };
+    }
+
+    function switchShakenViewBranch(name, silent) {
+      if (!name || name === shakenViewBranch) return;
+      shakenViewBranch = name;
+      renderShakenView();
+      if (!silent && typeof appToast === 'function') appToast(`「${name}」の車検予約を表示しています`);
+    }
+
+    function renderShakenBranchSwitcher() {
+      const wrap = document.getElementById('shakenBranchSwitcherWrap');
+      if (!wrap) return;
+      if (typeof state === 'undefined' || !Array.isArray(state.branches)) {
+        wrap.style.display = 'none';
+        return;
+      }
+      wrap.style.display = 'flex';
+      const sel = document.getElementById('shakenBranchSwitcherSelect');
+      if (sel) {
+        sel.innerHTML = state.branches.map(b =>
+          `<option value="${escapeHtml(b.name)}" ${b.name === shakenViewBranch ? 'selected' : ''}>${escapeHtml(b.name)}</option>`
+        ).join('');
+      }
+    }
 
     function shakenToLocalISO(d) {
       const y = d.getFullYear();
@@ -11151,7 +11232,7 @@ window.addEventListener('pagehide', function() {
       const weeksEl = document.getElementById('shakenCalWeeks');
       const title = document.getElementById('shakenMonthLabel');
       if (!weeksEl) return;
-      if (!state.shakenReservations) state.shakenReservations = [];
+      if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
       title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
 
       const today = shakenToLocalISO(new Date());
@@ -11173,7 +11254,7 @@ window.addEventListener('pagehide', function() {
         const weekStart = shakenToLocalISO(week[0].date);
         const weekEnd = shakenToLocalISO(week[6].date);
 
-        const overlapping = (state.shakenReservations || [])
+        const overlapping = (shakenBucket().shakenReservations || [])
           .filter(r => !r.cancelled && r.checkinDate && r.inspectionDate && r.checkinDate <= weekEnd && r.inspectionDate >= weekStart)
           .sort((a, b) => a.checkinDate.localeCompare(b.checkinDate));
 
@@ -11253,14 +11334,14 @@ window.addEventListener('pagehide', function() {
     function renderShakenList() {
       const wrap = document.getElementById('shakenListView');
       if (!wrap) return;
-      if (!state.shakenReservations) state.shakenReservations = [];
+      if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
 
       // カレンダーと同じ月送りUIを使い、通検日がその月にあるものだけを1ヶ月分表示する
       const title = document.getElementById('shakenMonthLabel');
       if (title) title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
       const monthKey = `${shakenCalYear}-${String(shakenCalMonth + 1).padStart(2, '0')}`;
 
-      const list = state.shakenReservations
+      const list = shakenBucket().shakenReservations
         .filter(r => !r.cancelled && (r.inspectionDate || '').slice(0, 7) === monthKey)
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
 
@@ -11303,7 +11384,7 @@ window.addEventListener('pagehide', function() {
     }
 
     function renderShakenView() {
-      if (!state.shakenReservations) state.shakenReservations = [];
+      if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
       // カレンダー・リスト・キャンセル一覧のすべてで同じ月送りUIを使い、1ヶ月分だけを表示する
       const toggleBtn = document.getElementById('shakenViewToggleBtn');
       const calViewEl = document.getElementById('shakenCalView');
@@ -11315,6 +11396,7 @@ window.addEventListener('pagehide', function() {
       if (toggleBtn) toggleBtn.textContent = shakenViewMode === 'calendar' ? 'リスト表示' : 'カレンダー表示';
       const cancelledBtn = document.getElementById('btnShakenCancelledList');
       if (cancelledBtn) cancelledBtn.textContent = shakenViewMode === 'cancelled' ? '閉じる' : '車検キャンセル一覧';
+      renderShakenBranchSwitcher();
       if (shakenViewMode === 'calendar') renderShakenCalendar();
       else if (shakenViewMode === 'list') renderShakenList();
       else renderShakenCancelledList();
@@ -11339,6 +11421,10 @@ window.addEventListener('pagehide', function() {
     // prefillInspectionDate: 日別詳細モーダルから開いた場合、クリックした日を通検日として入れ、
     // 入庫日はその前日をデフォルト表示する（通常の自動補完と同じ扱いにする）
     function openAddShakenModal(prefillInspectionDate) {
+      if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(shakenViewBranch)) {
+        if (typeof showBranchReadOnlyWarning === 'function') showBranchReadOnlyWarning();
+        return;
+      }
       document.getElementById('shakenNewCustomer').value = '';
       document.getElementById('shakenNewCarModel').value = '';
       document.getElementById('shakenNewPlate').value = '';
@@ -11378,6 +11464,11 @@ window.addEventListener('pagehide', function() {
 
     document.getElementById('shakenFormNew').addEventListener('submit', e => {
       e.preventDefault();
+      if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(shakenViewBranch)) {
+        if (typeof showBranchReadOnlyWarning === 'function') showBranchReadOnlyWarning();
+        closeOverlay(document.getElementById('addShakenModal'));
+        return;
+      }
       const customer = document.getElementById('shakenNewCustomer').value.trim();
       const carModel = document.getElementById('shakenNewCarModel').value.trim();
       const plateNumber = document.getElementById('shakenNewPlate').value.trim();
@@ -11397,8 +11488,8 @@ window.addEventListener('pagehide', function() {
         return;
       }
 
-      if (!state.shakenReservations) state.shakenReservations = [];
-      state.shakenReservations.push({
+      if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
+      shakenBucket().shakenReservations.push({
         id: uid(), customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
         loanerCar, note, ts: Date.now(),
       });
@@ -11410,7 +11501,7 @@ window.addEventListener('pagehide', function() {
 
     // ── 編集モーダル ──
     function openShakenEditModal(id) {
-      const r = (state.shakenReservations || []).find(x => x.id === id);
+      const r = (shakenBucket().shakenReservations || []).find(x => x.id === id);
       if (!r) return;
       editingShakenId = id;
       document.getElementById('shakenEditCustomer').value = r.customer || '';
@@ -11482,6 +11573,10 @@ window.addEventListener('pagehide', function() {
     });
 
     document.getElementById('shakenEditSave').addEventListener('click', () => {
+      if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(shakenViewBranch)) {
+        if (typeof showBranchReadOnlyWarning === 'function') showBranchReadOnlyWarning();
+        return;
+      }
       const customer = document.getElementById('shakenEditCustomer').value.trim();
       const carModel = document.getElementById('shakenEditCarModel').value.trim();
       const plateNumber = document.getElementById('shakenEditPlate').value.trim();
@@ -11501,7 +11596,7 @@ window.addEventListener('pagehide', function() {
         return;
       }
 
-      const r = (state.shakenReservations || []).find(x => x.id === editingShakenId);
+      const r = (shakenBucket().shakenReservations || []).find(x => x.id === editingShakenId);
       if (!r) { closeShakenEditModal(); return; }
       r.customer = customer;
       r.carModel = carModel;
@@ -11520,9 +11615,13 @@ window.addEventListener('pagehide', function() {
     });
 
     document.getElementById('shakenEditDelete').addEventListener('click', () => {
+      if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(shakenViewBranch)) {
+        if (typeof showBranchReadOnlyWarning === 'function') showBranchReadOnlyWarning();
+        return;
+      }
       openModal('予約を削除', 'この予約を削除しますか？', () => {
         if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([editingShakenId]);
-        state.shakenReservations = (state.shakenReservations || []).filter(x => x.id !== editingShakenId);
+        shakenBucket().shakenReservations = (shakenBucket().shakenReservations || []).filter(x => x.id !== editingShakenId);
         saveState();
         if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet('スプレッドシートから削除しました');
         closeShakenEditModal();
@@ -11540,7 +11639,7 @@ window.addEventListener('pagehide', function() {
       if (title) title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
       const monthKey = `${shakenCalYear}-${String(shakenCalMonth + 1).padStart(2, '0')}`;
 
-      const items = (state.shakenReservations || [])
+      const items = (shakenBucket().shakenReservations || [])
         .filter(r => r.cancelled && (r.inspectionDate || '').slice(0, 7) === monthKey)
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
 
@@ -11599,7 +11698,7 @@ window.addEventListener('pagehide', function() {
       // 「◯時入庫」、通検日なら「通検」という単発の予定として扱う
       // （同日に両方が該当する場合は、それぞれ別項目として表示する）。
       const events = [];
-      (state.shakenReservations || []).forEach(r => {
+      (shakenBucket().shakenReservations || []).forEach(r => {
         if (r.cancelled) return;
         if (r.checkinDate === iso) events.push({ type: 'checkin', sortKey: r.checkinTime || '', r });
         if (r.inspectionDate === iso) events.push({ type: 'inspection', sortKey: '99:99', r });
@@ -13635,6 +13734,14 @@ function convertTimeToMinutes(timeStr) {
 }
 
 function saveShiftFromPopup(key, value) {
+    if (isBranchViewReadOnly(shiftViewBranch)) {
+        showBranchReadOnlyWarning();
+        const ticks = generateHourTicks();
+        renderTimelineBody(ticks);
+        renderViewTable();
+        renderEditTable();
+        return;
+    }
     markShiftsDirtyBeforeEdit();
     shifts[key] = value;
     window._hasUnsyncedTabChanges = true;
@@ -13891,6 +13998,7 @@ function renderEditTable(){
 }
 
 function saveShift(key,value){
+    if (isBranchViewReadOnly(shiftViewBranch)) { showBranchReadOnlyWarning(); if (typeof renderViewTable === "function") renderViewTable(); if (typeof renderEditTable === "function") renderEditTable(); return; }
     markShiftsDirtyBeforeEdit();
     shifts[key] = value;
     window._hasUnsyncedTabChanges = true;
@@ -15593,9 +15701,9 @@ function sidebarTaskSaveToSheet(successMsg) {
 }
 // 車検予約タブも同様に独立した保存キーを使う。
 function shakenSaveToSheet(successMsg) {
-  const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
-  if (branchName) localStorage.setItem(`shakenReservations_${branchName}`, JSON.stringify(state.shakenReservations || []));
-  return _tabSaveToSheet('shaken', successMsg);
+  const branchName = shakenViewBranch || ((typeof state !== 'undefined') ? state.currentBranch : null);
+  if (branchName) localStorage.setItem(`shakenReservations_${branchName}`, JSON.stringify(shakenBucket().shakenReservations || []));
+  return _tabSaveToSheet('shaken', successMsg, branchName);
 }
 
 // 営業所一覧・管理者パスワードなど「全営業所で共有されるデータ」の変更用。
