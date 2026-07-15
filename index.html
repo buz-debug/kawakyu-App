@@ -9532,13 +9532,34 @@ window.addEventListener('pagehide', function() {
       localStorage.setItem(salesKey('salesRecords'), JSON.stringify(salesRecords));
     }
 
-    function switchSalesViewBranch(name, silent) {
+    async function switchSalesViewBranch(name, silent) {
       if (!name || name === salesViewBranch) return;
       salesViewBranch = name;
       loadSalesData();
       renderSalesTable();
       // グラフ表示中なら、グラフもその営業所のデータに切り替える（全営業所共通機能）
       if (salesChartItemId !== null) { renderSalesChart(); }
+      // この端末が他営業所の販売実績表をまだ一度も同期していない場合、ローカルキャッシュが
+      // 空/古いままになるため、切替時にその営業所のスプレッドシートから最新データを取得して反映する。
+      // 販売実績表は保存時もマージせずそのまま上書きする仕様のため、ここでも単純に上書きする。
+      if (typeof getGasUrl === 'function' && typeof getSpreadsheetId === 'function' && typeof gasRequest === 'function' && getGasUrl() && getSpreadsheetId(name)) {
+        try {
+          const result = await gasRequest('load', getSpreadsheetId(name));
+          if (result && result.ok && result.data) {
+            const raw = result.data[`salesRecords_${name}`];
+            if (raw) {
+              localStorage.setItem(`salesRecords_${name}`, raw);
+              if (salesViewBranch === name) {
+                salesRecords = JSON.parse(raw);
+                renderSalesTable();
+                if (salesChartItemId !== null) { renderSalesChart(); }
+              }
+            }
+          }
+        } catch (e) {
+          // 通信できない場合は、ローカルの内容のみで表示を続行する
+        }
+      }
       if (!silent) appToast(`「${name}」の販売実績表を表示しています`);
     }
 
@@ -11166,10 +11187,17 @@ window.addEventListener('pagehide', function() {
       return (typeof ensureBranchBucket === 'function') ? ensureBranchBucket(shakenViewBranch) : { shakenReservations: [] };
     }
 
-    function switchShakenViewBranch(name, silent) {
+    async function switchShakenViewBranch(name, silent) {
       if (!name || name === shakenViewBranch) return;
       shakenViewBranch = name;
-      renderShakenView();
+      renderShakenView(); // まずはこの端末にあるキャッシュを即座に表示する
+      // この端末が他営業所の車検予約をまだ一度も同期していない場合、ローカルキャッシュが
+      // 空/古いままになるため、切替時にその営業所のスプレッドシートから最新データを取得して反映する
+      // （閲覧のみのため、保存時と同じ安全なマージ処理をそのまま流用できる）
+      if (typeof getGasUrl === 'function' && typeof getSpreadsheetId === 'function' && typeof mergeRemoteShakenBeforeSave === 'function' && getGasUrl() && getSpreadsheetId(name)) {
+        await mergeRemoteShakenBeforeSave(name, getSpreadsheetId(name));
+        if (shakenViewBranch === name) renderShakenView();
+      }
       if (!silent && typeof appToast === 'function') appToast(`「${name}」の車検予約を表示しています`);
     }
 
@@ -13042,7 +13070,7 @@ function saveShiftEditMemo() {
 })();
 
 // 本社ログイン時のみ：閲覧する営業所を切り替える
-function switchShiftViewBranch(name, silent) {
+async function switchShiftViewBranch(name, silent) {
     if (!name || name === shiftViewBranch) { return; }
     shiftViewBranch = name;
 
@@ -13077,6 +13105,19 @@ function switchShiftViewBranch(name, silent) {
     if (dayEl) dayEl.value = shiftDeadline.day;
     const timeEl = document.getElementById("deadlineTimeInput");
     if (timeEl) timeEl.value = shiftDeadline.time;
+
+    // この端末が他営業所のシフトをまだ一度も同期していない場合、ローカルキャッシュが
+    // 空/古いままになるため、切替時にその営業所のスプレッドシートから最新データを取得して反映する
+    // （閲覧のみのため、保存時と同じ安全なマージ処理をそのまま流用できる）
+    if (typeof getGasUrl === 'function' && typeof getSpreadsheetId === 'function' && typeof mergeRemoteShiftsBeforeSave === 'function' && getGasUrl() && getSpreadsheetId(name)) {
+        await mergeRemoteShiftsBeforeSave(name, getSpreadsheetId(name));
+        if (shiftViewBranch === name) {
+            shifts = JSON.parse(localStorage.getItem(shiftKey("shifts"))) || {};
+            renderViewTable();
+            if (typeof renderEditTable === "function") renderEditTable();
+            if (typeof renderWishTable === "function") renderWishTable();
+        }
+    }
 
     if (!silent) sfShowToast(`「${name}」のシフトを表示しています`);
 }
