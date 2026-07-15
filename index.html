@@ -1490,7 +1490,9 @@
     .shaken-bar-loaner { background: #fbbf24; color: #78350f; }
     .shaken-bar-noloaner { background: var(--cw-green); color: #fff; }
     .shaken-bar-done { background: #d1d5db; color: #555; }
-    .shaken-bar-othermonth { background: #e5e7eb; color: #9ca3af; }
+    /* 月違いの予約は、代車の色（黄/青）や完了の灰色はそのまま保ち、薄く（半透明に）することで
+       区別する。完了（無彩色グレー）と月違い（元の色が薄い）を混同しないようにするため。 */
+    .shaken-bar-othermonth { opacity: 0.4; }
 
     .shaken-list-item:hover { background: #f5f8fc; }
 
@@ -11212,12 +11214,13 @@ window.addEventListener('pagehide', function() {
           const endCol = Math.round((new Date(segEnd) - new Date(weekStart)) / 86400000) + 2;
           const isTrueStart = segStart === r.checkinDate;
           const isTrueEnd = segEnd === r.inspectionDate;
-          // 通検日が当月分でない予約（前後月のセルにはみ出して表示されているもの）はグレーアウトする。
-          // 完了済みの予約は代車の色ではなく灰色にし、チェックマークを付けて完了とわかるようにする（予定タブと同じ扱い）
+          // 完了済みの予約は代車の色ではなく灰色にし、チェックマークを付けて完了とわかるようにする（予定タブと同じ扱い）。
+          // 通検日が当月分でない予約（前後月のセルにはみ出して表示されているもの）は、
+          // 完了・代車の色はそのまま保ちつつ薄く表示し、「完了（無彩色グレー）」と
+          // 「月違い（元の色が薄い）」を混同しないようにする。
           const belongsToCurrentMonth = (r.inspectionDate || '').slice(0, 7) === currentMonthKey;
-          const colorCls = !belongsToCurrentMonth
-            ? 'shaken-bar-othermonth'
-            : (r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner'));
+          const baseColorCls = r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner');
+          const colorCls = belongsToCurrentMonth ? baseColorCls : `${baseColorCls} shaken-bar-othermonth`;
           const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
           const fullLabel = `${r.completed ? '✓ ' : ''}${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
           // 入庫のセル部分には「◯時入庫」、通検のセル部分には「顧客名・車種・車番」を表示し、
