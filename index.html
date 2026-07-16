@@ -6896,6 +6896,11 @@ window.addEventListener('pagehide', function() {
           <textarea id="shakenEditNote" maxlength="500" rows="3" placeholder="備考"
             style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;"></textarea>
         </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">キャンセル日</label>
+          <input type="date" id="shakenEditCancelledDate"
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+        </div>
       </div>
       <div class="modal-actions">
         <button type="button" id="shakenEditDelete" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">削除</button>
@@ -11540,6 +11545,7 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenEditCheckinTime').value = r.checkinTime || '';
       document.getElementById('shakenEditNote').value = r.note || '';
       document.getElementById('shakenEditLoaner').value = r.loanerCar ? '1' : '0';
+      document.getElementById('shakenEditCancelledDate').value = r.cancelledDate || '';
       editingShakenCompleted = !!r.completed;
       renderShakenEditCompleteButton();
       editingShakenCancelled = !!r.cancelled;
@@ -11593,6 +11599,16 @@ window.addEventListener('pagehide', function() {
     function toggleShakenEditVoid() {
       editingShakenCancelled = !editingShakenCancelled;
       renderShakenEditVoidButton();
+      // キャンセルへの切替時は「処理した日」の初期値として本日の日付を自動入力する（編集可能）。
+      // キャンセル解除時は次回また異なる日にキャンセルされる可能性があるため空欄に戻す。
+      const dateEl = document.getElementById('shakenEditCancelledDate');
+      if (dateEl) {
+        if (editingShakenCancelled) {
+          if (!dateEl.value && typeof todayStr === 'function') dateEl.value = todayStr();
+        } else {
+          dateEl.value = '';
+        }
+      }
     }
 
     document.getElementById('shakenEditCancel').addEventListener('click', closeShakenEditModal);
@@ -11612,10 +11628,17 @@ window.addEventListener('pagehide', function() {
       const checkinDate = document.getElementById('shakenEditCheckinDate').value;
       const checkinTime = document.getElementById('shakenEditCheckinTime').value;
       const note = document.getElementById('shakenEditNote').value.trim();
+      const cancelledDate = document.getElementById('shakenEditCancelledDate').value;
       const loanerVal = document.getElementById('shakenEditLoaner').value;
 
       if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || loanerVal === '') {
         alert('顧客名・車種・通検日・入庫日・入庫時間・代車の有無は必須です。');
+        return;
+      }
+      // 車検キャンセル中は、キャンセル日が未入力のまま保存できないようにする
+      // （キャンセル集計はキャンセル日を基準にするため、未入力のまま保存されると集計から漏れてしまう）
+      if (editingShakenCancelled && !cancelledDate) {
+        alert('車検キャンセルの場合、キャンセル日を入力してください。');
         return;
       }
       const loanerCar = loanerVal === '1';
@@ -11636,6 +11659,8 @@ window.addEventListener('pagehide', function() {
       r.note = note;
       r.completed = editingShakenCompleted;
       r.cancelled = editingShakenCancelled;
+      // キャンセル集計は「キャンセル処理した日付」を基準にするため、キャンセルでない場合は保持しない
+      r.cancelledDate = editingShakenCancelled ? cancelledDate : '';
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeShakenEditModal();
@@ -11667,9 +11692,11 @@ window.addEventListener('pagehide', function() {
       if (title) title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
       const monthKey = `${shakenCalYear}-${String(shakenCalMonth + 1).padStart(2, '0')}`;
 
+      // キャンセルの集計は「キャンセル処理した日付」（キャンセル日）を基準にする。
+      // キャンセル日が未入力の予約はどの月にも属さないため、ここには表示されない。
       const items = (shakenBucket().shakenReservations || [])
-        .filter(r => r.cancelled && (r.inspectionDate || '').slice(0, 7) === monthKey)
-        .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
+        .filter(r => r.cancelled && (r.cancelledDate || '').slice(0, 7) === monthKey)
+        .sort((a, b) => (a.cancelledDate || '').localeCompare(b.cancelledDate || ''));
 
       let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">キャンセル${items.length}件</div>`;
 
@@ -11688,7 +11715,7 @@ window.addEventListener('pagehide', function() {
         return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
           <div style="flex:1;min-width:0;overflow:hidden;">
             <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}${noteInline}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}　→　キャンセル：${r.cancelledDate || '-'}${noteInline}</div>
           </div>
           ${loanerBadge}
         </div>`;
