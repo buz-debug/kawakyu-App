@@ -6306,6 +6306,7 @@ window.addEventListener('pagehide', function() {
             ＋ 予約を追加する
           </button>
           <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn" style="padding:7px 14px;border-radius:4px;">リスト表示</button>
+          <button type="button" id="btnShakenSummary" class="sales-nav-btn" style="padding:7px 14px;border-radius:4px;">月別集計</button>
           <button type="button" id="btnShakenCancelledList"
             style="flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--surface);color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             車検キャンセル一覧
@@ -6333,6 +6334,8 @@ window.addEventListener('pagehide', function() {
         <div id="shakenListView" style="display:none;flex:1;min-height:0;overflow-y:auto;"></div>
 
         <div id="shakenCancelledView" style="display:none;flex:1;min-height:0;overflow-y:auto;"></div>
+
+        <div id="shakenSummaryView" style="display:none;flex:1;min-height:0;overflow-y:auto;"></div>
       </div>
     </div>
   </div>
@@ -11419,21 +11422,31 @@ window.addEventListener('pagehide', function() {
 
     function renderShakenView() {
       if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
-      // カレンダー・リスト・キャンセル一覧のすべてで同じ月送りUIを使い、1ヶ月分だけを表示する
+      // カレンダー・リスト・キャンセル一覧のすべてで同じ月送りUIを使い、1ヶ月分だけを表示する。
+      // 月別集計のみ、同じボタン・ラベルを「年」単位のナビゲーションとして流用する。
       const toggleBtn = document.getElementById('shakenViewToggleBtn');
       const calViewEl = document.getElementById('shakenCalView');
       const listViewEl = document.getElementById('shakenListView');
       const cancelledViewEl = document.getElementById('shakenCancelledView');
+      const summaryViewEl = document.getElementById('shakenSummaryView');
       calViewEl.style.display = shakenViewMode === 'calendar' ? '' : 'none';
       listViewEl.style.display = shakenViewMode === 'list' ? '' : 'none';
       cancelledViewEl.style.display = shakenViewMode === 'cancelled' ? '' : 'none';
+      if (summaryViewEl) summaryViewEl.style.display = shakenViewMode === 'summary' ? '' : 'none';
       if (toggleBtn) toggleBtn.textContent = shakenViewMode === 'calendar' ? 'リスト表示' : 'カレンダー表示';
       const cancelledBtn = document.getElementById('btnShakenCancelledList');
       if (cancelledBtn) cancelledBtn.textContent = shakenViewMode === 'cancelled' ? '閉じる' : '車検キャンセル一覧';
+      const summaryBtn = document.getElementById('btnShakenSummary');
+      if (summaryBtn) summaryBtn.textContent = shakenViewMode === 'summary' ? '閉じる' : '月別集計';
+      const prevBtn = document.getElementById('shakenCalPrev');
+      const nextBtn = document.getElementById('shakenCalNext');
+      if (prevBtn) prevBtn.textContent = shakenViewMode === 'summary' ? '前年' : '前月';
+      if (nextBtn) nextBtn.textContent = shakenViewMode === 'summary' ? '次年' : '次月';
       renderShakenBranchSwitcher();
       if (shakenViewMode === 'calendar') renderShakenCalendar();
       else if (shakenViewMode === 'list') renderShakenList();
-      else renderShakenCancelledList();
+      else if (shakenViewMode === 'cancelled') renderShakenCancelledList();
+      else renderShakenSummary();
     }
 
     document.getElementById('shakenViewToggleBtn').addEventListener('click', () => {
@@ -11441,13 +11454,21 @@ window.addEventListener('pagehide', function() {
       renderShakenView();
     });
     document.getElementById('shakenCalPrev').addEventListener('click', () => {
-      shakenCalMonth--;
-      if (shakenCalMonth < 0) { shakenCalMonth = 11; shakenCalYear--; }
+      if (shakenViewMode === 'summary') {
+        shakenCalYear--;
+      } else {
+        shakenCalMonth--;
+        if (shakenCalMonth < 0) { shakenCalMonth = 11; shakenCalYear--; }
+      }
       renderShakenView();
     });
     document.getElementById('shakenCalNext').addEventListener('click', () => {
-      shakenCalMonth++;
-      if (shakenCalMonth > 11) { shakenCalMonth = 0; shakenCalYear++; }
+      if (shakenViewMode === 'summary') {
+        shakenCalYear++;
+      } else {
+        shakenCalMonth++;
+        if (shakenCalMonth > 11) { shakenCalMonth = 0; shakenCalYear++; }
+      }
       renderShakenView();
     });
 
@@ -11738,6 +11759,67 @@ window.addEventListener('pagehide', function() {
       }
       renderShakenView();
     });
+
+    // ── 月別集計（車検キャンセル一覧と同じトグル方式） ──
+    document.getElementById('btnShakenSummary').addEventListener('click', () => {
+      if (shakenViewMode === 'summary') {
+        shakenViewMode = shakenPrevViewMode;
+      } else {
+        shakenPrevViewMode = shakenViewMode;
+        shakenViewMode = 'summary';
+      }
+      renderShakenView();
+    });
+
+    // 通検実績（完了・未完了を区別せず、キャンセルされていない予約を通検日基準でカウント）と
+    // キャンセルデータ（キャンセル日基準でカウント。集計基準はキャンセル一覧と同じ）を、
+    // 1年分・月別（1月〜12月を横展開）で集計して表示する
+    function renderShakenSummary() {
+      const wrap = document.getElementById('shakenSummaryView');
+      if (!wrap) return;
+
+      const title = document.getElementById('shakenMonthLabel');
+      if (title) title.textContent = `${shakenCalYear}年`;
+
+      const inspectionCounts = new Array(12).fill(0);
+      const cancelledCounts = new Array(12).fill(0);
+      const yearStr = String(shakenCalYear);
+      (shakenBucket().shakenReservations || []).forEach(r => {
+        if (r.cancelled) {
+          if (r.cancelledDate && r.cancelledDate.slice(0, 4) === yearStr) {
+            const m = Number(r.cancelledDate.slice(5, 7)) - 1;
+            if (m >= 0 && m <= 11) cancelledCounts[m]++;
+          }
+        } else if (r.inspectionDate && r.inspectionDate.slice(0, 4) === yearStr) {
+          const m = Number(r.inspectionDate.slice(5, 7)) - 1;
+          if (m >= 0 && m <= 11) inspectionCounts[m]++;
+        }
+      });
+      const totalInspection = inspectionCounts.reduce((a, b) => a + b, 0);
+      const totalCancelled = cancelledCounts.reduce((a, b) => a + b, 0);
+
+      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${shakenCalYear}年　通検実績合計：${totalInspection}件　キャンセル合計：${totalCancelled}件</div>`;
+      html += `<div style="border:1px solid var(--border);border-radius:6px;overflow-x:auto;">`;
+      html += `<table style="border-collapse:collapse;width:100%;min-width:760px;font-size:13px;">`;
+      html += `<tr><th style="padding:8px 10px;text-align:left;white-space:nowrap;background:#fcfcfc;border-bottom:1px solid var(--border);">月</th>`;
+      for (let m = 0; m < 12; m++) {
+        html += `<th style="padding:8px 6px;text-align:center;white-space:nowrap;background:#fcfcfc;border-bottom:1px solid var(--border);border-left:1px solid var(--border);">${m + 1}月</th>`;
+      }
+      html += `</tr>`;
+      html += `<tr><td style="padding:8px 10px;font-weight:700;white-space:nowrap;">通検件数</td>`;
+      inspectionCounts.forEach(c => {
+        html += `<td style="padding:8px 6px;text-align:center;border-left:1px solid var(--border);">${c}</td>`;
+      });
+      html += `</tr>`;
+      html += `<tr><td style="padding:8px 10px;font-weight:700;white-space:nowrap;border-top:1px solid var(--border);">キャンセル数</td>`;
+      cancelledCounts.forEach(c => {
+        html += `<td style="padding:8px 6px;text-align:center;border-top:1px solid var(--border);border-left:1px solid var(--border);">${c}</td>`;
+      });
+      html += `</tr>`;
+      html += `</table></div>`;
+
+      wrap.innerHTML = html;
+    }
 
     // ── 日別詳細モーダル（予定タブの日別詳細と同様、日付クリックでその日の予約一覧を表示） ──
     function openShakenDayDetailModal(iso) {
