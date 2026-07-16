@@ -7575,6 +7575,10 @@ window.addEventListener('pagehide', function() {
       'shakenReservations',
     ];
 
+    // 予定プルダウンの固定デフォルト項目。項目名のみ固定（変更・削除不可）とし、
+    // 所要時間・色・並び順は他の項目と同様に編集可能にする。
+    const FIXED_SCHEDULE_PRESET_NAMES = ['事前点検', 'オイル交換', 'タイヤ履き替え', 'タイヤ組み替え', 'パンク修理'];
+
     function defaultBranchBucket() {
       return {
         members: defaultMembers(),
@@ -7590,6 +7594,7 @@ window.addEventListener('pagehide', function() {
           { name: 'ミーティング', duration: 60 },
           { name: '休憩', duration: 15 },
           { name: '清掃', duration: 30 },
+          ...FIXED_SCHEDULE_PRESET_NAMES.map(name => ({ name, duration: 30, color: '#4a7fb5' })),
         ],
         timeUnit: 30,
         scheduleTimeStart: '09:00',
@@ -7636,6 +7641,25 @@ window.addEventListener('pagehide', function() {
 
     migrateStateToPerBranch();
     installPerBranchAccessors(state);
+
+    // 予定プルダウンの固定デフォルト項目を、既存データの全営業所に不足分だけ補う
+    // （既にある場合は一切変更しない。重複追加もしない）
+    (function ensureFixedSchedulePresets() {
+      if (!state.branchData) return;
+      let changed = false;
+      Object.keys(state.branchData).forEach(branchName => {
+        const bucket = state.branchData[branchName];
+        if (!bucket) return;
+        if (!Array.isArray(bucket.schedulePresets)) bucket.schedulePresets = [];
+        FIXED_SCHEDULE_PRESET_NAMES.forEach(name => {
+          if (!bucket.schedulePresets.some(p => p.name === name)) {
+            bucket.schedulePresets.push({ name, duration: 30, color: '#4a7fb5' });
+            changed = true;
+          }
+        });
+      });
+      if (changed) saveState();
+    })();
 
     // 営業所ごとの分離前からあるメッセージは、その時点で存在した営業所だけに見せる（一度だけ実行）
     if (!state.legacyMessagesMigrated) {
@@ -8923,15 +8947,20 @@ window.addEventListener('pagehide', function() {
         list.innerHTML = fixedRowHtml;
         return;
       }
-      list.innerHTML = presets.map((p, i) => `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
+      list.innerHTML = presets.map((p, i) => {
+        const isFixed = FIXED_SCHEDULE_PRESET_NAMES.includes(p.name);
+        return `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
         <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.color || '#4a7fb5'};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></span>
-        <span style="flex:1;font-size:12px;">${escapeHtml(p.name)}</span>
+        <span style="flex:1;font-size:12px;">${escapeHtml(p.name)}${isFixed ? '<span style="font-size:10px;color:var(--muted);margin-left:4px;" title="項目名は固定です">🔒</span>' : ''}</span>
         <span style="font-size:11px;color:var(--muted);white-space:nowrap;">⏱ ${durationLabel(p.duration || 60)}</span>
         <span class="member-actions">
+          <button type="button" data-preset-up="${i}" title="上へ">↑</button>
+          <button type="button" data-preset-down="${i}" title="下へ">↓</button>
           <button type="button" data-preset-edit="${i}">編集</button>
-          <button type="button" data-preset-del="${i}" class="del">削除</button>
+          ${isFixed ? '' : `<button type="button" data-preset-del="${i}" class="del">削除</button>`}
         </span>
-      </li>`).join('') + fixedRowHtml;
+      </li>`;
+      }).join('') + fixedRowHtml;
 
       list.querySelectorAll('[data-preset-edit]').forEach(btn => {
         btn.addEventListener('click', () => openPresetEditModal(parseInt(btn.dataset.presetEdit)));
@@ -8947,6 +8976,25 @@ window.addEventListener('pagehide', function() {
           renderSchedulePresetList();
         });
       });
+      list.querySelectorAll('[data-preset-up]').forEach(btn => {
+        btn.addEventListener('click', () => movePresetPosition(parseInt(btn.dataset.presetUp), -1));
+      });
+      list.querySelectorAll('[data-preset-down]').forEach(btn => {
+        btn.addEventListener('click', () => movePresetPosition(parseInt(btn.dataset.presetDown), 1));
+      });
+    }
+
+    // メンバー管理の上下ボタンと同じUI・仕組み（隣接する項目と入れ替えるだけ）で並び順を変更する
+    function movePresetPosition(i, dir) {
+      const presets = state.schedulePresets;
+      if (!Array.isArray(presets)) return;
+      const target = i + dir;
+      if (i < 0 || i >= presets.length || target < 0 || target >= presets.length) return;
+      [presets[i], presets[target]] = [presets[target], presets[i]];
+      saveState();
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      renderSettingsPresets();
+      renderSchedulePresetList();
     }
 
     function setMemberAddColorPreview(color) {
@@ -12674,24 +12722,30 @@ window.addEventListener('pagehide', function() {
       const p = state.schedulePresets[i];
       if (!p) return;
       editingPresetIndex = i;
-      document.getElementById('presetEditName').value = p.name;
+      const isFixed = FIXED_SCHEDULE_PRESET_NAMES.includes(p.name);
+      const nameInput = document.getElementById('presetEditName');
+      nameInput.value = p.name;
+      nameInput.disabled = isFixed;
+      nameInput.title = isFixed ? 'この項目は名前を変更できません' : '';
       document.getElementById('presetEditDuration').value = String(p.duration || 60);
       document.getElementById('presetEditColor').value = p.color || '#4a7fb5';
       renderColorPalette('presetColorPalette', p.color || '#4a7fb5', c => {
         document.getElementById('presetEditColor').value = c;
       });
       openOverlay(document.getElementById('presetEditModal'));
-      setTimeout(() => document.getElementById('presetEditName').focus(), 50);
+      setTimeout(() => document.getElementById(isFixed ? 'presetEditDuration' : 'presetEditName').focus(), 50);
     }
 
     document.getElementById('presetEditSave').addEventListener('click', () => {
-      const name = document.getElementById('presetEditName').value.trim();
+      const i = editingPresetIndex;
+      const cur = state.schedulePresets[i];
+      const isFixed = FIXED_SCHEDULE_PRESET_NAMES.includes(cur.name);
+      // 固定デフォルト項目は、入力欄が無効化されていても名前だけは必ず元のまま保つ（二重の安全策）
+      const name = isFixed ? cur.name : document.getElementById('presetEditName').value.trim();
       const duration = parseInt(document.getElementById('presetEditDuration').value);
       const color = document.getElementById('presetEditColor').value || '#4a7fb5';
       if (!name) { alert('項目名を入力してください。'); return; }
-      const i = editingPresetIndex;
-      const cur = state.schedulePresets[i];
-      if (name !== cur.name && state.schedulePresets.some(p => p.name === name)) {
+      if (!isFixed && name !== cur.name && state.schedulePresets.some(p => p.name === name)) {
         alert('同じ名前が既にあります。'); return;
       }
       state.schedulePresets[i] = { name, duration, color };
