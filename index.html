@@ -7577,7 +7577,7 @@ window.addEventListener('pagehide', function() {
 
     // 予定プルダウンの固定デフォルト項目。項目名のみ固定（変更・削除不可）とし、
     // 所要時間・色・並び順は他の項目と同様に編集可能にする。
-    const FIXED_SCHEDULE_PRESET_NAMES = ['事前点検', 'オイル交換', 'タイヤ履き替え', 'タイヤ組み替え', 'パンク修理'];
+    const FIXED_SCHEDULE_PRESET_NAMES = ['事前点検', 'オイル交換', 'タイヤ履き替え', 'タイヤ組替', 'パンク修理'];
 
     function defaultBranchBucket() {
       return {
@@ -7641,6 +7641,21 @@ window.addEventListener('pagehide', function() {
 
     migrateStateToPerBranch();
     installPerBranchAccessors(state);
+
+    // 「タイヤ組み替え」は正しい項目名「タイヤ組替」と誤って別項目として追加してしまったため、
+    // 既存データから取り除く（一度だけ実行する移行処理）
+    (function removeMistakenTireResetPreset() {
+      if (!state.branchData) return;
+      let changed = false;
+      Object.keys(state.branchData).forEach(branchName => {
+        const bucket = state.branchData[branchName];
+        if (!bucket || !Array.isArray(bucket.schedulePresets)) return;
+        const before = bucket.schedulePresets.length;
+        bucket.schedulePresets = bucket.schedulePresets.filter(p => p.name !== 'タイヤ組み替え');
+        if (bucket.schedulePresets.length !== before) changed = true;
+      });
+      if (changed) saveState();
+    })();
 
     // 予定プルダウンの固定デフォルト項目を、既存データの全営業所に不足分だけ補う
     // （既にある場合は一切変更しない。重複追加もしない）
