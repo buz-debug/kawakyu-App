@@ -4532,6 +4532,12 @@
 
     </div>
 
+    <!-- 車検予約タブ: 事前点検の日程が未決定の顧客リスト -->
+    <div id="shakenPreScheduleSidebar" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:hidden;">
+      <div class="sidebar-section-title" style="font-size:13px;">事前点検の日程を決めてください</div>
+      <div id="shakenPreScheduleList" style="flex:1;overflow-y:auto;padding:0 8px 8px;"></div>
+    </div>
+
     <button type="button" class="sidebar-settings-btn" id="btnSettings">設定</button>
   </aside>
 
@@ -6846,6 +6852,10 @@ window.addEventListener('pagehide', function() {
             style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--danger);color:#fff;transition:background .15s,color .15s;">
             <span id="shakenEditVoidLabel">車検キャンセル</span>
           </button>
+          <button type="button" id="shakenEditPreScheduleBtn" onclick="toggleShakenEditPreSchedule()"
+            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#9ca3af;color:#fff;transition:background .15s,color .15s;">
+            <span id="shakenEditPreScheduleLabel">事前日程</span>
+          </button>
           <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
             style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
             <span id="shakenEditCompleteLabel">車検完了</span>
@@ -7577,7 +7587,7 @@ window.addEventListener('pagehide', function() {
 
     // 予定プルダウンの固定デフォルト項目。項目名のみ固定（変更・削除不可）とし、
     // 所要時間・色・並び順は他の項目と同様に編集可能にする。
-    const FIXED_SCHEDULE_PRESET_NAMES = ['事前点検', 'オイル交換', 'タイヤ履き替え', 'タイヤ組替', 'パンク修理'];
+    const FIXED_SCHEDULE_PRESET_NAMES = ['事前点検', 'オイル交換', 'タイヤ履き替え', 'タイヤ組替', 'パンク修理', 'その他'];
 
     function defaultBranchBucket() {
       return {
@@ -10988,6 +10998,15 @@ window.addEventListener('pagehide', function() {
       if (okBtn) okBtn.textContent = '閉じる';
     }
 
+    // 「事前点検」の予定を追加した際、車検予約管理への登録漏れを防ぐためのリマインド
+    function showShakenRegisterReminder() {
+      openModal('ご確認ください', '車検予約管理にチェックを入れてください', null);
+      const cancelBtn = document.getElementById('modalCancel');
+      const okBtn = document.getElementById('modalOk');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      if (okBtn) okBtn.textContent = '閉じる';
+    }
+
     function exportData() {
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
@@ -11246,6 +11265,7 @@ window.addEventListener('pagehide', function() {
     let shakenCheckinDateTouched = false; // 追加フォームで入庫日を手動編集したかどうか
     let editingShakenCompleted = false; // 「予約を編集」モーダル内で保存前に一時的に保持する完了状態
     let editingShakenCancelled = false; // 同様に、保存前に一時的に保持する車検キャンセル状態
+    let editingShakenPreScheduled = false; // 同様に、保存前に一時的に保持する「事前日程」決定状態
     // 販売実績表・シフトタブと同じ「営業所切り替えセレクター」。ログイン中の営業所とは別に、
     // 閲覧（および編集）対象の営業所を切り替えられるようにする。
     let shakenViewBranch = (typeof state !== 'undefined' && state.currentBranch) ? state.currentBranch : '本社';
@@ -11262,12 +11282,16 @@ window.addEventListener('pagehide', function() {
       if (!name || name === shakenViewBranch) return;
       shakenViewBranch = name;
       renderShakenView(); // まずはこの端末にあるキャッシュを即座に表示する
+      if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
       // この端末が他営業所の車検予約をまだ一度も同期していない場合、ローカルキャッシュが
       // 空/古いままになるため、切替時にその営業所のスプレッドシートから最新データを取得して反映する
       // （閲覧のみのため、保存時と同じ安全なマージ処理をそのまま流用できる）
       if (typeof getGasUrl === 'function' && typeof getSpreadsheetId === 'function' && typeof mergeRemoteShakenBeforeSave === 'function' && getGasUrl() && getSpreadsheetId(name)) {
         await mergeRemoteShakenBeforeSave(name, getSpreadsheetId(name));
-        if (shakenViewBranch === name) renderShakenView();
+        if (shakenViewBranch === name) {
+          renderShakenView();
+          if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
+        }
       }
       if (!silent && typeof appToast === 'function') appToast(`「${name}」の車検予約を表示しています`);
     }
@@ -11325,6 +11349,37 @@ window.addEventListener('pagehide', function() {
       const weeks = [];
       for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
       return weeks;
+    }
+
+    // 左カラム: 事前点検の日程が未決定の顧客リスト。
+    // 抽出条件は「①通検日から30日を切った予約」かつ「②『事前日程』ボタンが押されていない予約」の両方。
+    // キャンセル済み・完了済みの予約は、もう事前点検の日程を決める必要が無いため対象外とする。
+    function renderShakenPreScheduleSidebar() {
+      const listEl = document.getElementById('shakenPreScheduleList');
+      if (!listEl) return;
+      const cutoffISO = shakenAddDaysISO(todayStr(), 30);
+      const items = (shakenBucket().shakenReservations || [])
+        .filter(r => !r.cancelled && !r.completed && !r.preScheduled && r.inspectionDate && r.inspectionDate <= cutoffISO)
+        .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
+
+      if (!items.length) {
+        listEl.innerHTML = '<div style="text-align:center;color:#1e3a5f;opacity:.6;padding:20px 8px;font-size:12px;">対象の予約はありません</div>';
+        return;
+      }
+
+      listEl.innerHTML = items.map(r => `
+        <div class="shaken-preschedule-item" data-sid="${r.id}" style="padding:8px 6px;border-bottom:1px solid rgba(30,58,95,.12);cursor:pointer;">
+          <div style="font-size:12px;font-weight:700;color:#1e3a5f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}</div>
+          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.carModel || '')}</div>
+          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;">通検：${r.inspectionDate || '-'}</div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('[data-sid]').forEach(el => {
+        el.addEventListener('click', () => {
+          if (typeof openShakenEditModal === 'function') openShakenEditModal(el.dataset.sid);
+        });
+      });
     }
 
     function renderShakenCalendar() {
@@ -11458,6 +11513,9 @@ window.addEventListener('pagehide', function() {
       // 項目カード同士の隙間を無くし、1枚のシートのように見せる。各項目はborder-bottomだけを持つ。
       html += `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
       html += list.map(r => {
+        const preScheduleBadge = r.preScheduled
+          ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">事前点検日程OK</span>'
+          : '';
         const loanerBadge = r.loanerCar
           ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
           : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
@@ -11471,6 +11529,7 @@ window.addEventListener('pagehide', function() {
             <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}${noteInline}</div>
           </div>
+          ${preScheduleBadge}
           ${loanerBadge}
           ${completeMark}
         </div>`;
@@ -11615,6 +11674,7 @@ window.addEventListener('pagehide', function() {
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeOverlay(document.getElementById('addShakenModal'));
       renderShakenView();
+      if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
     });
 
     // ── 編集モーダル ──
@@ -11635,6 +11695,8 @@ window.addEventListener('pagehide', function() {
       renderShakenEditCompleteButton();
       editingShakenCancelled = !!r.cancelled;
       renderShakenEditVoidButton();
+      editingShakenPreScheduled = !!r.preScheduled;
+      renderShakenEditPreScheduleButton();
       openOverlay(document.getElementById('shakenEditModal'));
     }
 
@@ -11662,6 +11724,28 @@ window.addEventListener('pagehide', function() {
     function toggleShakenEditComplete() {
       editingShakenCompleted = !editingShakenCompleted;
       renderShakenEditCompleteButton();
+    }
+
+    // 「事前日程」ボタン。事前点検の日程が決まったら任意で押す（他のトグルボタンと同じ扱いで、
+    // 実際の反映は保存時に行う。何度でも押し直せる）
+    function renderShakenEditPreScheduleButton() {
+      const btn = document.getElementById('shakenEditPreScheduleBtn');
+      const label = document.getElementById('shakenEditPreScheduleLabel');
+      if (!btn) return;
+      if (editingShakenPreScheduled) {
+        btn.style.background = '#22c55e';
+        btn.style.color = '#fff';
+        label.textContent = '事前日程OK';
+      } else {
+        btn.style.background = '#9ca3af';
+        btn.style.color = '#fff';
+        label.textContent = '事前日程';
+      }
+    }
+
+    function toggleShakenEditPreSchedule() {
+      editingShakenPreScheduled = !editingShakenPreScheduled;
+      renderShakenEditPreScheduleButton();
     }
 
     // 「車検キャンセル」ボタンも「完了」ボタンと同様、押すたびにキャンセル⇔キャンセル解除を
@@ -11746,10 +11830,12 @@ window.addEventListener('pagehide', function() {
       r.cancelled = editingShakenCancelled;
       // キャンセル集計は「キャンセル処理した日付」を基準にするため、キャンセルでない場合は保持しない
       r.cancelledDate = editingShakenCancelled ? cancelledDate : '';
+      r.preScheduled = editingShakenPreScheduled;
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeShakenEditModal();
       renderShakenView();
+      if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
     });
 
     document.getElementById('shakenEditDelete').addEventListener('click', () => {
@@ -11764,6 +11850,7 @@ window.addEventListener('pagehide', function() {
         if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet('スプレッドシートから削除しました');
         closeShakenEditModal();
         renderShakenView();
+        if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
       });
     });
 
@@ -12130,6 +12217,10 @@ window.addEventListener('pagehide', function() {
         document.getElementById('panelDaily').classList.toggle('active', currentTab === 'daily');
         document.getElementById('panelShaken').classList.toggle('active', currentTab === 'shaken');
 
+        // 車検予約タブ: 事前点検の日程が未決定の顧客リスト（左カラム）
+        const preScheduleSidebar = document.getElementById('shakenPreScheduleSidebar');
+        if (preScheduleSidebar) preScheduleSidebar.style.display = currentTab === 'shaken' ? 'flex' : 'none';
+
         // サイドバータイトルをタブ名に連動
         const titles = { chat: '連絡ノート', tasks: '予定', kasime: '仮締め', shift: 'シフト', sales: '販売実績表', daily: '日常業務', shaken: '車検予約' };
         document.getElementById('sidebarTitle').textContent = titles[currentTab] || currentTab;
@@ -12194,11 +12285,12 @@ window.addEventListener('pagehide', function() {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
           taskOnly.style.display = 'none';
-          // 予定タブと同じ2カラムレイアウトにする。左カラムには表示するものが
-          // 無いため、何も出さず枠だけのサイドバーとして残す。
+          // 予定タブと同じ2カラムレイアウトにする。左カラムには事前点検の日程が
+          // 未決定の顧客リストを表示する。
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = '';
           if (typeof renderShakenView === 'function') renderShakenView();
+          if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
         } else {
           chatOnly.style.display = '';
           roomList.style.display = '';
@@ -12633,6 +12725,10 @@ window.addEventListener('pagehide', function() {
       closeOverlay(document.getElementById('addScheduleModal'));
       renderTaskCalendar();
       showScheduleResultPopup('追加', newSchedule);
+      // 「事前点検」の予定を追加した場合、車検予約管理への登録も忘れないようリマインドする
+      if (text === '事前点検') {
+        setTimeout(() => { if (typeof showShakenRegisterReminder === 'function') showShakenRegisterReminder(); }, 400);
+      }
     });
 
     function openDoneTasksModal() {
