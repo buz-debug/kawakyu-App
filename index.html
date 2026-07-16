@@ -6853,7 +6853,7 @@ window.addEventListener('pagehide', function() {
             <span id="shakenEditVoidLabel">車検キャンセル</span>
           </button>
           <button type="button" id="shakenEditPreScheduleBtn" onclick="toggleShakenEditPreSchedule()"
-            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#9ca3af;color:#fff;transition:background .15s,color .15s;">
+            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
             <span id="shakenEditPreScheduleLabel">事前日程</span>
           </button>
           <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
@@ -11367,11 +11367,17 @@ window.addEventListener('pagehide', function() {
         return;
       }
 
+      // 日程目安は、事前点検を通検日の何日前までに済ませておきたいかの目安として、通検日の15日前を表示する
+      const jpDate = iso => {
+        if (!iso) return '';
+        const [y, m, d] = iso.split('-').map(Number);
+        return `${y}年${m}月${d}日`;
+      };
       listEl.innerHTML = items.map(r => `
         <div class="shaken-preschedule-item" data-sid="${r.id}" style="padding:8px 6px;border-bottom:1px solid rgba(30,58,95,.12);cursor:pointer;">
           <div style="font-size:12px;font-weight:700;color:#1e3a5f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}</div>
           <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.carModel || '')}</div>
-          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;">通検：${r.inspectionDate || '-'}</div>
+          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;">通検：${r.inspectionDate || '-'}　日程目安：${jpDate(shakenAddDaysISO(r.inspectionDate, -15))}</div>
         </div>
       `).join('');
 
@@ -11733,11 +11739,11 @@ window.addEventListener('pagehide', function() {
       const label = document.getElementById('shakenEditPreScheduleLabel');
       if (!btn) return;
       if (editingShakenPreScheduled) {
-        btn.style.background = '#22c55e';
+        btn.style.background = '#9ca3af';
         btn.style.color = '#fff';
         label.textContent = '事前日程OK';
       } else {
-        btn.style.background = '#9ca3af';
+        btn.style.background = '#22c55e';
         btn.style.color = '#fff';
         label.textContent = '事前日程';
       }
