@@ -6305,7 +6305,7 @@ window.addEventListener('pagehide', function() {
             style="margin-left:auto;flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             ＋ 予約を追加する
           </button>
-          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
+          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn" style="padding:7px 14px;border-radius:4px;">リスト表示</button>
           <button type="button" id="btnShakenCancelledList"
             style="flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--surface);color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
             車検キャンセル一覧
@@ -11329,11 +11329,12 @@ window.addEventListener('pagehide', function() {
           const baseColorCls = r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner');
           const colorCls = belongsToCurrentMonth ? baseColorCls : `${baseColorCls} shaken-bar-othermonth`;
           const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
-          const fullLabel = `${r.completed ? '✓ ' : ''}${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
+          // カレンダービューでは完了済みバーは灰色で見分けられるため、チェックマークは付けない
+          const fullLabel = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
           // 入庫のセル部分には「◯時入庫」、通検のセル部分には「顧客名・車種・車番」を表示し、
           // バーのどの位置が何を表しているか一目でわかるようにする
-          const checkinLabel = isTrueStart ? `${r.completed ? '✓ ' : ''}${r.checkinTime || ''}入庫` : '';
-          const inspectionLabel = isTrueEnd ? `${r.completed ? '✓ ' : ''}${[shakenCustomerLabel(r.customer), r.carModel, r.plateNumber].filter(Boolean).join('　')}` : '';
+          const checkinLabel = isTrueStart ? `${r.checkinTime || ''}入庫` : '';
+          const inspectionLabel = isTrueEnd ? `${[shakenCustomerLabel(r.customer), r.carModel, r.plateNumber].filter(Boolean).join('　')}` : '';
           let innerHtml = '';
           if (checkinLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(checkinLabel)}</span>`;
           if (inspectionLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;padding-left:4px;">${escapeHtml(inspectionLabel)}</span>`;
