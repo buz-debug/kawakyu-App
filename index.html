@@ -8107,6 +8107,17 @@ window.addEventListener('pagehide', function() {
     }
 
     function renderBookmarkSidebar(q) {
+      // 投稿本体が削除され「削除済み」としか表示できないブックマークは表示する意味が無いため、
+      // 表示前に自動で取り除く。
+      const existingMsgIds = new Set(state.messages.map(m => m.id));
+      const orphanedBookmarks = state.bookmarks.filter(b => !existingMsgIds.has(b.msgId));
+      if (orphanedBookmarks.length) {
+        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(orphanedBookmarks.map(b => b.id));
+        state.bookmarks = state.bookmarks.filter(b => existingMsgIds.has(b.msgId));
+        saveState();
+        if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+      }
+
       const cats = state.bookmarkCategories || [];
       let html = `<div class="sidebar-section-title">ブックマーク</div>`;
 
