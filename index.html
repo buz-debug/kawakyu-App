@@ -9444,7 +9444,19 @@ window.addEventListener('pagehide', function() {
       const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
 
       const rows = keys.map(key => {
-        const raw = dataOverride ? (dataOverride[key] || '') : (localStorage.getItem(key) || '');
+        let raw = dataOverride ? (dataOverride[key] || '') : (localStorage.getItem(key) || '');
+        // 移行期間中（連絡ノートのメッセージがまだ専用キーとしてスプレッドシートに保存されていない場合）は、
+        // 旧形式（設定データに同梱）から実際のメッセージ内容を計算して表示する。
+        // これをしないと、実際にはデータがあるのに「最新を取得」で0文字に見えてしまい、
+        // メッセージが消えたように誤解される。
+        if (dataOverride && key === 'kawakyu-chatwork-messages-v1' && !raw && dataOverride['kawakyu-chatwork-v5']) {
+          try {
+            const legacy = JSON.parse(dataOverride['kawakyu-chatwork-v5']);
+            if (Array.isArray(legacy.messages)) {
+              raw = JSON.stringify({ messages: legacy.messages });
+            }
+          } catch (e) {}
+        }
         const len = raw.length;
         const label = (typeof describeKeyForWarning === 'function') ? describeKeyForWarning(key) : key;
         let color = 'var(--muted)';
