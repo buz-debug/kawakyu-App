@@ -7440,7 +7440,21 @@ window.addEventListener('pagehide', function() {
 
   <script>
     const STORAGE_KEY = 'kawakyu-chatwork-v5';
+    // 連絡ノートのメッセージは他の設定データより大きく増え続けるため、別セルに分けて保存する。
+    const MESSAGES_STORAGE_KEY = 'kawakyu-chatwork-messages-v1';
     const COLORS = ['#4a7fb5','#5b7c9d','#7c6b9d','#c45c3e','#8b5cf6','#0891b2','#ca8a04'];
+
+    // 新形式（専用キー）を優先し、まだ無ければ旧形式（設定データに同梱）から読み取る（移行用）。
+    function loadMessagesFromStorage(legacyEmbedded) {
+      try {
+        const raw = localStorage.getItem(MESSAGES_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.messages)) return parsed.messages;
+        }
+      } catch (e) {}
+      return Array.isArray(legacyEmbedded) ? legacyEmbedded : [];
+    }
 
     let storageAvailable = false;
     let memoryStore = null;
@@ -7788,7 +7802,7 @@ window.addEventListener('pagehide', function() {
               adminPassword: s.adminPassword || undefined,
               legacyMessagesMigrated: s.legacyMessagesMigrated || false,
               members: normalizeMembers(s.members),
-              messages: Array.isArray(s.messages) ? s.messages : [],
+              messages: loadMessagesFromStorage(s.messages),
               tasks: Array.isArray(s.tasks) ? s.tasks : [],
               lastRead: s.lastRead || {},
               bookmarkCategories: (Array.isArray(s.bookmarkCategories) && s.bookmarkCategories.length)
@@ -7928,7 +7942,9 @@ window.addEventListener('pagehide', function() {
       memoryStore = json;
       if (!storageAvailable) return;
       try {
-        localStorage.setItem(STORAGE_KEY, json);
+        const { messages, ...settingsOnly } = state;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(settingsOnly));
+        localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify({ messages: Array.isArray(messages) ? messages : [] }));
       } catch (err) {
         console.error(err);
         storageAvailable = false;
@@ -15688,6 +15704,7 @@ function getSpreadsheetId(branchName) {
 function getSyncKeys(branchName) {
   return [
     'kawakyu-chatwork-v5',
+    'kawakyu-chatwork-messages-v1',
     `仮締め記録_${branchName}`,
     `仮締め入力下書き_${branchName}`,
     'salesItems_GLOBAL',
@@ -15735,7 +15752,7 @@ function getSyncKeysForTab(tabBtnId, branchName) {
     case 'shaken':
       return [`shakenReservations_${branchName}`];
     case 'state':
-      return ['kawakyu-chatwork-v5'];
+      return ['kawakyu-chatwork-v5', 'kawakyu-chatwork-messages-v1'];
     default:
       return getSyncKeys(branchName);
   }
@@ -15909,30 +15926,44 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
     const result = await gasRequest('load', spreadsheetId);
     if (!result || !result.ok || !result.data) return;
     const raw = result.data['kawakyu-chatwork-v5'];
-    if (!raw) return;
-    const remote = JSON.parse(raw);
+    const messagesRaw = result.data['kawakyu-chatwork-messages-v1'];
+    if (!raw && !messagesRaw) return;
 
-    // 連絡ノートのメッセージ本体は営業所をまたいで共有される、唯一のトップレベル配列
-    state.messages = mergeArrayById(state.messages, remote.messages);
+    // 連絡ノートのメッセージ本体は営業所をまたいで共有される、唯一のトップレベル配列。
+    // 新形式（専用キー）を優先し、まだ専用キーが無い（旧バージョンの端末が保存した）場合は
+    // 旧形式（設定データに同梱）からも読み取る。
+    let remoteMessages;
+    try {
+      if (messagesRaw) remoteMessages = JSON.parse(messagesRaw).messages;
+    } catch (e) {}
+    if (!Array.isArray(remoteMessages) && raw) {
+      try { remoteMessages = JSON.parse(raw).messages; } catch (e) {}
+    }
+    if (Array.isArray(remoteMessages)) {
+      state.messages = mergeArrayById(state.messages, remoteMessages);
+    }
 
     // 連絡ノートのタスク・ブックマークは営業所ごとに state.branchData[営業所名][項目] に保持されているため、
     // （state.tasks 等はそのプロキシに過ぎない）、営業所ごとにマージする。
     // 予定カレンダー（schedules）・タスク一覧（sidebarTasks）は、それぞれ独立した保存キーで
     // 個別にマージする（mergeRemoteScheduleBeforeSave / mergeRemoteSidebarTasksBeforeSave）ため、
     // ここでは扱わない。
-    const ARRAY_PER_BRANCH_KEYS = ['tasks', 'bookmarks'];
-    if (remote.branchData && typeof remote.branchData === 'object') {
-      if (!state.branchData) state.branchData = {};
-      Object.keys(remote.branchData).forEach(branchName => {
-        const remoteBucket = remote.branchData[branchName];
-        if (!remoteBucket) return;
-        const localBucket = (typeof ensureBranchBucket === 'function')
-          ? ensureBranchBucket(branchName)
-          : (state.branchData[branchName] || (state.branchData[branchName] = {}));
-        ARRAY_PER_BRANCH_KEYS.forEach(key => {
-          localBucket[key] = mergeArrayById(localBucket[key], remoteBucket[key]);
+    if (raw) {
+      const remote = JSON.parse(raw);
+      const ARRAY_PER_BRANCH_KEYS = ['tasks', 'bookmarks'];
+      if (remote.branchData && typeof remote.branchData === 'object') {
+        if (!state.branchData) state.branchData = {};
+        Object.keys(remote.branchData).forEach(branchName => {
+          const remoteBucket = remote.branchData[branchName];
+          if (!remoteBucket) return;
+          const localBucket = (typeof ensureBranchBucket === 'function')
+            ? ensureBranchBucket(branchName)
+            : (state.branchData[branchName] || (state.branchData[branchName] = {}));
+          ARRAY_PER_BRANCH_KEYS.forEach(key => {
+            localBucket[key] = mergeArrayById(localBucket[key], remoteBucket[key]);
+          });
         });
-      });
+      }
     }
 
     saveState();
@@ -16096,7 +16127,7 @@ async function syncToSheet(branchName, keysOverride) {
   }
   const spreadsheetId = getSpreadsheetId(branchName);
   const keys = keysOverride || getSyncKeys(branchName);
-  if (keys.includes('kawakyu-chatwork-v5')) {
+  if (keys.includes('kawakyu-chatwork-v5') || keys.includes('kawakyu-chatwork-messages-v1')) {
     await mergeRemoteStateArraysBeforeSave(spreadsheetId);
   }
   if (keys.includes(`shifts_${branchName}`)) {
@@ -16138,7 +16169,8 @@ const CELL_CHAR_WARNING_RATIO = 0.8;
 // key（例: kawakyu-chatwork-v5、shakenReservations_本社）を日本語の説明文に変換する。
 // GAS側（kawakyu_gas.gs）の説明列と同じ考え方の対応表。
 const KEY_LABEL_EXACT = {
-  'kawakyu-chatwork-v5': 'アプリ全体データ（連絡ノート・営業所共通設定など）',
+  'kawakyu-chatwork-v5': '営業所共通設定など（メンバー・予定・ブックマーク・管理者設定など）',
+  'kawakyu-chatwork-messages-v1': '連絡ノートのメッセージ',
   'salesItems_GLOBAL': '販売実績表の項目設定（全営業所共通）',
 };
 const KEY_LABEL_PREFIX = {
