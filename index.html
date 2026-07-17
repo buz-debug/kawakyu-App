@@ -4190,7 +4190,7 @@
 #dailyTable th, #dailyTable td {
     border: 1px solid var(--border);
     padding: 0;
-    height: 30px;
+    height: 22px;
     text-align: center;
     box-sizing: border-box;
 }
@@ -7763,6 +7763,7 @@ window.addEventListener('pagehide', function() {
               timeUnit: s.timeUnit || 30,
               scheduleTimeStart: s.scheduleTimeStart || '09:00',
               scheduleTimeEnd: s.scheduleTimeEnd || '18:00',
+              dataRetentionMonths: s.dataRetentionMonths || {},
             };
           }
           // v4からの移行（プリセットをオブジェクト形式にリセット）
