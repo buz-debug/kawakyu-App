@@ -7054,23 +7054,12 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <h2 id="settingsModalTitle">設定</h2>
 
-      <div id="chatSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
+      <!-- 連絡ノート・予定・車検予約・仮締めタブ共通の設定メニュー（内容はすべて同じ） -->
+      <div id="commonSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
         <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('bmCatManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ブックマーク項目管理</button>
-        <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
-        <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
-      </div>
-
-      <div id="tasksSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
-        <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskPresetModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予定プルダウン管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">時間設定</button>
-        <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
-        <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
-      </div>
-
-      <div id="kasimeSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
-        <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('kasimePdfModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ダウンロード/印刷</button>
         <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
@@ -9184,43 +9173,35 @@ window.addEventListener('pagehide', function() {
       const chatSection = document.getElementById('settingsChatSection');
       const pdfSection = document.getElementById('settingsPdfSection');
       const loginSection = document.getElementById('settingsLoginPwdSection');
-      const chatMenu = document.getElementById('chatSettingsMenu');
-      const tasksMenu = document.getElementById('tasksSettingsMenu');
-      const kasimeMenu = document.getElementById('kasimeSettingsMenu');
+      const commonMenu = document.getElementById('commonSettingsMenu');
       const adminRow = document.getElementById('settingsAdminRow');
       const titleEl = document.getElementById('settingsModalTitle');
 
+      // 連絡ノート・予定・車検予約・仮締めの4タブは、設定メニューの内容を統一する
+      // （どのタブから開いても同じメニューが表示される）。
+      const isCommonTab = (tab === 'chat' || tab === 'tasks' || tab === 'kasime' || tab === 'shaken');
+
       if (titleEl) titleEl.style.display = (tab === 'shift') ? 'none' : '';
-      chatMenu.style.display = 'none';
-      tasksMenu.style.display = 'none';
-      kasimeMenu.style.display = 'none';
+      commonMenu.style.display = 'none';
       adminRow.style.display = (tab === 'shift') ? 'none' : '';
 
       // 各セクションは移動先のモーダルが#settingsModalの外にあるため、
       // 表示・非表示は必ずここで明示的に指定する（要素がどこに居ても確実に効くようにする）。
-      taskPresetSection.style.display = (tab === 'tasks') ? '' : 'none';
-      taskTimeSection.style.display = (tab === 'tasks') ? '' : 'none';
-      chatSection.style.display = (tab === 'chat') ? '' : 'none';
-      pdfSection.style.display = (tab === 'kasime') ? '' : 'none';
-      loginSection.style.display = (tab === 'chat' || tab === 'tasks' || tab === 'kasime') ? '' : 'none';
+      taskPresetSection.style.display = isCommonTab ? '' : 'none';
+      taskTimeSection.style.display = isCommonTab ? '' : 'none';
+      chatSection.style.display = isCommonTab ? '' : 'none';
+      pdfSection.style.display = isCommonTab ? '' : 'none';
+      loginSection.style.display = isCommonTab ? '' : 'none';
 
-      if (tab === 'chat') {
+      if (isCommonTab) {
         document.getElementById('memberManageMount').appendChild(memberSection);
         document.getElementById('bmCatManageMount').appendChild(chatSection);
-        document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
-        chatMenu.style.display = 'flex';
-      } else if (tab === 'tasks') {
-        document.getElementById('memberManageMount').appendChild(memberSection);
         document.getElementById('taskPresetMount').appendChild(taskPresetSection);
         document.getElementById('taskTimeMount').appendChild(taskTimeSection);
-        document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
-        tasksMenu.style.display = 'flex';
-      } else if (tab === 'kasime') {
-        document.getElementById('memberManageMount').appendChild(memberSection);
         document.getElementById('kasimePdfMount').appendChild(pdfSection);
         document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
         initKasimePdfPicker();
-        kasimeMenu.style.display = 'flex';
+        commonMenu.style.display = 'flex';
       } else {
         // 元の位置に戻す（インライン表示）。adminRowは常にこの中にあるため基準点にする。
         const modalBody = document.querySelector('#settingsModal .modal');
