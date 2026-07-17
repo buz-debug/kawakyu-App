@@ -4594,6 +4594,9 @@
       </div>
     </div>
     <div class="hist-body" id="histRecordList"></div>
+    <!-- 表示中の営業所（他営業所閲覧中を含む）のデータを確実に出力するため、
+         共通の設定メニューではなくこのタブ自身に独立したボタンとして置く。 -->
+    <button type="button" class="sales-settings-btn" style="margin:8px;" onclick="openKasimeDownloadPrint()">ダウンロード/印刷</button>
   </div>
 
   <!-- ========== 右カラム：入力メインエリア ========== -->
@@ -5536,6 +5539,21 @@ function initKasimePdfPicker() {
   kasimePdfYear = today.getFullYear();
   kasimePdfSelectedMonth = today.getMonth() + 1;
   renderKasimePdfMonthGrid();
+}
+
+// 共通の設定メニュー（他タブからも開ける）経由ではなく、仮締めタブ自身から直接開く。
+// これにより、本社が他営業所の仮締めを閲覧中でも、今まさに画面に表示されているデータ
+// （kasimeViewBranch）を確実に出力できる。他タブへ移動した後に古い閲覧営業所のまま
+// 出力してしまう事故を防ぐため。
+function openKasimeDownloadPrint() {
+  const pdfSection = document.getElementById('settingsPdfSection');
+  const mount = document.getElementById('kasimePdfMount');
+  if (pdfSection && mount && pdfSection.parentElement !== mount) {
+    mount.appendChild(pdfSection);
+  }
+  if (pdfSection) pdfSection.style.display = '';
+  initKasimePdfPicker();
+  openOverlay(document.getElementById('kasimePdfModal'));
 }
 
 function changeKasimePdfYear(delta) {
@@ -7044,7 +7062,6 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openChatSettingsSubPanel('bmCatManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ブックマーク項目管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskPresetModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予定プルダウン管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予約時間範囲指定</button>
-        <button type="button" onclick="openChatSettingsSubPanel('kasimePdfModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ダウンロード/印刷</button>
         <button type="button" onclick="openDailyItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">日常業務項目管理</button>
         <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
