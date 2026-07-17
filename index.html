@@ -7574,6 +7574,7 @@ window.addEventListener('pagehide', function() {
         branches: [{ name: '本社', branchId: '00', spreadsheetId: '', password: '1234' }],
         adminPassword: 'admin1234',
         currentBranch: '本社',
+        salesItems: [],
       };
     }
 
@@ -7672,12 +7673,42 @@ window.addEventListener('pagehide', function() {
         scheduleTimeStart: '09:00',
         scheduleTimeEnd: '18:00',
         shakenReservations: [],
+        // シフト設定（時間枠・営業時間・休日集計条件・提出締切）。
+        // 以前は個別のセルに保存していたが、「営業所共通設定など」セルにまとめるよう整理した。
+        businessHours: { start: '09:00', end: '18:00' },
+        timeFrames: {
+          A: { start: '09:00', end: '12:00', 'break': 0, color: '#d9ecff' },
+          B: { start: '12:00', end: '17:00', 'break': 60, color: '#dfffe0' },
+          C: { start: '17:00', end: '22:00', 'break': 60, color: '#ffe0e0' },
+        },
+        timeFrameOrder: ['A', 'B', 'C'],
+        calcConditions: { holidaySymbols: [], paidLeaveSymbols: [] },
+        shiftDeadline: { day: 25, time: '12:30' },
+        // 日常業務の項目設定。以前は個別のセルに保存していたが、
+        // 「営業所共通設定など」セルにまとめるよう整理した。
+        dailyTaskItems: [],
       };
+    }
+
+    // 状態(state)とlocalStorageの間で値をやり取りする際は、必ずディープコピーを介す。
+    // 参照をそのまま共有すると、未保存の編集（オブジェクトの直接書き換え）が
+    // 「保存済み」の側にも即座に反映されてしまう不具合になるため。
+    function cloneJsonValue(v) {
+      return JSON.parse(JSON.stringify(v));
     }
 
     function ensureBranchBucket(branchName) {
       if (!state.branchData) state.branchData = {};
-      if (!state.branchData[branchName]) state.branchData[branchName] = defaultBranchBucket();
+      if (!state.branchData[branchName]) {
+        state.branchData[branchName] = defaultBranchBucket();
+      } else {
+        // 既存のバケットに、後から追加されたフィールドが無ければ既定値で補う
+        const bucket = state.branchData[branchName];
+        const defaults = defaultBranchBucket();
+        Object.keys(defaults).forEach(key => {
+          if (!(key in bucket)) bucket[key] = defaults[key];
+        });
+      }
       return state.branchData[branchName];
     }
 
@@ -7818,6 +7849,9 @@ window.addEventListener('pagehide', function() {
               scheduleTimeStart: s.scheduleTimeStart || '09:00',
               scheduleTimeEnd: s.scheduleTimeEnd || '18:00',
               dataRetentionMonths: s.dataRetentionMonths || {},
+              salesItems: Array.isArray(s.salesItems) ? s.salesItems : [],
+              salesItemsMigrated: s.salesItemsMigrated || false,
+              dailyTaskItemsMigrated: s.dailyTaskItemsMigrated || false,
             };
           }
           // v4からの移行（プリセットをオブジェクト形式にリセット）
@@ -9776,8 +9810,22 @@ window.addEventListener('pagehide', function() {
       }
     })();
 
+    // 販売実績表の項目設定を、個別のセルではなく「営業所共通設定など」セルにまとめて
+    // 保存するよう整理（一度だけ実行）。この端末にキャッシュされている値を引き継ぐ。
+    (function migrateSalesItemsIntoState() {
+      if (state.salesItemsMigrated) return;
+      if (!Array.isArray(state.salesItems) || !state.salesItems.length) {
+        const legacyRaw = localStorage.getItem(SALES_ITEMS_GLOBAL_KEY);
+        if (legacyRaw !== null) {
+          try { state.salesItems = JSON.parse(legacyRaw); } catch (e) {}
+        }
+      }
+      state.salesItemsMigrated = true;
+      saveState();
+    })();
+
     function loadSalesData() {
-      try { salesItems = normalizeSalesItems(JSON.parse(localStorage.getItem(SALES_ITEMS_GLOBAL_KEY))); } catch (e) { salesItems = []; }
+      try { salesItems = normalizeSalesItems(cloneJsonValue(state.salesItems || [])); } catch (e) { salesItems = []; }
       try { salesRecords = JSON.parse(localStorage.getItem(salesKey('salesRecords'))) || {}; } catch (e) { salesRecords = {}; }
     }
 
@@ -9804,7 +9852,8 @@ window.addEventListener('pagehide', function() {
     })();
 
     function saveSalesItems() {
-      localStorage.setItem(SALES_ITEMS_GLOBAL_KEY, JSON.stringify(salesItems));
+      state.salesItems = cloneJsonValue(salesItems);
+      saveState();
       window._hasUnsyncedTabChanges = true;
       salesSaveToSheet();
     }
@@ -10632,15 +10681,32 @@ window.addEventListener('pagehide', function() {
       });
     }
 
+    // 日常業務の項目設定を、個別のセルではなく「営業所共通設定など」セルにまとめて
+    // 保存するよう整理（一度だけ実行）。この端末にキャッシュされている値を営業所ごとに引き継ぐ。
+    (function migrateDailyTaskItemsIntoBranchData() {
+      if (state.dailyTaskItemsMigrated) return;
+      if (!Array.isArray(state.branches) || typeof ensureBranchBucket !== 'function') return;
+      state.branches.forEach(b => {
+        const bucket = ensureBranchBucket(b.name);
+        if (Array.isArray(bucket.dailyTaskItems) && bucket.dailyTaskItems.length) return;
+        const legacyRaw = localStorage.getItem(`dailyTaskItems_${b.name}`);
+        if (legacyRaw === null) return;
+        try { bucket.dailyTaskItems = JSON.parse(legacyRaw); } catch (e) {}
+      });
+      state.dailyTaskItemsMigrated = true;
+      saveState();
+    })();
+
     function loadDailyTaskData() {
-      try { dailyTaskItems = normalizeDailyTaskItems(JSON.parse(localStorage.getItem(dailyKey('dailyTaskItems')))); } catch (e) { dailyTaskItems = []; }
+      try { dailyTaskItems = normalizeDailyTaskItems(cloneJsonValue(ensureBranchBucket(state.currentBranch).dailyTaskItems || [])); } catch (e) { dailyTaskItems = []; }
       try { dailyTaskRecords = JSON.parse(localStorage.getItem(dailyKey('dailyTaskRecords'))) || {}; } catch (e) { dailyTaskRecords = {}; }
     }
 
     loadDailyTaskData();
 
     function saveDailyTaskItems() {
-      localStorage.setItem(dailyKey('dailyTaskItems'), JSON.stringify(dailyTaskItems));
+      ensureBranchBucket(state.currentBranch).dailyTaskItems = cloneJsonValue(dailyTaskItems);
+      saveState();
       window._hasUnsyncedTabChanges = true;
       dailySaveToSheet();
     }
@@ -13604,19 +13670,16 @@ async function switchShiftViewBranch(name, silent) {
     shiftViewBranch = name;
 
     shifts = JSON.parse(localStorage.getItem(shiftKey("shifts"))) || {};
-    businessHours = JSON.parse(localStorage.getItem(shiftKey("businessHours"))) || { start: "09:00", end: "18:00" };
-    timeFrames = JSON.parse(localStorage.getItem(shiftKey("timeFrames"))) || {
+    const bucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(name) : null;
+    businessHours = (bucket && bucket.businessHours) ? cloneShiftSettingValue(bucket.businessHours) : { start: "09:00", end: "18:00" };
+    timeFrames = (bucket && bucket.timeFrames) ? cloneShiftSettingValue(bucket.timeFrames) : {
         A:{ start:"09:00", end:"12:00", "break":0, color:"#d9ecff" },
         B:{ start:"12:00", end:"17:00", "break":60, color:"#dfffe0" },
         C:{ start:"17:00", end:"22:00", "break":60, color:"#ffe0e0" }
     };
-    timeFrameOrder = JSON.parse(localStorage.getItem(shiftKey("timeFrameOrder"))) || Object.keys(timeFrames);
-    const savedConditionsForBranch = JSON.parse(localStorage.getItem(shiftKey("calcConditions"))) || {};
-    calcConditions = {
-        holidaySymbols: savedConditionsForBranch.holidaySymbols || [],
-        paidLeaveSymbols: savedConditionsForBranch.paidLeaveSymbols || []
-    };
-    shiftDeadline = JSON.parse(localStorage.getItem(shiftKey("shiftDeadline"))) || { day: 25, time: "12:30" };
+    timeFrameOrder = (bucket && bucket.timeFrameOrder) ? cloneShiftSettingValue(bucket.timeFrameOrder) : Object.keys(timeFrames);
+    calcConditions = (bucket && bucket.calcConditions) ? cloneShiftSettingValue(bucket.calcConditions) : { holidaySymbols: [], paidLeaveSymbols: [] };
+    shiftDeadline = (bucket && bucket.shiftDeadline) ? cloneShiftSettingValue(bucket.shiftDeadline) : { day: 25, time: "12:30" };
     selectedColorsTemp = {};
 
     renderViewTable();
@@ -13690,6 +13753,26 @@ function renderShiftBranchSwitcher() {
     });
 })();
 
+// 「設定」項目（時間枠・営業時間・休日集計条件・シフト提出締切）を、個別のセルではなく
+// 「営業所共通設定など」セルにまとめて保存するよう整理（一度だけ実行）。
+// この端末にキャッシュされている個別キーの値を、営業所ごとのbranchDataへ引き継ぐ。
+(function migrateShiftSettingsIntoBranchData() {
+    if (typeof state === "undefined" || !Array.isArray(state.branches)) return;
+    if (state.shiftSettingsMigrated) return;
+    if (typeof ensureBranchBucket !== "function") return;
+    const legacyKeys = ["businessHours", "timeFrames", "timeFrameOrder", "calcConditions", "shiftDeadline"];
+    state.branches.forEach(b => {
+        const bucket = ensureBranchBucket(b.name);
+        legacyKeys.forEach(key => {
+            const legacyRaw = localStorage.getItem(`${key}_${b.name}`);
+            if (legacyRaw === null) return;
+            try { bucket[key] = JSON.parse(legacyRaw); } catch (e) {}
+        });
+    });
+    state.shiftSettingsMigrated = true;
+    if (typeof saveState === "function") saveState();
+})();
+
 function shiftStaffNames(){
     // 本社が他営業所を閲覧中の場合は、閲覧先の営業所のメンバーを使う
     if (typeof state === "undefined") return [];
@@ -13729,20 +13812,44 @@ function revertUnsavedShiftChanges() {
     if (typeof renderWishTable === "function") renderWishTable();
 }
 
-let businessHours = JSON.parse(localStorage.getItem(shiftKey("businessHours"))) || { start: "09:00", end: "18:00" };
+// シフト設定（時間枠・営業時間・休日集計条件・提出締切）は「営業所共通設定など」セル
+// （state.branchData経由）に保存する。以前は個別のセルに保存していたが整理した。
+// state.branchDataとの間で値をやり取りする際は、必ずディープコピーを介す。
+// 参照をそのまま共有すると、未保存の編集（オブジェクトの直接書き換え）が
+// 「保存済み」の側にも即座に反映されてしまい、設定破棄（discardSettingsDrafts）が
+// 効かなくなる不具合になるため。
+function cloneShiftSettingValue(v) {
+    return JSON.parse(JSON.stringify(v));
+}
 
-let timeFrames = JSON.parse(localStorage.getItem(shiftKey("timeFrames"))) || {
-    A:{ start:"09:00", end:"12:00", "break":0, color:"#d9ecff" },
-    B:{ start:"12:00", end:"17:00", "break":60, color:"#dfffe0" },
-    C:{ start:"17:00", end:"22:00", "break":60, color:"#ffe0e0" }
-};
+let businessHours;
+let timeFrames;
+let timeFrameOrder;
+let calcConditions;
+(function initShiftSettingsFromState() {
+    const bucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(shiftViewBranch) : null;
+    businessHours = (bucket && bucket.businessHours) ? cloneShiftSettingValue(bucket.businessHours) : { start: "09:00", end: "18:00" };
+    timeFrames = (bucket && bucket.timeFrames) ? cloneShiftSettingValue(bucket.timeFrames) : {
+        A:{ start:"09:00", end:"12:00", "break":0, color:"#d9ecff" },
+        B:{ start:"12:00", end:"17:00", "break":60, color:"#dfffe0" },
+        C:{ start:"17:00", end:"22:00", "break":60, color:"#ffe0e0" }
+    };
+    timeFrameOrder = (bucket && bucket.timeFrameOrder) ? cloneShiftSettingValue(bucket.timeFrameOrder) : Object.keys(timeFrames);
+    calcConditions = (bucket && bucket.calcConditions) ? cloneShiftSettingValue(bucket.calcConditions) : { holidaySymbols: [], paidLeaveSymbols: [] };
+})();
 
-let timeFrameOrder = JSON.parse(localStorage.getItem(shiftKey("timeFrameOrder"))) || Object.keys(timeFrames);
-let savedConditions = JSON.parse(localStorage.getItem(shiftKey("calcConditions"))) || {};
-let initialHolidaySymbols = savedConditions.holidaySymbols || [];
-let initialPaidLeaveSymbols = savedConditions.paidLeaveSymbols || [];
-let calcConditions = { holidaySymbols: initialHolidaySymbols, paidLeaveSymbols: initialPaidLeaveSymbols };
-localStorage.setItem(shiftKey("calcConditions"), JSON.stringify(calcConditions));
+// シフト設定の現在値を「営業所共通設定など」セル（state.branchData）へ書き戻す。
+// 各設定保存関数から呼ばれ、その後のshiftSaveToSheet()でスプレッドシートへ反映される。
+function persistShiftSettings() {
+    const bucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(shiftViewBranch) : null;
+    if (!bucket) return;
+    bucket.businessHours = cloneShiftSettingValue(businessHours);
+    bucket.timeFrames = cloneShiftSettingValue(timeFrames);
+    bucket.timeFrameOrder = cloneShiftSettingValue(timeFrameOrder);
+    bucket.calcConditions = cloneShiftSettingValue(calcConditions);
+    bucket.shiftDeadline = cloneShiftSettingValue(shiftDeadline);
+    if (typeof saveState === "function") saveState();
+}
 
 const pastelColors = [
     "#ffe5e5", "#ffd1d1", "#ffb3b3", "#ffb7c5", "#ffe4e1", "#ffdad9", "#ffd6e7", "#ffb7d5", "#fbcce7", "#f5c3c2",
@@ -14087,7 +14194,7 @@ function updatePaidLeaveCondition() {
 }
 
 function saveCalcConditions() {
-    localStorage.setItem(shiftKey("calcConditions"), JSON.stringify(calcConditions));
+    persistShiftSettings();
     renderViewTable();
     renderEditTable();
     settingsDirty = false;
@@ -14099,7 +14206,7 @@ function saveBusinessHours() {
     const start = document.getElementById("businessStartInput").value || "09:00";
     const end = document.getElementById("businessEndInput").value || "18:00";
     businessHours = { start, end };
-    localStorage.setItem(shiftKey("businessHours"), JSON.stringify(businessHours));
+    persistShiftSettings();
 
     renderEditTable();
     if(document.getElementById("dailyPopupModal").style.display === "block") {
@@ -14588,7 +14695,10 @@ function sfChangeMonth(num){
 }
 
 let settingsPassword = localStorage.getItem("settingsPassword") || "1234";
-let shiftDeadline = JSON.parse(localStorage.getItem(shiftKey("shiftDeadline"))) || { day: 25, time: "12:30" };
+let shiftDeadline = (function () {
+    const bucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(shiftViewBranch) : null;
+    return (bucket && bucket.shiftDeadline) ? cloneShiftSettingValue(bucket.shiftDeadline) : { day: 25, time: "12:30" };
+})();
 
 /* ======================
 希望休日締め切り設定
@@ -14728,7 +14838,7 @@ function saveDeadlineSettings(){
         return;
     }
     shiftDeadline = { day, time };
-    localStorage.setItem(shiftKey("shiftDeadline"), JSON.stringify(shiftDeadline));
+    persistShiftSettings();
     settingsDirty = false;
     window._hasUnsyncedTabChanges = true;
     shiftSaveToSheet();
@@ -15009,7 +15119,8 @@ function confirmSyncedTabDiscardAndClose(){
 }
 
 function discardSettingsDrafts(){
-    const saved = JSON.parse(localStorage.getItem(shiftKey("calcConditions"))) || { holidaySymbols: [], paidLeaveSymbols: [] };
+    const bucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(shiftViewBranch) : null;
+    const saved = (bucket && bucket.calcConditions) ? cloneShiftSettingValue(bucket.calcConditions) : { holidaySymbols: [], paidLeaveSymbols: [] };
     calcConditions.holidaySymbols = saved.holidaySymbols || [];
     calcConditions.paidLeaveSymbols = saved.paidLeaveSymbols || [];
     renderMultiselectDropdowns();
@@ -15097,7 +15208,7 @@ function moveTimeFrameUp(index){ if(index===0){ return; } [timeFrameOrder[index-
 function moveTimeFrameDown(index){ if(index===timeFrameOrder.length-1){ return; } [timeFrameOrder[index+1], timeFrameOrder[index]] = [timeFrameOrder[index], timeFrameOrder[index+1]]; saveTimeFrameOrder(); }
 
 function saveTimeFrameOrder(){
-    localStorage.setItem(shiftKey("timeFrameOrder"), JSON.stringify(timeFrameOrder));
+    persistShiftSettings();
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderMultiselectDropdowns();
     window._hasUnsyncedTabChanges = true;
     shiftSaveToSheet();
@@ -15106,7 +15217,7 @@ function saveTimeFrameOrder(){
 function saveFixedTimeFrameColor(code){
     if(!timeFrames[code]){ return; }
     timeFrames[code].color = selectedColorsTemp[code];
-    localStorage.setItem(shiftKey("timeFrames"), JSON.stringify(timeFrames));
+    persistShiftSettings();
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable();
     settingsDirty = false;
     window._hasUnsyncedTabChanges = true;
@@ -15131,7 +15242,6 @@ function updateTimeFrame(oldCode){
         delete selectedColorsTemp[oldCode];
         if(calcConditions.holidaySymbols.includes(oldCode)) calcConditions.holidaySymbols = calcConditions.holidaySymbols.map(c => c === oldCode ? newCode : c);
         if(calcConditions.paidLeaveSymbols.includes(oldCode)) calcConditions.paidLeaveSymbols = calcConditions.paidLeaveSymbols.map(c => c === oldCode ? newCode : c);
-        localStorage.setItem(shiftKey("calcConditions"), JSON.stringify(calcConditions));
     }
     Object.keys(shifts).forEach(key=>{ if(shifts[key]===oldCode){ shifts[key]=newCode; } });
     settingsDirty = false;
@@ -15155,15 +15265,13 @@ function deleteTimeFrame(code){
     timeFrameOrder = timeFrameOrder.filter(item => item !== code);
     calcConditions.holidaySymbols = calcConditions.holidaySymbols.filter(item => item !== code);
     calcConditions.paidLeaveSymbols = calcConditions.paidLeaveSymbols.filter(item => item !== code);
-    localStorage.setItem(shiftKey("calcConditions"), JSON.stringify(calcConditions));
     Object.keys(shifts).forEach(key=>{ if(shifts[key]===code){ shifts[key]=""; } });
     settingsDirty = false;
     saveTimeFrames();
 }
 
 function saveTimeFrames(){
-    localStorage.setItem(shiftKey("timeFrames"), JSON.stringify(timeFrames));
-    localStorage.setItem(shiftKey("timeFrameOrder"), JSON.stringify(timeFrameOrder));
+    persistShiftSettings();
     localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable(); renderMultiselectDropdowns();
     window._hasUnsyncedTabChanges = true;
@@ -15719,16 +15827,9 @@ function getSyncKeys(branchName) {
     'kawakyu-chatwork-messages-v1',
     `仮締め記録_${branchName}`,
     `仮締め入力下書き_${branchName}`,
-    'salesItems_GLOBAL',
     `salesRecords_${branchName}`,
-    `dailyTaskItems_${branchName}`,
     `dailyTaskRecords_${branchName}`,
     `shifts_${branchName}`,
-    `timeFrames_${branchName}`,
-    `timeFrameOrder_${branchName}`,
-    `businessHours_${branchName}`,
-    `calcConditions_${branchName}`,
-    `shiftDeadline_${branchName}`,
     `schedules_${branchName}`,
     `sidebarTasks_${branchName}`,
     `shakenReservations_${branchName}`,
@@ -15743,18 +15844,18 @@ function getSyncKeys(branchName) {
 function getSyncKeysForTab(tabBtnId, branchName) {
   switch (tabBtnId) {
     case 'shift':
+      // 時間枠・営業時間・休日集計条件・提出締切は「営業所共通設定など」セルにまとめて
+      // 保存するため、shiftsデータと合わせてkawakyu-chatwork-v5も対象に含める。
       return [
         `shifts_${branchName}`,
-        `timeFrames_${branchName}`,
-        `timeFrameOrder_${branchName}`,
-        `businessHours_${branchName}`,
-        `calcConditions_${branchName}`,
-        `shiftDeadline_${branchName}`,
+        'kawakyu-chatwork-v5',
       ];
     case 'sales':
-      return ['salesItems_GLOBAL', `salesRecords_${branchName}`];
+      // 項目設定（全営業所共通）は「営業所共通設定など」セルにまとめて保存する。
+      return ['kawakyu-chatwork-v5', `salesRecords_${branchName}`];
     case 'daily':
-      return [`dailyTaskItems_${branchName}`, `dailyTaskRecords_${branchName}`];
+      // 項目設定は「営業所共通設定など」セルにまとめて保存する。
+      return ['kawakyu-chatwork-v5', `dailyTaskRecords_${branchName}`];
     case 'kasime':
       return [`仮締め記録_${branchName}`, `仮締め入力下書き_${branchName}`];
     case 'schedule':
