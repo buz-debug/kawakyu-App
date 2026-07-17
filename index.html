@@ -4190,7 +4190,7 @@
 #dailyTable th, #dailyTable td {
     border: 1px solid var(--border);
     padding: 0;
-    height: 20px;
+    height: 30px;
     text-align: center;
     box-sizing: border-box;
 }
@@ -9541,6 +9541,19 @@ window.addEventListener('pagehide', function() {
     let salesItems = [];
     let salesRecords = {};
 
+    // 「保存」を押すまでの編集内容を、保存前マージの基準点として保持するスナップショット
+    // （シフト・日常業務の仕組みと同様）。シート同期に成功した時点でクリアされ、
+    // 次に編集が入った時点で取り直される。
+    let salesRecordsCleanSnapshot = null;
+    function markSalesRecordsDirtyBeforeEdit() {
+      if (salesRecordsCleanSnapshot === null) {
+        salesRecordsCleanSnapshot = JSON.stringify(salesRecords);
+      }
+    }
+    function markSalesRecordsSynced() {
+      salesRecordsCleanSnapshot = null;
+    }
+
     function salesKey(base) {
       return `${base}_${salesViewBranch}`;
     }
@@ -9700,13 +9713,16 @@ window.addEventListener('pagehide', function() {
         if (inputEl) inputEl.value = (salesRecords[salesRecordKey(day)] || {})[item] ?? '';
         return;
       }
+      if (typeof markSalesRecordsDirtyBeforeEdit === 'function') markSalesRecordsDirtyBeforeEdit();
       const halfWidthValue = toHalfWidthNumber(value);
       if (inputEl) { inputEl.value = halfWidthValue; }
       const key = salesRecordKey(day);
       const num = halfWidthValue === '' ? null : Number(halfWidthValue);
       if (!salesRecords[key]) salesRecords[key] = {};
       if (num === null || isNaN(num)) {
-        delete salesRecords[key][item];
+        // 保存前マージ（mergeFlatDictByBaseline）でこの端末の「削除」が確実に伝わるよう、
+        // キーごと消すのではなくnullを入れて「明示的にクリアした」ことの跡を残す
+        salesRecords[key][item] = null;
       } else {
         salesRecords[key][item] = num;
       }
@@ -9983,7 +9999,8 @@ window.addEventListener('pagehide', function() {
       const monthSet = {};
       Object.keys(salesRecords).forEach(key => {
         const rec = salesRecords[key];
-        if (!rec || !Object.keys(rec).length) return;
+        // クリア済み（null）のキーだけが残っている場合はデータ無しとして扱う
+        if (!rec || !Object.values(rec).some(v => typeof v === 'number')) return;
         const m = key.match(/^(\d+)-(\d+)-/);
         if (!m) return;
         monthSet[`${m[1]}-${m[2]}`] = true;
@@ -10085,7 +10102,7 @@ window.addEventListener('pagehide', function() {
         salesItems.forEach(item => {
           const val = dayRecord[item.id];
           cumulative[item.id] += (typeof val === 'number') ? val : 0;
-          row.push(val !== undefined ? val : '');
+          row.push((typeof val === 'number') ? val : '');
           if (item.mode !== 'dailyOnly') { row.push(cumulative[item.id]); }
         });
         rows.push(row);
@@ -10105,6 +10122,7 @@ window.addEventListener('pagehide', function() {
         if (!m) return;
         const dateStr = `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
         Object.keys(rec).forEach(itemId => {
+          if (typeof rec[itemId] !== 'number') return; // クリア済み（null）は出力しない
           const salesItem = salesItems.find(it => it.id === itemId);
           const itemName = salesItem ? salesItem.name : itemId;
           rows.push([dateStr, itemName, rec[itemId]]);
@@ -10202,7 +10220,7 @@ window.addEventListener('pagehide', function() {
         salesItems.forEach((item, itemIndex) => {
           const val = dayRecord[item.id];
           cumulative[item.id] += (typeof val === 'number') ? val : 0;
-          bodyHtml += `<td class="sales-daily-col"><input type="text" inputmode="decimal" class="sales-daily-input" data-day="${d}" data-item-index="${itemIndex}" data-committed="true" value="${val !== undefined ? val : ''}"
+          bodyHtml += `<td class="sales-daily-col"><input type="text" inputmode="decimal" class="sales-daily-input" data-day="${d}" data-item-index="${itemIndex}" data-committed="true" value="${(typeof val === 'number') ? val : ''}"
             onfocus="if (isBranchViewReadOnly(salesViewBranch)) { this.blur(); showBranchReadOnlyWarning(); } else { this.select(); }"
             oninput="this.dataset.committed='false'"
             onkeydown="handleSalesInputKeydown(event, ${d}, ${itemIndex})"
@@ -13242,15 +13260,23 @@ window.addEventListener('pagehide', function() {
         }
       }
 
-      // 販売実績表（マージ保護の対象外のため、キーを直接削除してよい）
+      // 販売実績表（シフト・日常業務と同様、mergeFlatDictByBaseline対象のためtombstoneを使う。
+      // 日付キーごと削除すると保存前マージでリモート側の値が復活してしまうため、
+      // 日付は残したまま中の項目値だけをnullにする）
       if (limits.sales > 0 && typeof salesRecords !== 'undefined') {
         const cutoffISO = monthsAgoCutoffISO(limits.sales);
         let salesChanged = false;
         Object.keys(salesRecords).forEach(key => {
           const dateStr = extractDateFromLegacyKey(key);
           if (dateStr && dateStr < cutoffISO) {
-            delete salesRecords[key];
-            salesChanged = true;
+            const dayRecord = salesRecords[key] || {};
+            Object.keys(dayRecord).forEach(itemId => {
+              if (dayRecord[itemId] !== null) {
+                if (typeof markSalesRecordsDirtyBeforeEdit === 'function') markSalesRecordsDirtyBeforeEdit();
+                dayRecord[itemId] = null;
+                salesChanged = true;
+              }
+            });
           }
         });
         if (salesChanged) {
@@ -15772,6 +15798,32 @@ async function mergeRemoteShiftsBeforeSave(branchName, spreadsheetId) {
 }
 
 // 日常業務の担当者セルも、複数のスタッフが同じ画面をタップし合う運用のため同様にマージする。
+// 販売実績表も、複数端末・複数スタッフが同じ日の同じ項目に入力しうるため、日常業務・シフトと
+// 同様に保存前マージの対象にする。salesRecordsは「今表示している営業所」（salesViewBranch）の
+// データを保持しているため、キーの組み立てはsalesKey()ではなく、保存対象として明示的に渡された
+// branchNameを直接使う（表示中の営業所と保存先が食い違わないようにするため）。
+async function mergeRemoteSalesBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof salesRecords === 'undefined') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data[`salesRecords_${branchName}`];
+    if (!raw) return;
+    const remoteRecords = JSON.parse(raw);
+    const baseline = (typeof salesRecordsCleanSnapshot !== 'undefined' && salesRecordsCleanSnapshot !== null)
+      ? JSON.parse(salesRecordsCleanSnapshot)
+      : salesRecords;
+    const merged = Object.assign({}, salesRecords);
+    Object.keys(remoteRecords).forEach(dateKey => {
+      merged[dateKey] = mergeFlatDictByBaseline(salesRecords[dateKey], remoteRecords[dateKey], baseline[dateKey]);
+    });
+    salesRecords = merged;
+    localStorage.setItem(`salesRecords_${branchName}`, JSON.stringify(salesRecords));
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
 async function mergeRemoteDailyRecordsBeforeSave(branchName, spreadsheetId) {
   if (!spreadsheetId || typeof dailyTaskRecords === 'undefined') return;
   try {
@@ -15865,6 +15917,9 @@ async function syncToSheet(branchName, keysOverride) {
   }
   if (keys.includes(`shifts_${branchName}`)) {
     await mergeRemoteShiftsBeforeSave(branchName, spreadsheetId);
+  }
+  if (keys.includes(`salesRecords_${branchName}`)) {
+    await mergeRemoteSalesBeforeSave(branchName, spreadsheetId);
   }
   if (keys.includes(`dailyTaskRecords_${branchName}`)) {
     await mergeRemoteDailyRecordsBeforeSave(branchName, spreadsheetId);
@@ -15988,7 +16043,17 @@ function shiftSaveToSheet() {
     if (typeof markShiftsSynced === 'function') markShiftsSynced();
   });
 }
-function salesSaveToSheet() { _tabSaveToSheet('sales'); }
+// 保存先は「今表示している営業所」（salesViewBranch）にする。省略するとstate.currentBranch
+// （ログイン中の営業所）宛てになってしまい、営業所切り替えセレクターで他営業所を編集している
+// 場合に保存先がズレてしまうため、明示的に渡す。
+let _salesSaveInProgress = false;
+function salesSaveToSheet() {
+  if (_salesSaveInProgress) return Promise.resolve();
+  _salesSaveInProgress = true;
+  return _tabSaveToSheet('sales', undefined, salesViewBranch, function () {
+    if (typeof markSalesRecordsSynced === 'function') markSalesRecordsSynced();
+  }).finally(() => { _salesSaveInProgress = false; });
+}
 
 // 日常業務タブのセルをすばやく連続でタップされると、保存処理が重なって走り、
 // 後から始まった保存の「保存前マージ」が、先の保存がまだ書き込んでいない古いサーバー内容を
