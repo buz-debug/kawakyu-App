@@ -4328,7 +4328,7 @@
   #btnShiftWishInput,
   #btnSmartphoneView,
   .shift-settings-btn,
-  #btnShiftPrint,
+  #btnShiftLayoutToggle,
   #btnShiftPrevMonth,
   #btnShiftNextMonth {
     display: none !important;
@@ -4340,9 +4340,20 @@
     margin-right: 6px;
   }
 
-  /* 販売実績表タブ：ツールバーは隠し、表だけが印刷ページに収まるようにする */
-  .sales-toolbar, #salesDayViewLabel {
+  /* 販売実績表タブ：ボタン類・月送り・営業所切替は隠し、タイトルと年月だけ残す */
+  #btnSalesPrevMonth,
+  #btnSalesNextMonth,
+  #salesBranchSwitcherWrap,
+  #salesDayViewBackBtn,
+  #salesSaveWrap,
+  #salesSettingsBtn,
+  #salesDayViewLabel {
     display: none !important;
+  }
+  /* 印刷時のみ、年月表示の右隣に営業所名を表示する */
+  #salesBranchPrintLabel {
+    display: inline !important;
+    margin-left: 6px;
   }
   .sales-tab-wrap, .sales-table-wrapper {
     height: auto !important;
@@ -6230,8 +6241,8 @@ window.addEventListener('pagehide', function() {
 <!-- ===== PDFダウンロード/印刷 ===== -->
 <div id="shiftPdfModal" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'shiftPdfModal')">
     <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">ダウンロード/印刷</h3>
-        <p class="settings-note">カレンダーから出力したい年月を選び、「印刷」または「ダウンロード」を選択してください。</p>
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">PDFダウンロード/印刷</h3>
+        <p class="settings-note">カレンダーから出力したい年月を選んでください。</p>
         <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px;">
             <button type="button" class="sf-pdf-arrow-btn" onclick="changeShiftPdfYear(-1)">◀</button>
             <span id="shiftPdfYearLabel" style="font-weight:700;font-size:15px;min-width:64px;text-align:center;"></span>
@@ -6242,8 +6253,7 @@ window.addEventListener('pagehide', function() {
         <div id="shiftPdfActions" style="display:none;flex-direction:column;gap:8px;align-items:center;">
             <div id="shiftPdfSelectedLabel" style="font-weight:600;font-size:13px;color:#333;"></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-                <button type="button" id="shiftPdfPrintBtn" class="csv-dl-btn" style="background:#475569;" onclick="exportSelectedShiftPdf('print')">PDF印刷</button>
-                <button type="button" id="shiftPdfDownloadBtn" class="csv-dl-btn" onclick="exportSelectedShiftPdf('download')">PDFダウンロード</button>
+                <button type="button" id="shiftPdfDownloadBtn" class="csv-dl-btn" style="background:#475569;" onclick="exportSelectedShiftPdf()">PDFダウンロード/印刷</button>
                 <button type="button" class="csv-dl-btn" style="background:#0f766e;" onclick="downloadShiftCsv(shiftPdfYear, shiftPdfSelectedMonth)">CSVダウンロード</button>
             </div>
         </div>
@@ -6287,18 +6297,19 @@ window.addEventListener('pagehide', function() {
       <div class="sales-tab-wrap" style="padding:16px;height:100%;display:flex;flex-direction:column;min-height:0;">
         <div class="sales-toolbar" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
           <div style="font-weight:bold;font-size:16px;margin-right:6px;white-space:nowrap;">販売実績表</div>
-          <button type="button" class="sales-nav-btn" onclick="changeSalesMonth(-1)">前月</button>
+          <button type="button" id="btnSalesPrevMonth" class="sales-nav-btn" onclick="changeSalesMonth(-1)">前月</button>
           <div id="salesMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
-          <button type="button" class="sales-nav-btn" onclick="changeSalesMonth(1)">次月</button>
+          <button type="button" id="btnSalesNextMonth" class="sales-nav-btn" onclick="changeSalesMonth(1)">次月</button>
+          <span id="salesBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
+          <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
+            <button type="button" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
+          </span>
           <div id="salesBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
             <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
             <select id="salesBranchSwitcherSelect" onchange="switchSalesViewBranch(this.value)" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
           </div>
           <button type="button" id="salesDayViewBackBtn" class="sales-nav-btn" onclick="exitSalesDayView()" style="display:none;">戻る</button>
           <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
-            <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;">
-              <button type="button" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
-            </span>
             <button type="button" id="salesSettingsBtn" class="sales-settings-btn" onclick="openSalesItemsModal()">設定</button>
           </div>
         </div>
@@ -6468,8 +6479,8 @@ window.addEventListener('pagehide', function() {
 
   <div class="modal-overlay settings-modal" id="salesPdfModal" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3 style="font-size:12px;color:#888;margin-bottom:8px;">ダウンロード/印刷</h3>
-      <p class="settings-note">カレンダーから出力したい年月を選び、「印刷」または「ダウンロード」を選択してください。</p>
+      <h3 style="font-size:12px;color:#888;margin-bottom:8px;">PDFダウンロード/印刷</h3>
+      <p class="settings-note">カレンダーから出力したい年月を選んでください。</p>
       <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px;">
         <button type="button" class="sf-pdf-arrow-btn" onclick="changeSalesPdfYear(-1)">◀</button>
         <span id="salesPdfYearLabel" style="font-weight:700;font-size:15px;min-width:64px;text-align:center;"></span>
@@ -6480,8 +6491,7 @@ window.addEventListener('pagehide', function() {
       <div id="salesPdfActions" style="display:none;flex-direction:column;gap:8px;align-items:center;">
         <div id="salesPdfSelectedLabel" style="font-weight:600;font-size:13px;color:#333;"></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-          <button type="button" id="salesPdfPrintBtn" class="csv-dl-btn" style="background:#475569;" onclick="exportSelectedSalesPdf('print')">PDF印刷</button>
-          <button type="button" id="salesPdfDownloadBtn" class="csv-dl-btn" onclick="exportSelectedSalesPdf('download')">PDFダウンロード</button>
+          <button type="button" id="salesPdfDownloadBtn" class="csv-dl-btn" style="background:#475569;" onclick="exportSelectedSalesPdf()">PDFダウンロード/印刷</button>
           <button type="button" class="csv-dl-btn" style="background:#0f766e;" onclick="downloadSalesCsv(salesPdfYear, salesPdfSelectedMonth)">CSVダウンロード</button>
         </div>
       </div>
@@ -7172,8 +7182,8 @@ window.addEventListener('pagehide', function() {
 
 
       <div id="settingsPdfSection" data-settings-section="kasime">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">ダウンロード/印刷</h3>
-        <p class="settings-note">カレンダーから出力したい年月を選び、「印刷」または「ダウンロード」を選択してください。</p>
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">PDFダウンロード/印刷</h3>
+        <p class="settings-note">カレンダーから出力したい年月を選んでください。</p>
         <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px;">
           <button type="button" onclick="changeKasimePdfYear(-1)" style="padding:4px 10px;">◀</button>
           <span id="kasimePdfYearLabel" style="font-weight:700;font-size:15px;min-width:64px;text-align:center;"></span>
@@ -7184,8 +7194,7 @@ window.addEventListener('pagehide', function() {
         <div id="kasimePdfActions" style="display:none;flex-direction:column;gap:8px;align-items:center;">
           <div id="kasimePdfSelectedLabel" style="font-weight:600;font-size:13px;color:#333;"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-            <button type="button" class="csv-dl-btn" style="background:#475569;" onclick="exportSelectedKasimePdf('print')">PDF印刷</button>
-            <button type="button" class="csv-dl-btn" onclick="exportSelectedKasimePdf('download')">PDFダウンロード</button>
+            <button type="button" class="csv-dl-btn" style="background:#475569;" onclick="exportSelectedKasimePdf()">PDFダウンロード/印刷</button>
             <button type="button" class="csv-dl-btn" style="background:#0f766e;" onclick="downloadKasimeCsv(kasimePdfYear, kasimePdfSelectedMonth)">CSVダウンロード</button>
           </div>
         </div>
@@ -10283,19 +10292,17 @@ window.addEventListener('pagehide', function() {
 
       const label = document.getElementById('salesPdfSelectedLabel');
       const actions = document.getElementById('salesPdfActions');
-      const printBtn = document.getElementById('salesPdfPrintBtn');
       const downloadBtn = document.getElementById('salesPdfDownloadBtn');
       const isAllPeriod = (salesPdfSelectedMonth === 'all');
 
       if (label) {
         label.textContent = isAllPeriod ? '全期間を出力（CSVのみ対応）' : `${salesPdfYear}年${salesPdfSelectedMonth}月を出力`;
       }
-      [printBtn, downloadBtn].forEach(btn => {
-        if (!btn) return;
-        btn.disabled = isAllPeriod;
-        btn.style.opacity = isAllPeriod ? '0.4' : '1';
-        btn.style.cursor = isAllPeriod ? 'not-allowed' : 'pointer';
-      });
+      if (downloadBtn) {
+        downloadBtn.disabled = isAllPeriod;
+        downloadBtn.style.opacity = isAllPeriod ? '0.4' : '1';
+        downloadBtn.style.cursor = isAllPeriod ? 'not-allowed' : 'pointer';
+      }
       if (actions) actions.style.display = 'flex';
     }
 
@@ -10370,6 +10377,11 @@ window.addEventListener('pagehide', function() {
       salesCurrentDate = new Date(year, month - 1, 1);
       salesDayViewDate = null;
       renderSalesTable();
+
+      const branchLabel = document.getElementById('salesBranchPrintLabel');
+      if (branchLabel && typeof state !== 'undefined') {
+        branchLabel.textContent = state.currentBranch || '';
+      }
 
       window.print();
 
@@ -15405,19 +15417,17 @@ function renderShiftPdfMonthGrid() {
 
     const label = document.getElementById('shiftPdfSelectedLabel');
     const actions = document.getElementById('shiftPdfActions');
-    const printBtn = document.getElementById('shiftPdfPrintBtn');
     const downloadBtn = document.getElementById('shiftPdfDownloadBtn');
     const isAllPeriod = (shiftPdfSelectedMonth === 'all');
 
     if (label) {
         label.textContent = isAllPeriod ? '全期間を出力（CSVのみ対応）' : `${shiftPdfYear}年${shiftPdfSelectedMonth}月を出力`;
     }
-    [printBtn, downloadBtn].forEach(btn => {
-        if (!btn) return;
-        btn.disabled = isAllPeriod;
-        btn.style.opacity = isAllPeriod ? '0.4' : '1';
-        btn.style.cursor = isAllPeriod ? 'not-allowed' : 'pointer';
-    });
+    if (downloadBtn) {
+        downloadBtn.disabled = isAllPeriod;
+        downloadBtn.style.opacity = isAllPeriod ? '0.4' : '1';
+        downloadBtn.style.cursor = isAllPeriod ? 'not-allowed' : 'pointer';
+    }
     if (actions) actions.style.display = 'flex';
 }
 
