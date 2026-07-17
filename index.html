@@ -4460,6 +4460,7 @@
         <button type="button" class="tab" data-tab="shaken" draggable="true">車検予約</button>
       </nav>
       <div style="display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;color:var(--muted);flex-shrink:0;">
+        <button type="button" class="sales-settings-btn" id="btnHeaderSettings" onclick="openSettings()">設定</button>
         <span id="currentBranchLabel" style="font-size:15px;font-weight:700;color:#1e293b;"></span>
         <button type="button" id="btnLogout" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;">ログアウト</button>
       </div>
@@ -4546,7 +4547,6 @@
       <div id="shakenPreScheduleList" style="flex:1;overflow-y:auto;padding:0 8px 8px;"></div>
     </div>
 
-    <button type="button" class="sidebar-settings-btn" id="btnSettings">設定</button>
   </aside>
 
   <!-- 中央 -->
@@ -4594,7 +4594,6 @@
       </div>
     </div>
     <div class="hist-body" id="histRecordList"></div>
-    <button class="hist-settings-btn" onclick="openSettings()">設定</button>
   </div>
 
   <!-- ========== 右カラム：入力メインエリア ========== -->
@@ -6296,7 +6295,6 @@ window.addEventListener('pagehide', function() {
             <span style="font-size:12px;color:var(--muted);white-space:nowrap;">担当者：</span>
             <select id="dailyActiveMemberSelect" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
           </span>
-          <button type="button" class="sales-settings-btn" style="margin-left:auto;" onclick="openDailySettingsMenu()">設定</button>
         </div>
         <div class="daily-table-wrapper" style="flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:6px;">
           <table id="dailyTable"></table>
@@ -6355,20 +6353,6 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
   </div><!-- end app-row -->
-
-  <!-- 日常業務：設定メニュー -->
-  <div class="modal-overlay settings-modal" id="dailySettingsModal" role="dialog" aria-modal="true">
-    <div class="modal">
-      <h2>設定</h2>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <button type="button" onclick="openDailyItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">項目管理</button>
-        <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
-      </div>
-      <div class="modal-actions" style="margin-top:16px;">
-        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('dailySettingsModal'))">閉じる</button>
-      </div>
-    </div>
-  </div>
 
   <!-- 日常業務：項目管理 -->
   <div class="modal-overlay settings-modal" id="dailyItemsModal" role="dialog" aria-modal="true">
@@ -7054,13 +7038,14 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <h2 id="settingsModalTitle">設定</h2>
 
-      <!-- 連絡ノート・予定・車検予約・仮締めタブ共通の設定メニュー（内容はすべて同じ） -->
+      <!-- 連絡ノート・予定・車検予約・仮締め・日常業務タブ共通の設定メニュー（内容はすべて同じ） -->
       <div id="commonSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
         <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('bmCatManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ブックマーク項目管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskPresetModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予定プルダウン管理</button>
-        <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">時間設定</button>
+        <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予約時間範囲指定</button>
         <button type="button" onclick="openChatSettingsSubPanel('kasimePdfModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ダウンロード/印刷</button>
+        <button type="button" onclick="openDailyItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">日常業務項目管理</button>
         <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
       </div>
@@ -9179,7 +9164,7 @@ window.addEventListener('pagehide', function() {
 
       // 連絡ノート・予定・車検予約・仮締めの4タブは、設定メニューの内容を統一する
       // （どのタブから開いても同じメニューが表示される）。
-      const isCommonTab = (tab === 'chat' || tab === 'tasks' || tab === 'kasime' || tab === 'shaken');
+      const isCommonTab = (tab === 'chat' || tab === 'tasks' || tab === 'kasime' || tab === 'shaken' || tab === 'daily');
 
       if (titleEl) titleEl.style.display = (tab === 'shift') ? 'none' : '';
       commonMenu.style.display = 'none';
@@ -10814,10 +10799,6 @@ window.addEventListener('pagehide', function() {
       });
 
       table.innerHTML = headerRow + bodyHtml;
-    }
-
-    function openDailySettingsMenu() {
-      openOverlay(document.getElementById('dailySettingsModal'));
     }
 
     function findDailyItemIndexById(id) {
@@ -12502,6 +12483,14 @@ window.addEventListener('pagehide', function() {
         const preScheduleSidebar = document.getElementById('shakenPreScheduleSidebar');
         if (preScheduleSidebar) preScheduleSidebar.style.display = currentTab === 'shaken' ? 'flex' : 'none';
 
+        // ヘッダーの「設定」ボタンは、共通の設定メニューを使うタブ（連絡ノート・予定・
+        // 車検予約・仮締め・日常業務）でのみ表示する（シフト・販売実績表は独自の設定ボタンを持つ）。
+        const headerSettingsBtn = document.getElementById('btnHeaderSettings');
+        if (headerSettingsBtn) {
+          const showHeaderSettings = ['chat', 'tasks', 'kasime', 'shaken', 'daily'].includes(currentTab);
+          headerSettingsBtn.style.display = showHeaderSettings ? '' : 'none';
+        }
+
         // サイドバータイトルをタブ名に連動
         const titles = { chat: '連絡ノート', tasks: '予定', kasime: '仮締め', shift: 'シフト', sales: '販売実績表', daily: '日常業務', shaken: '車検予約' };
         document.getElementById('sidebarTitle').textContent = titles[currentTab] || currentTab;
@@ -12681,7 +12670,6 @@ window.addEventListener('pagehide', function() {
       if (e.key === 'Enter') e.preventDefault();
     });
 
-    document.getElementById('btnSettings').addEventListener('click', openSettings);
     document.getElementById('settingsModalClose').addEventListener('click', closeSettings);
 
     document.getElementById('settingsModal').addEventListener('click', e => {
