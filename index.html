@@ -1868,7 +1868,7 @@
     }
 
     .modal h2 { font-size: 14px; margin-bottom: 10px; }
-    .modal p { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+    .modal p { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; white-space: pre-line; }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
     .modal-actions button {
@@ -7265,6 +7265,7 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openAdminStaffIdModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スタッフID管理</button>
         <button type="button" onclick="openGasModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スプレッドシート連携（GAS）</button>
         <button type="button" onclick="openAdminRetentionModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">データ保存期間の設定</button>
+        <button type="button" onclick="openAdminCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
       </div>
 
       <div class="modal-actions" style="margin-top:16px;justify-content:space-between;">
@@ -7299,6 +7300,24 @@ window.addEventListener('pagehide', function() {
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('adminRetentionModal'))">閉じる</button>
         <button type="button" id="adminRetentionSaveBtn" class="primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- セル使用文字数の確認モーダル -->
+  <div class="modal-overlay settings-modal" id="adminCellSizeModal" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:480px;">
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">セル使用文字数の確認</h3>
+      <p class="settings-note" style="margin-bottom:12px;">スプレッドシートは1セルあたり最大50,000文字までです。データ種類ごとの現在の文字数を営業所別に確認できます。</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
+        <select id="adminCellSizeBranchSelect" onchange="switchAdminCellSizeBranch(this.value)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
+        <button type="button" id="adminCellSizeRefreshBtn" onclick="fetchAdminCellSizeLatest()" style="flex-shrink:0;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--surface);cursor:pointer;white-space:nowrap;">最新を取得</button>
+      </div>
+      <div id="adminCellSizeStatus" style="font-size:11px;color:var(--muted);margin-bottom:8px;"></div>
+      <div id="adminCellSizeList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('adminCellSizeModal'))">閉じる</button>
       </div>
     </div>
   </div>
@@ -9353,6 +9372,84 @@ window.addEventListener('pagehide', function() {
       closeOverlay(document.getElementById('adminRetentionModal'));
     });
 
+    // ── セル使用文字数の確認（管理者ページ） ──
+    let adminCellSizeBranch = null;
+
+    function openAdminCellSizeModal() {
+      const sel = document.getElementById('adminCellSizeBranchSelect');
+      if (sel) {
+        sel.innerHTML = (state.branches || []).map(b =>
+          `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`
+        ).join('');
+        adminCellSizeBranch = state.currentBranch;
+        sel.value = adminCellSizeBranch;
+      }
+      renderAdminCellSizeList(adminCellSizeBranch);
+      openOverlay(document.getElementById('adminCellSizeModal'));
+    }
+
+    function switchAdminCellSizeBranch(branchName) {
+      adminCellSizeBranch = branchName;
+      renderAdminCellSizeList(branchName);
+    }
+
+    // dataOverrideを渡すと（「最新を取得」実行後など）ローカルではなくその内容で表示する
+    function renderAdminCellSizeList(branchName, dataOverride) {
+      const list = document.getElementById('adminCellSizeList');
+      const statusEl = document.getElementById('adminCellSizeStatus');
+      if (!list || !branchName) return;
+      const keys = (typeof getSyncKeys === 'function') ? getSyncKeys(branchName) : [];
+      const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
+      const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
+
+      const rows = keys.map(key => {
+        const raw = dataOverride ? (dataOverride[key] || '') : (localStorage.getItem(key) || '');
+        const len = raw.length;
+        const label = (typeof describeKeyForWarning === 'function') ? describeKeyForWarning(key) : key;
+        let color = 'var(--muted)';
+        let barColor = '#9ca3af';
+        if (len >= limit) { color = 'var(--danger)'; barColor = 'var(--danger)'; }
+        else if (len >= limit * warnRatio) { color = '#b45309'; barColor = '#f59e0b'; }
+        const pct = Math.min(100, Math.round((len / limit) * 100));
+        return `<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:12px;">${escapeHtml(label)}</span>
+            <span style="font-size:12px;font-weight:700;color:${color};white-space:nowrap;">${len.toLocaleString()} / ${limit.toLocaleString()}文字</span>
+          </div>
+          <div style="background:#eee;border-radius:3px;height:6px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:${barColor};"></div>
+          </div>
+        </div>`;
+      }).join('');
+
+      list.innerHTML = rows || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px 0;">データがありません</div>';
+      if (statusEl) {
+        statusEl.textContent = dataOverride
+          ? '※スプレッドシートから取得した最新の文字数です'
+          : '※この端末に保存されているデータの文字数です（最新の状態と異なる場合は「最新を取得」を押してください）';
+      }
+    }
+
+    async function fetchAdminCellSizeLatest() {
+      const branchName = adminCellSizeBranch;
+      if (!branchName) return;
+      const btn = document.getElementById('adminCellSizeRefreshBtn');
+      const spreadsheetId = (typeof getSpreadsheetId === 'function') ? getSpreadsheetId(branchName) : null;
+      if (!spreadsheetId || typeof getGasUrl !== 'function' || !getGasUrl()) {
+        appToast('GAS URLとスプレッドシートIDを設定してください');
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.textContent = '取得中…'; }
+      try {
+        const result = await gasRequest('load', spreadsheetId);
+        renderAdminCellSizeList(branchName, result.data || {});
+      } catch (e) {
+        appToast('最新データの取得に失敗しました: ' + e.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '最新を取得'; }
+      }
+    }
+
     function openAdminStaffIdModal() {
       const sel = document.getElementById('adminStaffIdBranchSelect');
       if (sel) {
@@ -11030,6 +11127,26 @@ window.addEventListener('pagehide', function() {
     // 「事前点検」の予定を追加した際、車検予約管理への登録漏れを防ぐためのリマインド
     function showShakenRegisterReminder() {
       openModal('ご確認ください', '車検予約管理にチェックを入れてください', null);
+      const cancelBtn = document.getElementById('modalCancel');
+      const okBtn = document.getElementById('modalOk');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      if (okBtn) okBtn.textContent = '閉じる';
+    }
+
+    // 保存失敗（スプレッドシートのセル文字数上限超過など）を、トーストだけでなく
+    // 必ず気づけるモーダルでも警告する。データが保存されていない可能性があるための重要な警告。
+    function showSaveFailedWarning(message) {
+      openModal('⚠️ 保存に失敗しました', message || 'スプレッドシートへの保存に失敗しました。内容が保存されていない可能性があります。', null);
+      const cancelBtn = document.getElementById('modalCancel');
+      const okBtn = document.getElementById('modalOk');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+      if (okBtn) okBtn.textContent = '閉じる';
+    }
+
+    // セルの文字数上限（Googleスプレッドシートは1セル最大50,000文字）に近づいている、
+    // または超えていることを知らせる警告
+    function showCellSizeWarning(message) {
+      openModal('⚠️ データ量にご注意ください', message, null);
       const cancelBtn = document.getElementById('modalCancel');
       const okBtn = document.getElementById('modalOk');
       if (cancelBtn) cancelBtn.style.display = 'none';
@@ -13317,6 +13434,12 @@ window.addEventListener('pagehide', function() {
     if (alreadyLoggedIn) {
       hideLoginGate();
       applyDataRetentionCleanup();
+      // ログイン中でのアプリ起動時・ログイン成功時（ログイン成功後は必ずこの経路を再度通る）の
+      // 両方で、毎回データ量を確認する。まだ他のscriptブロックが読み込まれていない可能性が
+      // あるため、全ブロックの実行が終わるのを待ってから呼び出す。
+      setTimeout(() => {
+        if (typeof checkCellSizeOnAppReady === 'function') checkCellSizeOnAppReady();
+      }, 0);
     } else {
       showLoginGate();
     }
@@ -15580,7 +15703,14 @@ async function gasRequest(action, spreadsheetId, data) {
     body: JSON.stringify(body),
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
+  const result = await resp.json();
+  // GASはエラー時もHTTP 200番で { ok: false, error: ... } を返す仕様のため、
+  // resp.okだけでは失敗を検知できない。ここでokフィールドも必ず確認し、
+  // 失敗時は呼び出し元のcatchで正しく検知できるよう例外を投げる。
+  if (!result || result.ok === false) {
+    throw new Error((result && result.error) ? result.error : 'サーバーでエラーが発生しました');
+  }
+  return result;
 }
 
 // GASに登録済みの営業所一覧（spreadsheetIdを必要としないリクエスト）
@@ -15939,7 +16069,124 @@ async function syncToSheet(branchName, keysOverride) {
     const v = localStorage.getItem(k);
     if (v !== null) data[k] = v;
   });
+  // Googleスプレッドシートは1セル最大50,000文字。上限を超えるキーがあれば保存前に検知し、
+  // 具体的にどのデータが原因かわかるメッセージで保存を中止する（超過したまま送信すると
+  // GAS側でエラーになるが、事前に防いだ方が原因の特定がしやすい）。
+  // 上限に近づいている（80%以上）だけの場合は、保存は続行しつつ注意を促す。
+  if (typeof checkCellSizeBeforeSave === 'function') {
+    checkCellSizeBeforeSave(data);
+  }
   return gasRequest('save', spreadsheetId, data);
+}
+
+const CELL_CHAR_LIMIT = 50000;
+const CELL_CHAR_WARNING_RATIO = 0.8;
+
+// key（例: kawakyu-chatwork-v5、shakenReservations_本社）を日本語の説明文に変換する。
+// GAS側（kawakyu_gas.gs）の説明列と同じ考え方の対応表。
+const KEY_LABEL_EXACT = {
+  'kawakyu-chatwork-v5': 'アプリ全体データ（連絡ノート・営業所共通設定など）',
+  'salesItems_GLOBAL': '販売実績表の項目設定（全営業所共通）',
+};
+const KEY_LABEL_PREFIX = {
+  '仮締め記録_': '仮締め記録',
+  '仮締め入力下書き_': '仮締め入力下書き',
+  'salesRecords_': '販売実績表データ',
+  'dailyTaskItems_': '日常業務の項目設定',
+  'dailyTaskRecords_': '日常業務の記録',
+  'shifts_': 'シフト表データ',
+  'timeFrames_': 'シフトの時間帯設定',
+  'timeFrameOrder_': 'シフトの時間帯表示順',
+  'businessHours_': 'シフトの営業時間設定',
+  'calcConditions_': 'シフト集計条件設定',
+  'shiftDeadline_': 'シフト提出締切設定',
+  'schedules_': '予定カレンダーデータ',
+  'sidebarTasks_': '予定タブのタスク一覧',
+  'shakenReservations_': '車検予約データ',
+};
+
+function describeKeyForWarning(key) {
+  if (KEY_LABEL_EXACT[key]) return KEY_LABEL_EXACT[key];
+  let bestPrefix = '';
+  let bestLabel = '';
+  Object.keys(KEY_LABEL_PREFIX).forEach(prefix => {
+    if (key.indexOf(prefix) === 0 && prefix.length > bestPrefix.length) {
+      bestPrefix = prefix;
+      bestLabel = KEY_LABEL_PREFIX[prefix];
+    }
+  });
+  if (bestPrefix) {
+    const branchName = key.slice(bestPrefix.length);
+    return branchName ? `${bestLabel}（${branchName}）` : bestLabel;
+  }
+  return key;
+}
+
+// data（key→JSON文字列のオブジェクト）を調べ、上限超過・上限接近のキーを振り分ける
+function computeCellSizeStatus(data) {
+  const overLimit = [];
+  const nearLimit = [];
+  Object.keys(data).forEach(key => {
+    const len = (data[key] || '').length;
+    if (len >= CELL_CHAR_LIMIT) {
+      overLimit.push({ key, len });
+    } else if (len >= CELL_CHAR_LIMIT * CELL_CHAR_WARNING_RATIO) {
+      nearLimit.push({ key, len });
+    }
+  });
+  return { overLimit, nearLimit };
+}
+
+// 警告モーダル本文を組み立てる。保存前チェック・アプリ起動時チェックの両方で共通利用する。
+function buildCellSizeMessage(overLimit, nearLimit) {
+  const parts = [];
+  if (overLimit.length) {
+    const list = overLimit.map(({ key, len }) => `・${describeKeyForWarning(key)}（${len.toLocaleString()}文字）`).join('\n');
+    parts.push(
+      `以下のデータがスプレッドシートの1セルあたりの上限（50,000文字）を超えています。\n${list}\n\n` +
+      `このデータは保存できない状態になっています。管理者ページの「データ保存期間の設定」で保管期間を短くするなど、データ量を減らしてください。`
+    );
+  }
+  if (nearLimit.length) {
+    const list = nearLimit.map(({ key, len }) => `・${describeKeyForWarning(key)}（${len.toLocaleString()} / 50,000文字）`).join('\n');
+    parts.push(
+      `以下のデータが、スプレッドシートの1セルあたりの上限（50,000文字）に近づいています。\n${list}\n\n` +
+      `このまま増え続けると、将来的に保存できなくなる可能性があります。管理者ページの「データ保存期間の設定」で保管期間を見直すことをおすすめします。`
+    );
+  }
+  parts.push('管理者へ早急にお知らせください。');
+  return parts.join('\n\n');
+}
+
+function checkCellSizeBeforeSave(data) {
+  const { overLimit, nearLimit } = computeCellSizeStatus(data);
+  if (overLimit.length) {
+    throw new Error(buildCellSizeMessage(overLimit, []));
+  }
+  if (nearLimit.length && typeof showCellSizeWarning === 'function') {
+    showCellSizeWarning(buildCellSizeMessage([], nearLimit));
+  }
+}
+
+// アプリ起動時（ログイン中での起動時・ログイン成功時、いずれも最終的にはこの経路を通る）に、
+// 保存を試みるかどうかに関わらず、現在ログイン中の営業所のデータ量を毎回チェックして知らせる。
+function checkCellSizeOnAppReady() {
+  try {
+    if (typeof state === 'undefined' || !state.currentBranch) return;
+    const branchName = state.currentBranch;
+    const keys = (typeof getSyncKeys === 'function') ? getSyncKeys(branchName) : [];
+    const data = {};
+    keys.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v !== null) data[k] = v;
+    });
+    const { overLimit, nearLimit } = computeCellSizeStatus(data);
+    if ((overLimit.length || nearLimit.length) && typeof showCellSizeWarning === 'function') {
+      showCellSizeWarning(buildCellSizeMessage(overLimit, nearLimit));
+    }
+  } catch (e) {
+    // 起動処理自体は止めない
+  }
 }
 
 // スプレッドシート → アプリへ読込
@@ -16036,7 +16283,12 @@ function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride, onSuccess) {
     appToast(successMsg || 'スプレッドシートに保存しました');
     if (typeof onSuccess === 'function') onSuccess();
   }).catch(err => {
+    // トーストは見逃されやすいため、データが保存されていない可能性がある重大なエラーは
+    // 必ず気づけるモーダルでも警告する
     appToast('シート保存に失敗: ' + err.message);
+    if (typeof showSaveFailedWarning === 'function') {
+      showSaveFailedWarning(`スプレッドシートへの保存に失敗しました。\n\n${err.message}\n\n内容が保存されていない可能性があります。時間をおいて再度お試しください。`);
+    }
   });
 }
 function shiftSaveToSheet() {
