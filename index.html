@@ -4119,6 +4119,21 @@
 }
 .sales-settings-btn:hover { opacity: 0.9; }
 
+/* タブ行（ヘッダー）に置くボタン（設定・ログアウト・ダウンロード/印刷）の高さを統一する */
+.tab-row-btn {
+    height: 26px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
 #salesTable {
     border-collapse: collapse;
     width: max-content;
@@ -4460,9 +4475,10 @@
         <button type="button" class="tab" data-tab="shaken" draggable="true">車検予約</button>
       </nav>
       <div style="display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;color:var(--muted);flex-shrink:0;">
-        <button type="button" class="sales-settings-btn" id="btnHeaderSettings" onclick="openSettings()">設定</button>
-        <span id="currentBranchLabel" style="font-size:15px;font-weight:700;color:#1e293b;"></span>
-        <button type="button" id="btnLogout" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;">ログアウト</button>
+        <button type="button" id="btnHeaderDownloadPrint" class="tab-row-btn" style="background:#555;color:#fff;border:none;display:none;" onclick="openHeaderDownloadPrint()">ダウンロード/印刷</button>
+        <button type="button" class="sales-settings-btn tab-row-btn" id="btnHeaderSettings" onclick="openSettings()">設定</button>
+        <span id="currentBranchLabel" style="font-size:17px;font-weight:700;color:#1e293b;"></span>
+        <button type="button" id="btnLogout" class="tab-row-btn" style="border:1px solid var(--border);background:var(--surface);color:inherit;">ログアウト</button>
       </div>
     </div>
   </header>
@@ -4594,9 +4610,6 @@
       </div>
     </div>
     <div class="hist-body" id="histRecordList"></div>
-    <!-- 表示中の営業所（他営業所閲覧中を含む）のデータを確実に出力するため、
-         共通の設定メニューではなくこのタブ自身に独立したボタンとして置く。 -->
-    <button type="button" class="sales-settings-btn" style="margin:8px;" onclick="openKasimeDownloadPrint()">ダウンロード/印刷</button>
   </div>
 
   <!-- ========== 右カラム：入力メインエリア ========== -->
@@ -5541,10 +5554,10 @@ function initKasimePdfPicker() {
   renderKasimePdfMonthGrid();
 }
 
-// 共通の設定メニュー（他タブからも開ける）経由ではなく、仮締めタブ自身から直接開く。
-// これにより、本社が他営業所の仮締めを閲覧中でも、今まさに画面に表示されているデータ
-// （kasimeViewBranch）を確実に出力できる。他タブへ移動した後に古い閲覧営業所のまま
-// 出力してしまう事故を防ぐため。
+// ヘッダーの「ダウンロード/印刷」ボタン（openHeaderDownloadPrint）は仮締めタブを
+// 表示している時にしか呼ばれないため、常にkasimeViewBranch（今まさに画面に表示されている
+// 営業所）のデータを確実に出力できる。共通の設定メニュー経由にはしていない
+// （他タブへ移動した後に古い閲覧営業所のまま出力してしまう事故を防ぐため）。
 function openKasimeDownloadPrint() {
   const pdfSection = document.getElementById('settingsPdfSection');
   const mount = document.getElementById('kasimePdfMount');
@@ -5554,6 +5567,18 @@ function openKasimeDownloadPrint() {
   if (pdfSection) pdfSection.style.display = '';
   initKasimePdfPicker();
   openOverlay(document.getElementById('kasimePdfModal'));
+}
+
+// ヘッダーの「ダウンロード/印刷」ボタンは、仮締め・シフト・販売実績表タブで共通の1つのボタンとして
+// 表示され、現在のタブに応じて対応するダウンロード/印刷ウインドウを開く。
+function openHeaderDownloadPrint() {
+  if (currentTab === 'kasime') {
+    openKasimeDownloadPrint();
+  } else if (currentTab === 'shift' && typeof openShiftPdfModal === 'function') {
+    openShiftPdfModal();
+  } else if (currentTab === 'sales' && typeof openSalesPdfModal === 'function') {
+    openSalesPdfModal();
+  }
 }
 
 function changeKasimePdfYear(delta) {
@@ -5836,10 +5861,7 @@ window.addEventListener('pagehide', function() {
                     <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
                     <select id="shiftBranchSwitcherSelect" onchange="switchShiftViewBranch(this.value)" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
                 </div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;">レイアウト切替：左右</button>
-                <button id="btnShiftPrint" onclick="openShiftPdfModal()" style="background:#555;">ダウンロード/印刷</button>
+                <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;margin-left:auto;">レイアウト切替：左右</button>
             </div>
         </div>
         <div class="sf-calendar-body">
@@ -6277,7 +6299,6 @@ window.addEventListener('pagehide', function() {
             <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;">
               <button type="button" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;border-radius:4px;padding:5px 52px;font-size:12px;font-weight:700;cursor:pointer;">保存</button>
             </span>
-            <button type="button" class="sales-settings-btn" style="background:#555;" onclick="openSalesPdfModal()">ダウンロード/印刷</button>
             <button type="button" id="salesSettingsBtn" class="sales-settings-btn" onclick="openSalesItemsModal()">設定</button>
           </div>
         </div>
@@ -8072,17 +8093,6 @@ window.addEventListener('pagehide', function() {
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }, 100);
         });
-        const delBtn = item.querySelector('.bm-del');
-        if (delBtn) delBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          if (!confirm('このブックマークを削除しますか？')) return;
-          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([item.dataset.bmid]);
-          state.bookmarks = state.bookmarks.filter(b => b.id !== item.dataset.bmid);
-          saveState();
-          if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
-          renderRoomList();
-          renderMessages();
-        });
       });
 
       // ブックマークカテゴリ折りたたみ
@@ -8115,7 +8125,6 @@ window.addEventListener('pagehide', function() {
                 const preview = msg ? msgBodyText(msg).slice(0, 28) + (msgBodyText(msg).length > 28 ? '…' : '') : '（削除済み）';
                 const author = msg ? (msg.from || msg.author || '') : '';
                 return `<div class="bm-item" data-msgid="${bm.msgId}" data-bmid="${bm.id}">
-                  <div class="bm-meta"><button type="button" class="bm-del" title="削除">×</button></div>
                   <div class="bm-author">${escapeHtml(author)}</div>
                   <div class="bm-preview">${escapeHtml(preview)}</div>
                 </div>`;
@@ -8134,7 +8143,6 @@ window.addEventListener('pagehide', function() {
             const preview = msg ? msgBodyText(msg).slice(0, 28) + (msgBodyText(msg).length > 28 ? '…' : '') : '（削除済み）';
             const author = msg ? (msg.from || msg.author || '') : '';
             return `<div class="bm-item" data-msgid="${bm.msgId}" data-bmid="${bm.id}">
-              <div class="bm-meta"><button type="button" class="bm-del" title="削除">×</button></div>
               <div class="bm-author">${escapeHtml(author)}</div>
               <div class="bm-preview">${escapeHtml(preview)}</div>
             </div>`;
@@ -12506,6 +12514,13 @@ window.addEventListener('pagehide', function() {
         if (headerSettingsBtn) {
           const showHeaderSettings = ['chat', 'tasks', 'kasime', 'shaken', 'daily'].includes(currentTab);
           headerSettingsBtn.style.display = showHeaderSettings ? '' : 'none';
+        }
+
+        // ヘッダーの「ダウンロード/印刷」ボタンは、仮締め・シフト・販売実績表タブでのみ表示する。
+        const headerDownloadBtn = document.getElementById('btnHeaderDownloadPrint');
+        if (headerDownloadBtn) {
+          const showHeaderDownload = ['kasime', 'shift', 'sales'].includes(currentTab);
+          headerDownloadBtn.style.display = showHeaderDownload ? '' : 'none';
         }
 
         // サイドバータイトルをタブ名に連動
