@@ -5975,6 +5975,7 @@ window.addEventListener('pagehide', function() {
             <button type="button" onclick="openSubPanel('panelBusinessHours')">営業時間設定</button>
             <button type="button" onclick="openSubPanel('panelDeadline')">希望休日締め切り設定</button>
             <button type="button" onclick="openSubPanel('panelPassword')">シフトパスワード設定</button>
+            <button type="button" onclick="openSettingsCellSizeModal()">セル使用文字数の確認</button>
             <button type="button" onclick="openSubPanel('panelLoginPassword')">ログインパスワード変更</button>
         </div>
 
@@ -7056,6 +7057,7 @@ window.addEventListener('pagehide', function() {
       <div id="chatSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
         <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('bmCatManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ブックマーク項目管理</button>
+        <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
       </div>
 
@@ -7063,12 +7065,14 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskPresetModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予定プルダウン管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">時間設定</button>
+        <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
       </div>
 
       <div id="kasimeSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
         <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('kasimePdfModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ダウンロード/印刷</button>
+        <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
       </div>
 
@@ -7318,6 +7322,23 @@ window.addEventListener('pagehide', function() {
       <div id="adminCellSizeList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;"></div>
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('adminCellSizeModal'))">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- セル使用文字数の確認モーダル（設定メニュー版） -->
+  <div class="modal-overlay settings-modal" id="settingsCellSizeModal" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:480px;">
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">セル使用文字数の確認</h3>
+      <p class="settings-note" style="margin-bottom:12px;">スプレッドシートは1セルあたり最大50,000文字までです。データ種類ごとの現在の文字数を確認できます。</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：<span id="settingsCellSizeBranchLabel" style="font-weight:700;color:var(--text);"></span></span>
+        <button type="button" id="settingsCellSizeRefreshBtn" onclick="fetchSettingsCellSizeLatest()" style="flex-shrink:0;margin-left:auto;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--surface);cursor:pointer;white-space:nowrap;">最新を取得</button>
+      </div>
+      <div id="settingsCellSizeStatus" style="font-size:11px;color:var(--muted);margin-bottom:8px;"></div>
+      <div id="settingsCellSizeList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('settingsCellSizeModal'))">閉じる</button>
       </div>
     </div>
   </div>
@@ -9395,8 +9416,12 @@ window.addEventListener('pagehide', function() {
 
     // dataOverrideを渡すと（「最新を取得」実行後など）ローカルではなくその内容で表示する
     function renderAdminCellSizeList(branchName, dataOverride) {
-      const list = document.getElementById('adminCellSizeList');
-      const statusEl = document.getElementById('adminCellSizeStatus');
+      renderCellSizeList(branchName, dataOverride, 'adminCellSizeList', 'adminCellSizeStatus');
+    }
+
+    function renderCellSizeList(branchName, dataOverride, listElId, statusElId) {
+      const list = document.getElementById(listElId);
+      const statusEl = document.getElementById(statusElId);
       if (!list || !branchName) return;
       const keys = (typeof getSyncKeys === 'function') ? getSyncKeys(branchName) : [];
       const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
@@ -9443,6 +9468,34 @@ window.addEventListener('pagehide', function() {
       try {
         const result = await gasRequest('load', spreadsheetId);
         renderAdminCellSizeList(branchName, result.data || {});
+      } catch (e) {
+        appToast('最新データの取得に失敗しました: ' + e.message);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '最新を取得'; }
+      }
+    }
+
+    // ── セル使用文字数の確認（設定メニュー版・営業所切り替えなし） ──
+    function openSettingsCellSizeModal() {
+      const label = document.getElementById('settingsCellSizeBranchLabel');
+      if (label) label.textContent = state.currentBranch || '';
+      renderCellSizeList(state.currentBranch, undefined, 'settingsCellSizeList', 'settingsCellSizeStatus');
+      openOverlay(document.getElementById('settingsCellSizeModal'));
+    }
+
+    async function fetchSettingsCellSizeLatest() {
+      const branchName = state.currentBranch;
+      if (!branchName) return;
+      const btn = document.getElementById('settingsCellSizeRefreshBtn');
+      const spreadsheetId = (typeof getSpreadsheetId === 'function') ? getSpreadsheetId(branchName) : null;
+      if (!spreadsheetId || typeof getGasUrl !== 'function' || !getGasUrl()) {
+        appToast('GAS URLとスプレッドシートIDを設定してください');
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.textContent = '取得中…'; }
+      try {
+        const result = await gasRequest('load', spreadsheetId);
+        renderCellSizeList(branchName, result.data || {}, 'settingsCellSizeList', 'settingsCellSizeStatus');
       } catch (e) {
         appToast('最新データの取得に失敗しました: ' + e.message);
       } finally {
