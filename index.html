@@ -1504,10 +1504,15 @@
       display: flex;
       align-items: center;
       margin: 0 3px;
-      overflow: hidden;
+      overflow: visible;
       transition: opacity .1s;
     }
     .shaken-checkin-line:hover { opacity: .7; }
+    /* 通検日バーに繋がるセグメントは、右側の余白を無くして日付の罫線を跨ぎ、
+       通検日バーの左端まで確実に届く（くっついて見える）ようにする。 */
+    .shaken-checkin-line-connect {
+      margin-right: -8px;
+    }
     .shaken-checkin-arrow {
       flex-shrink: 0;
       width: 0;
@@ -11826,7 +11831,8 @@ window.addEventListener('pagehide', function() {
           const lineEndCol = isTrueEnd ? endCol - 1 : endCol;
           if (!sameDay && startCol < lineEndCol) {
             const lineColorCls = baseColorCls.replace('shaken-bar-', 'shaken-checkin-line-');
-            const lineCls = belongsToCurrentMonth ? lineColorCls : `${lineColorCls} shaken-checkin-line-othermonth`;
+            const connectCls = isTrueEnd ? 'shaken-checkin-line-connect' : '';
+            const lineCls = belongsToCurrentMonth ? `${lineColorCls} ${connectCls}` : `${lineColorCls} ${connectCls} shaken-checkin-line-othermonth`;
             html += `<div class="shaken-checkin-line ${lineCls}" data-sid="${r.id}"
               style="grid-column:${startCol} / ${lineEndCol};grid-row:${rowIndex + 1};"
               title="${escapeHtml(fullLabel)}">${
