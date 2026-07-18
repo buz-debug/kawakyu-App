@@ -11817,13 +11817,18 @@ window.addEventListener('pagehide', function() {
           let html = '';
 
           // 入庫日〜通検日をつなぐ細い線（矢印＋入庫時刻＋細線）。通検日バーの中央の高さに
-          // 揃えて表示する。入庫日と通検日が同じ日の場合は、伸ばす距離が無いため表示しない
+          // 揃えて表示する。通検日のバーの中を線が通り抜けて見えてしまわないよう、
+          // このセグメントが実際に通検日に到達する週（isTrueEnd）に限り、
+          // 線は通検日の手前まで（通検日バーの左端に繋がるところ）で止める。
+          // 通検日にまだ到達しない週（週をまたいで続く途中）は、そのままセグメント全体に伸ばす。
+          // 入庫日と通検日が同じ日の場合は、伸ばす距離が無いため表示しない
           // （その場合の入庫時刻は、下の通検日バーの文言に含めて表示する）。
-          if (!sameDay) {
+          const lineEndCol = isTrueEnd ? endCol - 1 : endCol;
+          if (!sameDay && startCol < lineEndCol) {
             const lineColorCls = baseColorCls.replace('shaken-bar-', 'shaken-checkin-line-');
             const lineCls = belongsToCurrentMonth ? lineColorCls : `${lineColorCls} shaken-checkin-line-othermonth`;
             html += `<div class="shaken-checkin-line ${lineCls}" data-sid="${r.id}"
-              style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};"
+              style="grid-column:${startCol} / ${lineEndCol};grid-row:${rowIndex + 1};"
               title="${escapeHtml(fullLabel)}">${
                 isTrueStart ? `<span class="shaken-checkin-arrow"></span><span class="shaken-checkin-time">${escapeHtml(r.checkinTime || '')}</span>` : ''
               }<span class="shaken-checkin-line-fill"></span></div>`;
