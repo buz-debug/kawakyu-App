@@ -1494,6 +1494,33 @@
        区別する。完了（無彩色グレー）と月違い（元の色が薄い）を混同しないようにするため。 */
     .shaken-bar-othermonth { opacity: 0.4; }
 
+    /* 入庫〜通検の期間を示す下線（アンダーバー）。通検日のラベルと見分けが付くよう、
+       細い線のみで表示し、入庫日（左端）は矢印状にする。 */
+    .shaken-underbar {
+      pointer-events: auto;
+      cursor: pointer;
+      align-self: end;
+      height: 4px;
+      margin: 0 3px 2px;
+      box-sizing: border-box;
+      border-radius: 2px;
+      transition: opacity .1s;
+    }
+    .shaken-underbar:hover { opacity: .85; }
+    .shaken-underbar-arrow {
+      clip-path: polygon(6px 0, 100% 0, 100% 100%, 6px 100%, 0 50%);
+    }
+
+    /* 通検日セルに重ねて表示する、顧客名・車種のラベル（中央寄せ）。 */
+    .shaken-inspection-label {
+      justify-content: center;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      border-radius: 4px;
+    }
+
     .shaken-list-item:hover { background: #f5f8fc; }
 
     .detail {
@@ -11681,7 +11708,7 @@ window.addEventListener('pagehide', function() {
           <div style="font-size:12px;font-weight:700;color:#1e3a5f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}</div>
           <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.carModel || '')}</div>
           <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;white-space:nowrap;">通検：${r.inspectionDate || '-'}</div>
-          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;white-space:nowrap;">日程目安：${jpDate(shakenAddDaysISO(r.inspectionDate, -15))}</div>
+          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;white-space:nowrap;">事前日程目安：${jpDate(shakenAddDaysISO(r.inspectionDate, -15))}</div>
         </div>
       `).join('');
 
@@ -11759,19 +11786,25 @@ window.addEventListener('pagehide', function() {
           const belongsToCurrentMonth = (r.inspectionDate || '').slice(0, 7) === currentMonthKey;
           const baseColorCls = r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner');
           const colorCls = belongsToCurrentMonth ? baseColorCls : `${baseColorCls} shaken-bar-othermonth`;
-          const radius = `${isTrueStart ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueEnd ? '4px' : '0'} ${isTrueStart ? '4px' : '0'}`;
           // カレンダービューでは完了済みバーは灰色で見分けられるため、チェックマークは付けない
           const fullLabel = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
-          // 入庫のセル部分には「◯時入庫」、通検のセル部分には「顧客名・車種・車番」を表示し、
-          // バーのどの位置が何を表しているか一目でわかるようにする
-          const checkinLabel = isTrueStart ? `${r.checkinTime || ''}入庫` : '';
-          const inspectionLabel = isTrueEnd ? `${[shakenCustomerLabel(r.customer), r.carModel, r.plateNumber].filter(Boolean).join('　')}` : '';
-          let innerHtml = '';
-          if (checkinLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(checkinLabel)}</span>`;
-          if (inspectionLabel) innerHtml += `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto;padding-left:4px;">${escapeHtml(inspectionLabel)}</span>`;
-          return `<div class="shaken-bar ${colorCls}" data-sid="${r.id}"
-            style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};border-radius:${radius};height:${BAR_ROW_H}px;"
-            title="${escapeHtml(fullLabel)}">${innerHtml}</div>`;
+
+          // 入庫〜通検の期間全体は、細い下線（アンダーバー）で示す。通検日のラベルと
+          // 見分けが付くよう、テキストは表示せず、入庫日（左端）だけ矢印状にする。
+          const underbarArrowCls = isTrueStart ? 'shaken-underbar-arrow' : '';
+          let html = `<div class="shaken-underbar ${colorCls} ${underbarArrowCls}" data-sid="${r.id}"
+            style="grid-column:${startCol} / ${endCol};grid-row:${rowIndex + 1};"
+            title="${escapeHtml(fullLabel)}"></div>`;
+
+          // 通検日のセルには、顧客名・車種のみを中央寄せで表示する専用ラベルを重ねて表示する。
+          // 入庫日と通検日が同じ日でも、この四角いラベルが必ず通検日を示すため区別できる。
+          if (isTrueEnd) {
+            const inspectionCol = endCol - 1;
+            html += `<div class="shaken-bar shaken-inspection-label ${colorCls}" data-sid="${r.id}"
+              style="grid-column:${inspectionCol} / ${endCol};grid-row:${rowIndex + 1};height:${BAR_ROW_H}px;"
+              title="${escapeHtml(fullLabel)}">${escapeHtml(fullLabel)}</div>`;
+          }
+          return html;
         }).join('');
 
         const overlayStyle = maxRows
@@ -11784,7 +11817,7 @@ window.addEventListener('pagehide', function() {
         </div>`;
       }).join('');
 
-      weeksEl.querySelectorAll('.shaken-bar[data-sid]').forEach(bar => {
+      weeksEl.querySelectorAll('.shaken-bar[data-sid], .shaken-underbar[data-sid]').forEach(bar => {
         bar.addEventListener('click', e => {
           e.stopPropagation();
           openShakenEditModal(bar.dataset.sid);
