@@ -1530,6 +1530,13 @@
       border-left: 6px solid currentColor;
       margin-right: 3px;
     }
+    /* 納車日の矢印は線の右端にあるため、線側（左向き）を指すようにする */
+    .shaken-checkin-arrow.shaken-arrow-left {
+      border-left: none;
+      border-right: 6px solid currentColor;
+      margin-right: 0;
+      margin-left: 3px;
+    }
     .shaken-checkin-time {
       flex-shrink: 0;
       font-size: 9px;
@@ -11917,7 +11924,7 @@ window.addEventListener('pagehide', function() {
               html += `<div class="shaken-checkin-line ${deliveryLineCls}" data-sid="${r.id}"
                 style="grid-column:${dStartCol} / ${dEndCol};grid-row:${rowIndex + 1};"
                 title="${escapeHtml(fullLabel)}"><span class="shaken-checkin-line-fill"></span>${
-                  isDeliveryTrueEnd ? `<span class="shaken-checkin-time shaken-delivery-time">${escapeHtml(r.deliveryTime || '')}</span><span class="shaken-checkin-arrow"></span>` : ''
+                  isDeliveryTrueEnd ? `<span class="shaken-checkin-time shaken-delivery-time">${escapeHtml(r.deliveryTime || '')}</span><span class="shaken-checkin-arrow shaken-arrow-left"></span>` : ''
                 }</div>`;
             }
           }
