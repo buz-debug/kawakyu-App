@@ -4570,7 +4570,7 @@
 
     <!-- 車検予約タブ: 事前点検の日程が未決定の顧客リスト -->
     <div id="shakenPreScheduleSidebar" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:hidden;">
-      <div class="sidebar-section-title" style="font-size:13px;">事前点検の日程を決めてください</div>
+      <div class="sidebar-section-title" style="font-size:13px;">40日前TEL（車検日程を確認し事前点検の日程を決めてください）</div>
       <div id="shakenPreScheduleList" style="flex:1;overflow-y:auto;padding:0 8px 8px;"></div>
     </div>
 
@@ -11655,12 +11655,12 @@ window.addEventListener('pagehide', function() {
     }
 
     // 左カラム: 事前点検の日程が未決定の顧客リスト。
-    // 抽出条件は「①通検日から30日を切った予約」かつ「②『事前日程』ボタンが押されていない予約」の両方。
+    // 抽出条件は「①通検日から40日を切った予約」かつ「②『事前日程』ボタンが押されていない予約」の両方。
     // キャンセル済み・完了済みの予約は、もう事前点検の日程を決める必要が無いため対象外とする。
     function renderShakenPreScheduleSidebar() {
       const listEl = document.getElementById('shakenPreScheduleList');
       if (!listEl) return;
-      const cutoffISO = shakenAddDaysISO(todayStr(), 30);
+      const cutoffISO = shakenAddDaysISO(todayStr(), 40);
       const items = (shakenBucket().shakenReservations || [])
         .filter(r => !r.cancelled && !r.completed && !r.preScheduled && r.inspectionDate && r.inspectionDate <= cutoffISO)
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
