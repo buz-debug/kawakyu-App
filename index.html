@@ -1513,6 +1513,14 @@
     .shaken-checkin-line-connect {
       margin-right: -8px;
     }
+    /* 納車日の線（通検日から逆方向・右向きに伸びる）で、通検日バーに繋がるセグメントは
+       左側の余白を無くして日付の罫線を跨ぎ、通検日バーの右端まで確実に届くようにする。 */
+    .shaken-delivery-line-connect {
+      margin-left: -8px;
+    }
+    .shaken-delivery-time {
+      margin-left: 4px;
+    }
     .shaken-checkin-arrow {
       flex-shrink: 0;
       width: 0;
@@ -6917,6 +6925,18 @@ window.addEventListener('pagehide', function() {
                 style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
             </div>
           </div>
+          <div style="display:flex;gap:8px;">
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車日（任意）</label>
+              <input type="date" id="shakenNewDeliveryDate"
+                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+            </div>
+            <div style="flex:1;">
+              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車時間（任意）</label>
+              <input type="time" id="shakenNewDeliveryTime"
+                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+            </div>
+          </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
             <select id="shakenNewLoaner" required
@@ -6990,6 +7010,18 @@ window.addEventListener('pagehide', function() {
           <div style="flex:1;">
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫時間</label>
             <input type="time" id="shakenEditCheckinTime"
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車日（任意）</label>
+            <input type="date" id="shakenEditDeliveryDate"
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車時間（任意）</label>
+            <input type="time" id="shakenEditDeliveryTime"
               style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
           </div>
         </div>
@@ -11774,16 +11806,21 @@ window.addEventListener('pagehide', function() {
         const weekStart = shakenToLocalISO(week[0].date);
         const weekEnd = shakenToLocalISO(week[6].date);
 
+        // 納車日が設定されている予約は、通検日〜納車日の区間も占有しているものとして扱う
+        // （行の重なり判定・週の対象判定の両方で、通検日だけでなく納車日までを考慮する）。
+        const effectiveEnd = r => (r.deliveryDate && r.deliveryDate > r.inspectionDate) ? r.deliveryDate : r.inspectionDate;
+
         const overlapping = (shakenBucket().shakenReservations || [])
-          .filter(r => !r.cancelled && r.checkinDate && r.inspectionDate && r.checkinDate <= weekEnd && r.inspectionDate >= weekStart)
+          .filter(r => !r.cancelled && r.checkinDate && r.inspectionDate && r.checkinDate <= weekEnd && effectiveEnd(r) >= weekStart)
           .sort((a, b) => a.checkinDate.localeCompare(b.checkinDate));
 
         // 同じ週で期間が重なる予約は別の行に割り当てる（貪欲法）
         const rowEndDates = [];
         const placements = overlapping.map(r => {
+          const endForRow = effectiveEnd(r);
           let rowIndex = rowEndDates.findIndex(endDate => endDate < r.checkinDate);
-          if (rowIndex === -1) { rowIndex = rowEndDates.length; rowEndDates.push(r.inspectionDate); }
-          else { rowEndDates[rowIndex] = r.inspectionDate; }
+          if (rowIndex === -1) { rowIndex = rowEndDates.length; rowEndDates.push(endForRow); }
+          else { rowEndDates[rowIndex] = endForRow; }
           return { r, rowIndex };
         });
         const maxRows = rowEndDates.length;
@@ -11802,12 +11839,6 @@ window.addEventListener('pagehide', function() {
         }).join('');
 
         const barsHtml = placements.map(({ r, rowIndex }) => {
-          const segStart = r.checkinDate < weekStart ? weekStart : r.checkinDate;
-          const segEnd = r.inspectionDate > weekEnd ? weekEnd : r.inspectionDate;
-          const startCol = Math.round((new Date(segStart) - new Date(weekStart)) / 86400000) + 1;
-          const endCol = Math.round((new Date(segEnd) - new Date(weekStart)) / 86400000) + 2;
-          const isTrueStart = segStart === r.checkinDate;
-          const isTrueEnd = segEnd === r.inspectionDate;
           // 完了済みの予約は代車の色ではなく灰色にし、チェックマークを付けて完了とわかるようにする（予定タブと同じ扱い）。
           // 通検日が当月分でない予約（前後月のセルにはみ出して表示されているもの）は、
           // 完了・代車の色はそのまま保ちつつ薄く表示し、「完了（無彩色グレー）」と
@@ -11818,36 +11849,77 @@ window.addEventListener('pagehide', function() {
           // カレンダービューでは完了済みバーは灰色で見分けられるため、チェックマークは付けない
           const fullLabel = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
           const sameDay = r.checkinDate === r.inspectionDate;
+          const hasDelivery = !!(r.deliveryDate && r.deliveryTime);
+          const deliverySameDay = hasDelivery && r.deliveryDate === r.inspectionDate;
 
           let html = '';
 
-          // 入庫日〜通検日をつなぐ細い線（矢印＋入庫時刻＋細線）。通検日バーの中央の高さに
-          // 揃えて表示する。通検日のバーの中を線が通り抜けて見えてしまわないよう、
-          // このセグメントが実際に通検日に到達する週（isTrueEnd）に限り、
-          // 線は通検日の手前まで（通検日バーの左端に繋がるところ）で止める。
-          // 通検日にまだ到達しない週（週をまたいで続く途中）は、そのままセグメント全体に伸ばす。
-          // 入庫日と通検日が同じ日の場合は、伸ばす距離が無いため表示しない
-          // （その場合の入庫時刻は、下の通検日バーの文言に含めて表示する）。
-          const lineEndCol = isTrueEnd ? endCol - 1 : endCol;
-          if (!sameDay && startCol < lineEndCol) {
-            const lineColorCls = baseColorCls.replace('shaken-bar-', 'shaken-checkin-line-');
-            const connectCls = isTrueEnd ? 'shaken-checkin-line-connect' : '';
-            const lineCls = belongsToCurrentMonth ? `${lineColorCls} ${connectCls}` : `${lineColorCls} ${connectCls} shaken-checkin-line-othermonth`;
-            html += `<div class="shaken-checkin-line ${lineCls}" data-sid="${r.id}"
-              style="grid-column:${startCol} / ${lineEndCol};grid-row:${rowIndex + 1};"
-              title="${escapeHtml(fullLabel)}">${
-                isTrueStart ? `<span class="shaken-checkin-arrow"></span><span class="shaken-checkin-time">${escapeHtml(r.checkinTime || '')}</span>` : ''
-              }<span class="shaken-checkin-line-fill"></span></div>`;
+          // 入庫日〜通検日の区間がこの週に含まれる場合のみ、入庫日の線・通検日バーを描画する
+          // （納車日だけがこの週にまたがる場合、通検日は既に過去の週のため描画しない）。
+          if (r.checkinDate <= weekEnd && r.inspectionDate >= weekStart) {
+            const segStart = r.checkinDate < weekStart ? weekStart : r.checkinDate;
+            const segEnd = r.inspectionDate > weekEnd ? weekEnd : r.inspectionDate;
+            const startCol = Math.round((new Date(segStart) - new Date(weekStart)) / 86400000) + 1;
+            const endCol = Math.round((new Date(segEnd) - new Date(weekStart)) / 86400000) + 2;
+            const isTrueStart = segStart === r.checkinDate;
+            const isTrueEnd = segEnd === r.inspectionDate;
+
+            // 入庫日〜通検日をつなぐ細い線（矢印＋入庫時刻＋細線）。通検日バーの中央の高さに
+            // 揃えて表示する。通検日のバーの中を線が通り抜けて見えてしまわないよう、
+            // このセグメントが実際に通検日に到達する週（isTrueEnd）に限り、
+            // 線は通検日の手前まで（通検日バーの左端に繋がるところ）で止める。
+            // 通検日にまだ到達しない週（週をまたいで続く途中）は、そのままセグメント全体に伸ばす。
+            // 入庫日と通検日が同じ日の場合は、伸ばす距離が無いため表示しない
+            // （その場合の入庫時刻は、下の通検日バーの文言に含めて表示する）。
+            const lineEndCol = isTrueEnd ? endCol - 1 : endCol;
+            if (!sameDay && startCol < lineEndCol) {
+              const lineColorCls = baseColorCls.replace('shaken-bar-', 'shaken-checkin-line-');
+              const connectCls = isTrueEnd ? 'shaken-checkin-line-connect' : '';
+              const lineCls = belongsToCurrentMonth ? `${lineColorCls} ${connectCls}` : `${lineColorCls} ${connectCls} shaken-checkin-line-othermonth`;
+              html += `<div class="shaken-checkin-line ${lineCls}" data-sid="${r.id}"
+                style="grid-column:${startCol} / ${lineEndCol};grid-row:${rowIndex + 1};"
+                title="${escapeHtml(fullLabel)}">${
+                  isTrueStart ? `<span class="shaken-checkin-arrow"></span><span class="shaken-checkin-time">${escapeHtml(r.checkinTime || '')}</span>` : ''
+                }<span class="shaken-checkin-line-fill"></span></div>`;
+            }
+
+            // 通検日のセルには、顧客名・車種を中央寄せで表示する専用ラベルを重ねて表示する。
+            // 入庫日・納車日が通検日と同じ日の場合は、それぞれの時刻もここに含める。
+            if (isTrueEnd) {
+              const inspectionCol = endCol - 1;
+              let boxLabel = fullLabel;
+              if (sameDay && r.checkinTime) boxLabel = `${r.checkinTime}入庫　${boxLabel}`;
+              if (deliverySameDay) boxLabel = `${boxLabel}　${r.deliveryTime}納車`;
+              html += `<div class="shaken-bar shaken-inspection-label ${colorCls}" data-sid="${r.id}"
+                style="grid-column:${inspectionCol} / ${endCol};grid-row:${rowIndex + 1};height:${BAR_ROW_H}px;"
+                title="${escapeHtml(fullLabel)}">${escapeHtml(boxLabel)}</div>`;
+            }
           }
 
-          // 通検日のセルには、顧客名・車種を中央寄せで表示する専用ラベルを重ねて表示する。
-          // 入庫日と通検日が同じ日の場合は、入庫時刻もここに含める。
-          if (isTrueEnd) {
-            const inspectionCol = endCol - 1;
-            const boxLabel = (sameDay && r.checkinTime) ? `${r.checkinTime}入庫　${fullLabel}` : fullLabel;
-            html += `<div class="shaken-bar shaken-inspection-label ${colorCls}" data-sid="${r.id}"
-              style="grid-column:${inspectionCol} / ${endCol};grid-row:${rowIndex + 1};height:${BAR_ROW_H}px;"
-              title="${escapeHtml(fullLabel)}">${escapeHtml(boxLabel)}</div>`;
+          // 通検日〜納車日をつなぐ細い線（入庫日の線と同じ要領で、逆方向＝右向きに伸ばす）。
+          // 通検日バーの中央の高さに揃え、通検日バーの右端に繋がる部分は日付の罫線を跨いで
+          // くっついて見えるようにする。通検日と納車日が同じ日の場合は表示しない
+          // （その場合の納車時刻は、上の通検日バーの文言に含めて表示済み）。
+          if (hasDelivery && !deliverySameDay && r.inspectionDate <= weekEnd && r.deliveryDate >= weekStart) {
+            const dSegStart = r.inspectionDate < weekStart ? weekStart : r.inspectionDate;
+            const dSegEnd = r.deliveryDate > weekEnd ? weekEnd : r.deliveryDate;
+            const isDeliveryTrueStart = dSegStart === r.inspectionDate;
+            const isDeliveryTrueEnd = dSegEnd === r.deliveryDate;
+            const dStartColRaw = Math.round((new Date(dSegStart) - new Date(weekStart)) / 86400000) + 1;
+            const dEndCol = Math.round((new Date(dSegEnd) - new Date(weekStart)) / 86400000) + 2;
+            const dStartCol = isDeliveryTrueStart ? dStartColRaw + 1 : dStartColRaw;
+            if (dStartCol < dEndCol) {
+              const deliveryColorCls = baseColorCls.replace('shaken-bar-', 'shaken-checkin-line-');
+              const deliveryConnectCls = isDeliveryTrueStart ? 'shaken-delivery-line-connect' : '';
+              const deliveryLineCls = belongsToCurrentMonth
+                ? `${deliveryColorCls} ${deliveryConnectCls}`
+                : `${deliveryColorCls} ${deliveryConnectCls} shaken-checkin-line-othermonth`;
+              html += `<div class="shaken-checkin-line ${deliveryLineCls}" data-sid="${r.id}"
+                style="grid-column:${dStartCol} / ${dEndCol};grid-row:${rowIndex + 1};"
+                title="${escapeHtml(fullLabel)}"><span class="shaken-checkin-line-fill"></span>${
+                  isDeliveryTrueEnd ? `<span class="shaken-checkin-time shaken-delivery-time">${escapeHtml(r.deliveryTime || '')}</span><span class="shaken-checkin-arrow"></span>` : ''
+                }</div>`;
+            }
           }
           return html;
         }).join('');
@@ -12040,6 +12112,8 @@ window.addEventListener('pagehide', function() {
       const inspectionDate = document.getElementById('shakenNewInspectionDate').value;
       const checkinDate = document.getElementById('shakenNewCheckinDate').value;
       const checkinTime = document.getElementById('shakenNewCheckinTime').value;
+      const deliveryDate = document.getElementById('shakenNewDeliveryDate').value;
+      const deliveryTime = document.getElementById('shakenNewDeliveryTime').value;
       const note = document.getElementById('shakenNewNote').value.trim();
       const loanerVal = document.getElementById('shakenNewLoaner').value;
 
@@ -12052,11 +12126,19 @@ window.addEventListener('pagehide', function() {
         alert('入庫日は通検日より前（または同日）にしてください。');
         return;
       }
+      if (!!deliveryDate !== !!deliveryTime) {
+        alert('納車日と納車時間は、どちらかを入力した場合は両方入力してください。');
+        return;
+      }
+      if (deliveryDate && deliveryDate < inspectionDate) {
+        alert('納車日は通検日より後（または同日）にしてください。');
+        return;
+      }
 
       if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
       shakenBucket().shakenReservations.push({
         id: uid(), customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
-        loanerCar, note, ts: Date.now(),
+        deliveryDate, deliveryTime, loanerCar, note, ts: Date.now(),
       });
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
@@ -12076,6 +12158,8 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenEditInspectionDate').value = r.inspectionDate || '';
       document.getElementById('shakenEditCheckinDate').value = r.checkinDate || '';
       document.getElementById('shakenEditCheckinTime').value = r.checkinTime || '';
+      document.getElementById('shakenEditDeliveryDate').value = r.deliveryDate || '';
+      document.getElementById('shakenEditDeliveryTime').value = r.deliveryTime || '';
       document.getElementById('shakenEditNote').value = r.note || '';
       document.getElementById('shakenEditLoaner').value = r.loanerCar ? '1' : '0';
       document.getElementById('shakenEditCancelledDate').value = r.cancelledDate || '';
@@ -12184,6 +12268,8 @@ window.addEventListener('pagehide', function() {
       const inspectionDate = document.getElementById('shakenEditInspectionDate').value;
       const checkinDate = document.getElementById('shakenEditCheckinDate').value;
       const checkinTime = document.getElementById('shakenEditCheckinTime').value;
+      const deliveryDate = document.getElementById('shakenEditDeliveryDate').value;
+      const deliveryTime = document.getElementById('shakenEditDeliveryTime').value;
       const note = document.getElementById('shakenEditNote').value.trim();
       const cancelledDate = document.getElementById('shakenEditCancelledDate').value;
       const loanerVal = document.getElementById('shakenEditLoaner').value;
@@ -12203,6 +12289,14 @@ window.addEventListener('pagehide', function() {
         alert('入庫日は通検日より前（または同日）にしてください。');
         return;
       }
+      if (!!deliveryDate !== !!deliveryTime) {
+        alert('納車日と納車時間は、どちらかを入力した場合は両方入力してください。');
+        return;
+      }
+      if (deliveryDate && deliveryDate < inspectionDate) {
+        alert('納車日は通検日より後（または同日）にしてください。');
+        return;
+      }
 
       const r = (shakenBucket().shakenReservations || []).find(x => x.id === editingShakenId);
       if (!r) { closeShakenEditModal(); return; }
@@ -12212,6 +12306,8 @@ window.addEventListener('pagehide', function() {
       r.inspectionDate = inspectionDate;
       r.checkinDate = checkinDate;
       r.checkinTime = checkinTime;
+      r.deliveryDate = deliveryDate;
+      r.deliveryTime = deliveryTime;
       r.loanerCar = loanerCar;
       r.note = note;
       r.completed = editingShakenCompleted;
