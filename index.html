@@ -4253,6 +4253,16 @@
     padding: 3px 6px;
     height: auto;
 }
+/* 見出しは項目名（1行目）と日計/累計（2行目）の2段になっており、どちらもtop:0のままだと
+   スクロール時に1行目（項目名）が2行目の後ろに隠れて消えて見えてしまう。1行目の実際の高さを
+   JS（syncStickyBorderBarWidth内）で--sales-header1-hに設定し、2行目をその分だけ
+   下にずらして重ねることで、スクロール中も2段とも正しく表示され続けるようにする。 */
+#salesTable .sales-header-item {
+    top: 0;
+}
+#salesTable .sales-header-sub {
+    top: var(--sales-header1-h, 25px);
+}
 #salesTable .sales-day-col {
     position: sticky;
     left: 0;
@@ -10715,9 +10725,9 @@ window.addEventListener('pagehide', function() {
       let headerRow2 = `<tr>`;
       salesItems.forEach(item => {
         const dailyOnly = item.mode === 'dailyOnly';
-        headerRow1 += `<th colspan="${dailyOnly ? 1 : 2}" style="cursor:pointer;" onclick="openSalesItemChart('${item.id}')" title="過去の実績推移を見る">${escapeHtml(salesItemDisplayLabel(item))}</th>`;
-        headerRow2 += `<th class="sales-daily-col">${dailyOnly ? '' : '日計'}</th>`;
-        if (!dailyOnly) { headerRow2 += `<th class="sales-cumulative-col">累計</th>`; }
+        headerRow1 += `<th class="sales-header-item" colspan="${dailyOnly ? 1 : 2}" style="cursor:pointer;" onclick="openSalesItemChart('${item.id}')" title="過去の実績推移を見る">${escapeHtml(salesItemDisplayLabel(item))}</th>`;
+        headerRow2 += `<th class="sales-header-sub sales-daily-col">${dailyOnly ? '' : '日計'}</th>`;
+        if (!dailyOnly) { headerRow2 += `<th class="sales-header-sub sales-cumulative-col">累計</th>`; }
       });
       headerRow1 += `</tr>`;
       headerRow2 += `</tr>`;
@@ -10770,6 +10780,7 @@ window.addEventListener('pagehide', function() {
 
       table.innerHTML = headerRow1 + headerRow2 + bodyHtml;
       syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
+      syncSalesHeaderStack(table);
     }
 
     // 指定した日の、全営業所の実績一覧を表示する（縦軸=営業所、横軸=項目）
@@ -10782,9 +10793,9 @@ window.addEventListener('pagehide', function() {
       let headerRow2 = `<tr>`;
       salesItems.forEach(item => {
         const dailyOnly = item.mode === 'dailyOnly';
-        headerRow1 += `<th colspan="${dailyOnly ? 1 : 2}">${escapeHtml(salesItemDisplayLabel(item))}</th>`;
-        headerRow2 += `<th class="sales-daily-col">${dailyOnly ? '' : '日計'}</th>`;
-        if (!dailyOnly) { headerRow2 += `<th class="sales-cumulative-col">累計</th>`; }
+        headerRow1 += `<th class="sales-header-item" colspan="${dailyOnly ? 1 : 2}">${escapeHtml(salesItemDisplayLabel(item))}</th>`;
+        headerRow2 += `<th class="sales-header-sub sales-daily-col">${dailyOnly ? '' : '日計'}</th>`;
+        if (!dailyOnly) { headerRow2 += `<th class="sales-header-sub sales-cumulative-col">累計</th>`; }
       });
       headerRow1 += `</tr>`;
       headerRow2 += `</tr>`;
@@ -10824,6 +10835,7 @@ window.addEventListener('pagehide', function() {
 
       table.innerHTML = headerRow1 + headerRow2 + bodyHtml;
       syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
+      syncSalesHeaderStack(table);
     }
 
     // 並び替え・編集・削除はすべて項目IDで対象を特定する（並び順を変えても単位等が確実に追従する）
@@ -16313,6 +16325,16 @@ function syncStickyBorderBarWidth(table, wrapperSelector, varName) {
   const wrapper = document.querySelector(wrapperSelector);
   if (!wrapper) return;
   wrapper.style.setProperty(varName, table.scrollWidth + 'px');
+}
+
+// 販売実績表：見出しの1段目（項目名）の実際の高さを測り、2段目（日計/累計）のsticky top位置に
+// 反映する。両方ともtop:0のままだと、スクロール時に1段目が2段目の後ろに隠れて消えてしまうため。
+function syncSalesHeaderStack(table) {
+  if (!table) return;
+  const item = table.querySelector('.sales-header-item');
+  const wrapper = document.querySelector('.sales-table-wrapper');
+  if (!item || !wrapper) return;
+  wrapper.style.setProperty('--sales-header1-h', item.getBoundingClientRect().height + 'px');
 }
 
 renderViewTable();
