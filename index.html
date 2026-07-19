@@ -4658,7 +4658,7 @@
       </nav>
       <div style="display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;color:var(--muted);flex-shrink:0;">
         <button type="button" id="btnHeaderDownloadPrint" class="tab-row-btn" style="background:#555;color:#fff;border:none;display:none;" onclick="openHeaderDownloadPrint()">ダウンロード/印刷</button>
-        <button type="button" class="sales-settings-btn tab-row-btn" id="btnHeaderSettings" onclick="openSettings()">設定</button>
+        <button type="button" class="sales-settings-btn tab-row-btn" id="btnHeaderSettings" onclick="openSettingsGated()">設定</button>
         <span id="currentBranchLabel" style="font-size:17px;font-weight:700;color:#1e293b;"></span>
         <button type="button" id="btnLogout" class="tab-row-btn" style="border:1px solid var(--border);background:var(--surface);color:inherit;">ログアウト</button>
       </div>
@@ -6195,7 +6195,7 @@ window.addEventListener('pagehide', function() {
             <button type="button" onclick="openSubPanel('panelCalcConditions')">休日集計条件設定</button>
             <button type="button" onclick="openSubPanel('panelBusinessHours')">営業時間設定</button>
             <button type="button" onclick="openSubPanel('panelDeadline')">希望休日締め切り設定</button>
-            <button type="button" onclick="openSubPanel('panelPassword')">シフトパスワード設定</button>
+            <button type="button" onclick="openSubPanel('panelPassword')">設定パスワード変更</button>
             <button type="button" onclick="openSettingsCellSizeModal()">セル使用文字数の確認</button>
             <button type="button" onclick="openSubPanel('panelLoginPassword')">ログインパスワード変更</button>
         </div>
@@ -6363,29 +6363,6 @@ window.addEventListener('pagehide', function() {
         </div>
         <div class="modal-actions" style="margin-top:16px;">
             <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelDeadline')">閉じる</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== パスワード変更 ポップアップ ===== -->
-<div id="panelPassword" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelPassword')">
-    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">シフトパスワード設定</h3>
-        <p class="settings-note">※設定画面を開く際に使用するパスワードです。変更したら「保存」を押してください</p>
-        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 320px;">
-            <label style="font-size:11px;color:var(--muted);">現在のパスワード
-                <input type="password" id="currentPasswordInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
-            </label>
-            <label style="font-size:11px;color:var(--muted);">新しいパスワード
-                <input type="password" id="newPasswordInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
-            </label>
-            <label style="font-size:11px;color:var(--muted);">新しいパスワード（確認）
-                <input type="password" id="newPasswordConfirmInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
-            </label>
-            <button type="button" onclick="changeSettingsPassword()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">パスワードを変更</button>
-        </div>
-        <div class="modal-actions" style="margin-top:16px;">
-            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelPassword')">閉じる</button>
         </div>
     </div>
 </div>
@@ -6621,6 +6598,30 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
+  <!-- ===== パスワード変更 ポップアップ（全タブ共通の設定パスワード。シフトタブ内に置くと他タブから開いた際に
+       tab-panel の display:none に隠れてしまうため、他の設定系モーダルと同じ階層に配置する） ===== -->
+  <div id="panelPassword" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelPassword')">
+    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">設定パスワード変更</h3>
+        <p class="settings-note">※設定画面を開く際に使用するパスワードです。変更したら「保存」を押してください</p>
+        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 320px;">
+            <label style="font-size:11px;color:var(--muted);">現在のパスワード
+                <input type="password" id="currentPasswordInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
+            </label>
+            <label style="font-size:11px;color:var(--muted);">新しいパスワード
+                <input type="password" id="newPasswordInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
+            </label>
+            <label style="font-size:11px;color:var(--muted);">新しいパスワード（確認）
+                <input type="password" id="newPasswordConfirmInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
+            </label>
+            <button type="button" onclick="changeSettingsPassword()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">パスワードを変更</button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelPassword')">閉じる</button>
+        </div>
+    </div>
+  </div>
+
   <!-- 販売実績表：項目管理 -->
   <div class="modal-overlay settings-modal" id="salesItemsModal" role="dialog" aria-modal="true">
     <div class="modal">
@@ -6632,6 +6633,7 @@ window.addEventListener('pagehide', function() {
         <button type="button" id="salesItemAddBtn">追加</button>
       </div>
       <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" onclick="openPanelPasswordDialog()" style="margin-right:auto;">設定パスワード変更</button>
         <button type="button" id="salesItemsModalClose">閉じる</button>
       </div>
     </div>
@@ -7335,6 +7337,7 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openDailyItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">日常業務項目管理</button>
         <button type="button" id="btnLoanerCarCountSettings" onclick="openLoanerCarCountModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">代車台数設定</button>
         <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
+        <button type="button" onclick="openPanelPasswordDialog()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">設定パスワード変更</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
       </div>
 
@@ -9464,6 +9467,35 @@ window.addEventListener('pagehide', function() {
       document.getElementById('memberAddColorPalette').classList.remove('open');
     }
 
+    // 連絡ノート・予定・車検予約・仮締め・日常業務タブの「設定」ボタンは、シフトタブの設定と
+    // 共通のパスワードで保護する（openSettings自体はシフト設定画面からの内部遷移
+    // openStaffSettingsFromShiftでも呼ばれるため、二重にパスワードを聞かないよう
+    // ボタンの入り口側だけをこの関数でガードする）。
+    function openSettingsGated() {
+      const inputPass = prompt('設定画面を開くにはパスワードを入力してください');
+      if (inputPass === null) return;
+      if (typeof getCurrentBranchShiftPassword !== 'function' || inputPass !== getCurrentBranchShiftPassword()) {
+        alert('パスワードが正しくありません');
+        return;
+      }
+      openSettings();
+    }
+
+    // 「設定パスワード変更」（panelPassword）は元々シフトタブの設定画面専用で、
+    // 静的なz-index（.sf-sub-settings-modal、1100）で親（sfSettingsModal、1000）より
+    // 手前に表示される仕組みだった。commonSettingsMenuや販売実績表の項目管理モーダルなど、
+    // openOverlay()（1500〜、呼ぶたびに加算）で開く親モーダルの中から開く場合は、
+    // 静的な1100のままだと親モーダルより奥に隠れてしまうため、ここでz-indexを
+    // 明示的に引き上げてから表示する。
+    function openPanelPasswordDialog() {
+      openSubPanel('panelPassword');
+      const panel = document.getElementById('panelPassword');
+      if (panel && typeof overlayZIndex !== 'undefined') {
+        overlayZIndex += 1;
+        panel.style.zIndex = overlayZIndex;
+      }
+    }
+
     function openSettings() {
       // 仮締めタブで営業所セレクターを使って他営業所を閲覧中は、その営業所の設定を開けないようにする
       if (currentTab === 'kasime' && typeof kasimeViewBranch !== 'undefined' && kasimeViewBranch !== state.currentBranch) {
@@ -11016,7 +11048,14 @@ window.addEventListener('pagehide', function() {
       });
     }
 
+    // 販売実績表タブの「設定」ボタンも、シフトタブと共通のパスワードで保護する。
     function openSalesItemsModal() {
+      const inputPass = prompt('設定画面を開くにはパスワードを入力してください');
+      if (inputPass === null) return;
+      if (typeof getCurrentBranchShiftPassword !== 'function' || inputPass !== getCurrentBranchShiftPassword()) {
+        alert('パスワードが正しくありません');
+        return;
+      }
       renderSalesItemsList();
       openOverlay(document.getElementById('salesItemsModal'));
     }
@@ -11337,7 +11376,7 @@ window.addEventListener('pagehide', function() {
           openModal(
             '⚠️ 仮パスワードのままです',
             'セキュリティのため、仮パスワード「1234」から変更してください。「今すぐ変更」を押すとパスワード変更画面が開きます。',
-            () => { openSettings(); }
+            () => { openSettingsGated(); }
           );
           // OKボタンのラベルを変更
           const okBtn = document.querySelector('#confirmModal .modal-actions .primary');
