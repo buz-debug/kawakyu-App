@@ -6988,7 +6988,7 @@ window.addEventListener('pagehide', function() {
           </button>
           <button type="button" id="shakenEditPreScheduleBtn" onclick="toggleShakenEditPreSchedule()"
             style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
-            <span id="shakenEditPreScheduleLabel">事前日程</span>
+            <span id="shakenEditPreScheduleLabel">40日前TEL</span>
           </button>
           <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
             style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
@@ -12020,7 +12020,7 @@ window.addEventListener('pagehide', function() {
         // 一般整備・鈑金塗装は、車検予約と混同しないよう左端に種別の色を帯として付ける
         const accentBorder = meta.category !== 'shaken' ? `border-left:4px solid ${meta.badgeBg};` : '';
         const preScheduleBadge = r.preScheduled
-          ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">事前点検日程OK</span>'
+          ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">40日前TEL OK</span>'
           : '';
         const typeBadge = `<span style="flex-shrink:0;background:${meta.badgeBg};color:${meta.badgeText};border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(meta.label)}</span>`;
         // 完了マークをリスト右端に表示。未完了時も幅を確保し、右端の位置がずれないようにする
@@ -12214,8 +12214,25 @@ window.addEventListener('pagehide', function() {
       renderShakenEditVoidButton();
       editingShakenPreScheduled = !!r.preScheduled;
       renderShakenEditPreScheduleButton();
+      updateShakenEditVoidBtnVisibility();
       openOverlay(document.getElementById('shakenEditModal'));
     }
+
+    // 「代車使用」は顧客の予約ではなく代車の管理用の予定のため、キャンセル処理の対象外にする。
+    // （キャンセルするとどのリストにも表示されなくなり、データに手を付けられなくなるため）
+    // 削除したい場合は「削除」ボタンを使う。
+    function updateShakenEditVoidBtnVisibility() {
+      const btn = document.getElementById('shakenEditVoidBtn');
+      if (!btn) return;
+      const typeVal = document.getElementById('shakenEditReservationType').value;
+      const isLoanerUse = typeVal === 'loaner-use';
+      btn.style.display = isLoanerUse ? 'none' : '';
+      if (isLoanerUse && editingShakenCancelled) {
+        editingShakenCancelled = false;
+        renderShakenEditVoidButton();
+      }
+    }
+    document.getElementById('shakenEditReservationType').addEventListener('change', updateShakenEditVoidBtnVisibility);
 
     function closeShakenEditModal() {
       closeOverlay(document.getElementById('shakenEditModal'));
@@ -12249,14 +12266,14 @@ window.addEventListener('pagehide', function() {
       const btn = document.getElementById('shakenEditPreScheduleBtn');
       const label = document.getElementById('shakenEditPreScheduleLabel');
       if (!btn) return;
+      // ボタンを押しても文言（40日前TEL）は変わらず、色だけで状態を示す
+      label.textContent = '40日前TEL';
       if (editingShakenPreScheduled) {
         btn.style.background = '#9ca3af';
         btn.style.color = '#fff';
-        label.textContent = '事前日程OK';
       } else {
         btn.style.background = '#22c55e';
         btn.style.color = '#fff';
-        label.textContent = '事前日程';
       }
     }
 
@@ -12322,6 +12339,11 @@ window.addEventListener('pagehide', function() {
       if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || reservationType === '') {
         alert('顧客名・車種・通検日・入庫日・入庫時間・予約内容は必須です。');
         return;
+      }
+      // 「代車使用」はキャンセル対象外（キャンセルするとどのリストにも表示されなくなるため）。
+      // 通常はボタン自体を隠しているが、念のため保存時にも防ぐ。
+      if (reservationType === 'loaner-use' && editingShakenCancelled) {
+        editingShakenCancelled = false;
       }
       // 車検キャンセル中は、キャンセル日が未入力のまま保存できないようにする
       // （キャンセル集計はキャンセル日を基準にするため、未入力のまま保存されると集計から漏れてしまう）
@@ -12417,12 +12439,16 @@ window.addEventListener('pagehide', function() {
         // 一般整備・鈑金塗装は、車検予約と混同しないよう左端に種別の色を帯として付ける
         const accentBorder = meta.category !== 'shaken' ? `border-left:4px solid ${meta.badgeBg};` : '';
         const typeBadge = `<span style="flex-shrink:0;background:${meta.badgeBg};color:${meta.badgeText};border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(meta.label)}</span>`;
+        // 通常の予約一覧と見分けが付くよう、背景を薄い赤にし、名前に取り消し線を入れ、
+        // 「キャンセル済み」バッジを付ける
+        const cancelledBadge = '<span style="flex-shrink:0;background:var(--danger);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">キャンセル済み</span>';
         const noteInline = r.note ? `<span style="margin-left:16px;">備考：${escapeHtml(r.note)}</span>` : '';
-        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;${accentBorder}">
+        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:#fef2f2;flex-wrap:nowrap;${accentBorder}">
           <div style="flex:1;min-width:0;overflow:hidden;">
-            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
+            <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:line-through;text-decoration-color:var(--danger);">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}　→　キャンセル：${r.cancelledDate || '-'}${noteInline}</div>
           </div>
+          ${cancelledBadge}
           ${typeBadge}
         </div>`;
       }).join('');
