@@ -6452,10 +6452,9 @@ window.addEventListener('pagehide', function() {
         </div>
 
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;">
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#fbbf24;display:inline-block;"></span>車検（代車あり）／代車使用</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:var(--cw-green);display:inline-block;"></span>車検（代車なし）</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#22c55e;display:inline-block;"></span>一般整備</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#8b5cf6;display:inline-block;"></span>鈑金塗装</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#fbbf24;display:inline-block;"></span>代車あり／代車使用</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:var(--cw-green);display:inline-block;"></span>代車なし</span>
+          <span style="display:flex;align-items:center;gap:4px;">【整備】【鈑金】＝一般整備・鈑金塗装（色は代車の有無で決まります）</span>
         </div>
 
         <div id="shakenCalView" style="flex:1;min-height:0;overflow-y:auto;">
@@ -6955,11 +6954,19 @@ window.addEventListener('pagehide', function() {
             <select id="shakenNewReservationType" required
               style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
               <option value="" selected disabled>選択してください</option>
-              <option value="shaken-loaner">車検（代車あり）</option>
-              <option value="shaken-noloaner">車検（代車なし）</option>
+              <option value="shaken">車検</option>
               <option value="general">一般整備</option>
               <option value="paint">鈑金塗装</option>
               <option value="loaner-use">代車使用</option>
+            </select>
+          </div>
+          <div id="shakenNewLoanerWrap">
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
+            <select id="shakenNewLoaner" required
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+              <option value="" selected disabled>選択してください</option>
+              <option value="1">あり</option>
+              <option value="0">なし</option>
             </select>
           </div>
           <div>
@@ -7046,11 +7053,19 @@ window.addEventListener('pagehide', function() {
           <select id="shakenEditReservationType" required
             style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
             <option value="" selected disabled>選択してください</option>
-            <option value="shaken-loaner">車検（代車あり）</option>
-            <option value="shaken-noloaner">車検（代車なし）</option>
+            <option value="shaken">車検</option>
             <option value="general">一般整備</option>
             <option value="paint">鈑金塗装</option>
             <option value="loaner-use">代車使用</option>
+          </select>
+        </div>
+        <div id="shakenEditLoanerWrap">
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
+          <select id="shakenEditLoaner" required
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+            <option value="" selected disabled>選択してください</option>
+            <option value="1">あり</option>
+            <option value="0">なし</option>
           </select>
         </div>
         <div>
@@ -11740,21 +11755,44 @@ window.addEventListener('pagehide', function() {
       return name ? `${name}様` : '';
     }
 
-    // 予約内容の種別（車検・一般整備・鈑金塗装・代車使用）の表示ラベル・色をまとめて管理する。
-    // 「代車使用」は車検（代車あり）と同じ色を使う。
-    const SHAKEN_TYPES = {
-      'shaken-loaner':   { label: '車検（代車あり）', category: 'shaken',    barCls: 'shaken-bar-loaner',   badgeBg: '#fbbf24', badgeText: '#78350f' },
-      'shaken-noloaner': { label: '車検（代車なし）', category: 'shaken',    barCls: 'shaken-bar-noloaner', badgeBg: '#4a7fb5', badgeText: '#fff' },
-      'general':         { label: '一般整備',         category: 'general',   barCls: 'shaken-bar-general',  badgeBg: '#22c55e', badgeText: '#fff' },
-      'paint':           { label: '鈑金塗装',         category: 'paint',     barCls: 'shaken-bar-paint',    badgeBg: '#8b5cf6', badgeText: '#fff' },
-      'loaner-use':      { label: '代車使用',         category: 'loaner-use', barCls: 'shaken-bar-loaner',  badgeBg: '#fbbf24', badgeText: '#78350f' },
-    };
-    // 旧データ（loanerCarのみで種別が無い）との互換のため、無ければloanerCarから補う
+    // 予約内容の種別（車検・一般整備・鈑金塗装・代車使用）を取得する。
+    // 一般整備・鈑金塗装にも代車の有無が発生するようになったため、種別と代車の有無は別々に管理する。
+    // 旧データ（reservationTypeが無い、またはshaken-loaner/shaken-noloanerだった頃）との互換を保つ。
     function shakenType(r) {
-      return (r && r.reservationType) || (r && r.loanerCar ? 'shaken-loaner' : 'shaken-noloaner');
+      if (!r) return 'shaken';
+      const t = r.reservationType;
+      if (t === 'shaken' || t === 'general' || t === 'paint' || t === 'loaner-use') return t;
+      if (t === 'shaken-loaner' || t === 'shaken-noloaner') return 'shaken';
+      return 'shaken';
     }
+    // 代車の有無を取得する（車検・一般整備・鈑金塗装に共通の項目）。
+    // 旧データ（種別に代車の有無が含まれていた頃、またはさらに古いloanerCarのみだった頃）との互換を保つ。
+    function shakenLoanerCar(r) {
+      if (!r) return false;
+      if (typeof r.loanerCar === 'boolean') return r.loanerCar;
+      if (r.reservationType === 'shaken-loaner') return true;
+      if (r.reservationType === 'shaken-noloaner') return false;
+      return false;
+    }
+    // 種別・代車の有無から、表示用のラベル・色・カレンダーバッジをまとめて算出する。
+    // バーの色は車検・一般整備・鈑金塗装で統一（代車あり→黄、代車なし→青）。
+    // 一般整備・鈑金塗装は色だけでは車検と区別できないため、カレンダーに「整備」「鈑金」バッジを付ける。
+    // 「代車使用」は代車の有無の概念が無いため、常に車検（代車あり）と同じ黄色にする。
     function shakenTypeMeta(r) {
-      return SHAKEN_TYPES[shakenType(r)] || SHAKEN_TYPES['shaken-noloaner'];
+      const type = shakenType(r);
+      if (type === 'loaner-use') {
+        return { label: '代車使用', category: 'loaner-use', barCls: 'shaken-bar-loaner', badgeBg: '#fbbf24', badgeText: '#78350f', calBadge: '' };
+      }
+      const loaner = shakenLoanerCar(r);
+      const typeLabel = type === 'general' ? '一般整備' : type === 'paint' ? '鈑金塗装' : '車検';
+      return {
+        label: `${typeLabel}（代車${loaner ? 'あり' : 'なし'}）`,
+        category: type,
+        barCls: loaner ? 'shaken-bar-loaner' : 'shaken-bar-noloaner',
+        badgeBg: loaner ? '#fbbf24' : '#4a7fb5',
+        badgeText: loaner ? '#78350f' : '#fff',
+        calBadge: type === 'general' ? '整備' : type === 'paint' ? '鈑金' : '',
+      };
     }
 
     function buildShakenCalendarWeeks(year, month) {
@@ -11881,7 +11919,8 @@ window.addEventListener('pagehide', function() {
           // 完了・代車の色はそのまま保ちつつ薄く表示し、「完了（無彩色グレー）」と
           // 「月違い（元の色が薄い）」を混同しないようにする。
           const belongsToCurrentMonth = (r.inspectionDate || '').slice(0, 7) === currentMonthKey;
-          const baseColorCls = r.completed ? 'shaken-bar-done' : shakenTypeMeta(r).barCls;
+          const meta = shakenTypeMeta(r);
+          const baseColorCls = r.completed ? 'shaken-bar-done' : meta.barCls;
           const colorCls = belongsToCurrentMonth ? baseColorCls : `${baseColorCls} shaken-bar-othermonth`;
           // カレンダービューでは完了済みバーは灰色で見分けられるため、チェックマークは付けない
           const fullLabel = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
@@ -11924,7 +11963,7 @@ window.addEventListener('pagehide', function() {
             // 入庫日・納車日が通検日と同じ日の場合は、それぞれの時刻もここに含める。
             if (isTrueEnd) {
               const inspectionCol = endCol - 1;
-              let boxLabel = fullLabel;
+              let boxLabel = meta.calBadge ? `【${meta.calBadge}】${fullLabel}` : fullLabel;
               if (sameDay && r.checkinTime) boxLabel = `${r.checkinTime}入庫　${boxLabel}`;
               if (deliverySameDay) boxLabel = `${boxLabel}　${r.deliveryTime}納車`;
               html += `<div class="shaken-bar shaken-inspection-label ${colorCls}" data-sid="${r.id}"
@@ -12115,8 +12154,10 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenNewDeliveryDate').value = '';
       document.getElementById('shakenNewDeliveryTime').value = '';
       document.getElementById('shakenNewNote').value = '';
-      // 選び忘れを防ぐため、予約内容はデフォルトでどれも選択されていない状態にする
+      // 選び忘れを防ぐため、予約内容・代車はデフォルトでどれも選択されていない状態にする
       document.getElementById('shakenNewReservationType').value = '';
+      document.getElementById('shakenNewLoaner').value = '';
+      updateShakenNewLoanerWrapVisibility();
       // 通常の自動補完と同じ扱いにする（通検日を変更すれば入庫日も追従する）
       shakenCheckinDateTouched = false;
       openOverlay(document.getElementById('addShakenModal'));
@@ -12145,6 +12186,15 @@ window.addEventListener('pagehide', function() {
       shakenCheckinDateTouched = true;
     });
 
+    // 「代車使用」は代車の有無という概念が無いため、代車欄はそれ以外の種別でのみ表示する。
+    function updateShakenNewLoanerWrapVisibility() {
+      const wrap = document.getElementById('shakenNewLoanerWrap');
+      if (!wrap) return;
+      const typeVal = document.getElementById('shakenNewReservationType').value;
+      wrap.style.display = typeVal === 'loaner-use' ? 'none' : '';
+    }
+    document.getElementById('shakenNewReservationType').addEventListener('change', updateShakenNewLoanerWrapVisibility);
+
     document.getElementById('shakenFormNew').addEventListener('submit', e => {
       e.preventDefault();
       if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(shakenViewBranch)) {
@@ -12162,9 +12212,14 @@ window.addEventListener('pagehide', function() {
       const deliveryTime = document.getElementById('shakenNewDeliveryTime').value;
       const note = document.getElementById('shakenNewNote').value.trim();
       const reservationType = document.getElementById('shakenNewReservationType').value;
+      const loanerVal = document.getElementById('shakenNewLoaner').value;
 
       if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || reservationType === '') {
         alert('顧客名・車種・通検日・入庫日・入庫時間・予約内容は必須です。');
+        return;
+      }
+      if (reservationType !== 'loaner-use' && loanerVal === '') {
+        alert('代車の有無を選択してください。');
         return;
       }
       if (checkinDate > inspectionDate) {
@@ -12183,7 +12238,7 @@ window.addEventListener('pagehide', function() {
       if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
       shakenBucket().shakenReservations.push({
         id: uid(), customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
-        deliveryDate, deliveryTime, reservationType, note, ts: Date.now(),
+        deliveryDate, deliveryTime, reservationType, loanerCar: loanerVal === '1', note, ts: Date.now(),
       });
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
@@ -12207,6 +12262,7 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenEditDeliveryTime').value = r.deliveryTime || '';
       document.getElementById('shakenEditNote').value = r.note || '';
       document.getElementById('shakenEditReservationType').value = shakenType(r);
+      document.getElementById('shakenEditLoaner').value = shakenType(r) === 'loaner-use' ? '' : (shakenLoanerCar(r) ? '1' : '0');
       document.getElementById('shakenEditCancelledDate').value = r.cancelledDate || '';
       editingShakenCompleted = !!r.completed;
       renderShakenEditCompleteButton();
@@ -12232,18 +12288,25 @@ window.addEventListener('pagehide', function() {
         renderShakenEditVoidButton();
       }
     }
-    // 「40日前TEL」ボタンは車検（代車あり・代車なし）にのみ必要なため、
-    // 一般整備・鈑金塗装・代車使用では非表示にする。
+    // 「40日前TEL」ボタンは車検にのみ必要なため、一般整備・鈑金塗装・代車使用では非表示にする。
     function updateShakenEditPreScheduleBtnVisibility() {
       const btn = document.getElementById('shakenEditPreScheduleBtn');
       if (!btn) return;
       const typeVal = document.getElementById('shakenEditReservationType').value;
-      const isShaken = typeVal === 'shaken-loaner' || typeVal === 'shaken-noloaner';
+      const isShaken = typeVal === 'shaken';
       btn.style.display = isShaken ? '' : 'none';
+    }
+    // 「代車使用」は代車の有無という概念が無いため、代車欄はそれ以外の種別でのみ表示する。
+    function updateShakenEditLoanerWrapVisibility() {
+      const wrap = document.getElementById('shakenEditLoanerWrap');
+      if (!wrap) return;
+      const typeVal = document.getElementById('shakenEditReservationType').value;
+      wrap.style.display = typeVal === 'loaner-use' ? 'none' : '';
     }
     function updateShakenEditButtonsVisibility() {
       updateShakenEditVoidBtnVisibility();
       updateShakenEditPreScheduleBtnVisibility();
+      updateShakenEditLoanerWrapVisibility();
     }
     document.getElementById('shakenEditReservationType').addEventListener('change', updateShakenEditButtonsVisibility);
 
@@ -12348,9 +12411,14 @@ window.addEventListener('pagehide', function() {
       const note = document.getElementById('shakenEditNote').value.trim();
       const cancelledDate = document.getElementById('shakenEditCancelledDate').value;
       const reservationType = document.getElementById('shakenEditReservationType').value;
+      const loanerVal = document.getElementById('shakenEditLoaner').value;
 
       if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || reservationType === '') {
         alert('顧客名・車種・通検日・入庫日・入庫時間・予約内容は必須です。');
+        return;
+      }
+      if (reservationType !== 'loaner-use' && loanerVal === '') {
+        alert('代車の有無を選択してください。');
         return;
       }
       // 「代車使用」はキャンセル対象外（キャンセルするとどのリストにも表示されなくなるため）。
@@ -12388,7 +12456,7 @@ window.addEventListener('pagehide', function() {
       r.deliveryDate = deliveryDate;
       r.deliveryTime = deliveryTime;
       r.reservationType = reservationType;
-      delete r.loanerCar;
+      r.loanerCar = reservationType === 'loaner-use' ? false : (loanerVal === '1');
       r.note = note;
       r.completed = editingShakenCompleted;
       r.cancelled = editingShakenCancelled;
