@@ -1489,6 +1489,8 @@
     .shaken-bar:hover { opacity: .85; }
     .shaken-bar-loaner { background: #fbbf24; color: #78350f; }
     .shaken-bar-noloaner { background: var(--cw-green); color: #fff; }
+    .shaken-bar-general { background: #22c55e; color: #fff; }
+    .shaken-bar-paint { background: #8b5cf6; color: #fff; }
     .shaken-bar-done { background: #d1d5db; color: #555; }
     /* 月違いの予約は、代車の色（黄/青）や完了の灰色はそのまま保ち、薄く（半透明に）することで
        区別する。完了（無彩色グレー）と月違い（元の色が薄い）を混同しないようにするため。 */
@@ -1552,6 +1554,8 @@
     }
     .shaken-checkin-line-loaner { color: #b45309; }
     .shaken-checkin-line-noloaner { color: var(--cw-green); }
+    .shaken-checkin-line-general { color: #16a34a; }
+    .shaken-checkin-line-paint { color: #7c3aed; }
     .shaken-checkin-line-done { color: #6b7280; }
     .shaken-checkin-line-othermonth { opacity: 0.4; }
 
@@ -6443,13 +6447,15 @@ window.addEventListener('pagehide', function() {
           <button type="button" id="btnShakenSummary" class="sales-nav-btn" style="padding:7px 14px;border-radius:4px;">月別集計</button>
           <button type="button" id="btnShakenCancelledList"
             style="flex-shrink:0;white-space:nowrap;padding:7px 14px;background:var(--surface);color:var(--danger);border:1px solid var(--danger);border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
-            車検キャンセル一覧
+            キャンセル一覧
           </button>
         </div>
 
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;font-size:11px;color:var(--muted);">
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#fbbf24;display:inline-block;"></span>代車あり</span>
-          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:var(--cw-green);display:inline-block;"></span>代車なし</span>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;font-size:11px;color:var(--muted);flex-wrap:wrap;">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#fbbf24;display:inline-block;"></span>車検（代車あり）／代車使用</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:var(--cw-green);display:inline-block;"></span>車検（代車なし）</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#22c55e;display:inline-block;"></span>一般整備</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#8b5cf6;display:inline-block;"></span>鈑金塗装</span>
         </div>
 
         <div id="shakenCalView" style="flex:1;min-height:0;overflow-y:auto;">
@@ -6945,12 +6951,15 @@ window.addEventListener('pagehide', function() {
             </div>
           </div>
           <div>
-            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
-            <select id="shakenNewLoaner" required
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">予約内容</label>
+            <select id="shakenNewReservationType" required
               style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
               <option value="" selected disabled>選択してください</option>
-              <option value="1">あり</option>
-              <option value="0">なし</option>
+              <option value="shaken-loaner">車検（代車あり）</option>
+              <option value="shaken-noloaner">車検（代車なし）</option>
+              <option value="general">一般整備</option>
+              <option value="paint">鈑金塗装</option>
+              <option value="loaner-use">代車使用</option>
             </select>
           </div>
           <div>
@@ -7033,12 +7042,15 @@ window.addEventListener('pagehide', function() {
           </div>
         </div>
         <div>
-          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
-          <select id="shakenEditLoaner" required
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">予約内容</label>
+          <select id="shakenEditReservationType" required
             style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
             <option value="" selected disabled>選択してください</option>
-            <option value="1">あり</option>
-            <option value="0">なし</option>
+            <option value="shaken-loaner">車検（代車あり）</option>
+            <option value="shaken-noloaner">車検（代車なし）</option>
+            <option value="general">一般整備</option>
+            <option value="paint">鈑金塗装</option>
+            <option value="loaner-use">代車使用</option>
           </select>
         </div>
         <div>
@@ -11728,6 +11740,23 @@ window.addEventListener('pagehide', function() {
       return name ? `${name}様` : '';
     }
 
+    // 予約内容の種別（車検・一般整備・鈑金塗装・代車使用）の表示ラベル・色をまとめて管理する。
+    // 「代車使用」は車検（代車あり）と同じ色を使う。
+    const SHAKEN_TYPES = {
+      'shaken-loaner':   { label: '車検（代車あり）', category: 'shaken',    barCls: 'shaken-bar-loaner',   badgeBg: '#fbbf24', badgeText: '#78350f' },
+      'shaken-noloaner': { label: '車検（代車なし）', category: 'shaken',    barCls: 'shaken-bar-noloaner', badgeBg: '#4a7fb5', badgeText: '#fff' },
+      'general':         { label: '一般整備',         category: 'general',   barCls: 'shaken-bar-general',  badgeBg: '#22c55e', badgeText: '#fff' },
+      'paint':           { label: '鈑金塗装',         category: 'paint',     barCls: 'shaken-bar-paint',    badgeBg: '#8b5cf6', badgeText: '#fff' },
+      'loaner-use':      { label: '代車使用',         category: 'loaner-use', barCls: 'shaken-bar-loaner',  badgeBg: '#fbbf24', badgeText: '#78350f' },
+    };
+    // 旧データ（loanerCarのみで種別が無い）との互換のため、無ければloanerCarから補う
+    function shakenType(r) {
+      return (r && r.reservationType) || (r && r.loanerCar ? 'shaken-loaner' : 'shaken-noloaner');
+    }
+    function shakenTypeMeta(r) {
+      return SHAKEN_TYPES[shakenType(r)] || SHAKEN_TYPES['shaken-noloaner'];
+    }
+
     function buildShakenCalendarWeeks(year, month) {
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -11752,12 +11781,13 @@ window.addEventListener('pagehide', function() {
     // 左カラム: 事前点検の日程が未決定の顧客リスト。
     // 抽出条件は「①通検日から40日を切った予約」かつ「②『事前日程』ボタンが押されていない予約」の両方。
     // キャンセル済み・完了済みの予約は、もう事前点検の日程を決める必要が無いため対象外とする。
+    // 対象は車検（代車あり・代車なし）のみ。一般整備・鈑金塗装・代車使用は事前点検が不要なため対象外。
     function renderShakenPreScheduleSidebar() {
       const listEl = document.getElementById('shakenPreScheduleList');
       if (!listEl) return;
       const cutoffISO = shakenAddDaysISO(todayStr(), 40);
       const items = (shakenBucket().shakenReservations || [])
-        .filter(r => !r.cancelled && !r.completed && !r.preScheduled && r.inspectionDate && r.inspectionDate <= cutoffISO)
+        .filter(r => !r.cancelled && !r.completed && !r.preScheduled && r.inspectionDate && r.inspectionDate <= cutoffISO && shakenTypeMeta(r).category === 'shaken')
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
 
       if (!items.length) {
@@ -11851,7 +11881,7 @@ window.addEventListener('pagehide', function() {
           // 完了・代車の色はそのまま保ちつつ薄く表示し、「完了（無彩色グレー）」と
           // 「月違い（元の色が薄い）」を混同しないようにする。
           const belongsToCurrentMonth = (r.inspectionDate || '').slice(0, 7) === currentMonthKey;
-          const baseColorCls = r.completed ? 'shaken-bar-done' : (r.loanerCar ? 'shaken-bar-loaner' : 'shaken-bar-noloaner');
+          const baseColorCls = r.completed ? 'shaken-bar-done' : shakenTypeMeta(r).barCls;
           const colorCls = belongsToCurrentMonth ? baseColorCls : `${baseColorCls} shaken-bar-othermonth`;
           // カレンダービューでは完了済みバーは灰色で見分けられるため、チェックマークは付けない
           const fullLabel = `${shakenCustomerLabel(r.customer)}${r.carModel ? '　' + r.carModel : ''}`;
@@ -11963,13 +11993,19 @@ window.addEventListener('pagehide', function() {
       if (title) title.textContent = `${shakenCalYear}年 ${shakenCalMonth + 1}月`;
       const monthKey = `${shakenCalYear}-${String(shakenCalMonth + 1).padStart(2, '0')}`;
 
+      // 「代車使用」はお客様の予約ではなく代車の管理用の予定のため、このリストには出さない
+      // （カレンダービューにのみ表示する）。
       const list = shakenBucket().shakenReservations
-        .filter(r => !r.cancelled && (r.inspectionDate || '').slice(0, 7) === monthKey)
+        .filter(r => !r.cancelled && shakenType(r) !== 'loaner-use' && (r.inspectionDate || '').slice(0, 7) === monthKey)
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
 
-      const completedCount = list.filter(r => r.completed).length;
-      const notCompletedCount = list.length - completedCount;
-      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">全${list.length}件（完了${completedCount}件・未完了${notCompletedCount}件）</div>`;
+      // 集計は車検・一般整備・鈑金塗装で分ける（車検のみ完了/未完了の内訳も付ける）
+      const shakenList = list.filter(r => shakenTypeMeta(r).category === 'shaken');
+      const generalCount = list.filter(r => shakenTypeMeta(r).category === 'general').length;
+      const paintCount = list.filter(r => shakenTypeMeta(r).category === 'paint').length;
+      const shakenCompletedCount = shakenList.filter(r => r.completed).length;
+      const shakenNotCompletedCount = shakenList.length - shakenCompletedCount;
+      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">車検：全${shakenList.length}件（完了${shakenCompletedCount}件・未完了${shakenNotCompletedCount}件）・一般整備：全${generalCount}件・鈑金塗装：全${paintCount}件</div>`;
 
       if (!list.length) {
         html += '<div style="text-align:center;color:#aaa;padding:40px 0;font-size:13px;">この月の予約はありません</div>';
@@ -11980,24 +12016,25 @@ window.addEventListener('pagehide', function() {
       // 項目カード同士の隙間を無くし、1枚のシートのように見せる。各項目はborder-bottomだけを持つ。
       html += `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
       html += list.map(r => {
+        const meta = shakenTypeMeta(r);
+        // 一般整備・鈑金塗装は、車検予約と混同しないよう左端に種別の色を帯として付ける
+        const accentBorder = meta.category !== 'shaken' ? `border-left:4px solid ${meta.badgeBg};` : '';
         const preScheduleBadge = r.preScheduled
           ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">事前点検日程OK</span>'
           : '';
-        const loanerBadge = r.loanerCar
-          ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
-          : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
+        const typeBadge = `<span style="flex-shrink:0;background:${meta.badgeBg};color:${meta.badgeText};border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(meta.label)}</span>`;
         // 完了マークをリスト右端に表示。未完了時も幅を確保し、右端の位置がずれないようにする
         const completeMark = r.completed
           ? '<span style="flex-shrink:0;width:20px;text-align:center;font-size:15px;font-weight:700;color:#22c55e;" title="完了">✓</span>'
           : '<span style="flex-shrink:0;width:20px;"></span>';
         const noteInline = r.note ? `<span style="margin-left:16px;">備考：${escapeHtml(r.note)}</span>` : '';
-        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
+        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;${accentBorder}">
           <div style="flex:1;min-width:0;overflow:hidden;">
             <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}${noteInline}</div>
           </div>
           ${preScheduleBadge}
-          ${loanerBadge}
+          ${typeBadge}
           ${completeMark}
         </div>`;
       }).join('');
@@ -12024,7 +12061,7 @@ window.addEventListener('pagehide', function() {
       if (summaryViewEl) summaryViewEl.style.display = shakenViewMode === 'summary' ? '' : 'none';
       if (toggleBtn) toggleBtn.textContent = shakenViewMode === 'calendar' ? 'リスト表示' : 'カレンダー表示';
       const cancelledBtn = document.getElementById('btnShakenCancelledList');
-      if (cancelledBtn) cancelledBtn.textContent = shakenViewMode === 'cancelled' ? '閉じる' : '車検キャンセル一覧';
+      if (cancelledBtn) cancelledBtn.textContent = shakenViewMode === 'cancelled' ? '閉じる' : 'キャンセル一覧';
       const summaryBtn = document.getElementById('btnShakenSummary');
       if (summaryBtn) summaryBtn.textContent = shakenViewMode === 'summary' ? '閉じる' : '月別集計';
       const prevBtn = document.getElementById('shakenCalPrev');
@@ -12075,9 +12112,11 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenNewInspectionDate').value = prefillInspectionDate || '';
       document.getElementById('shakenNewCheckinDate').value = prefillInspectionDate ? shakenAddDaysISO(prefillInspectionDate, -1) : '';
       document.getElementById('shakenNewCheckinTime').value = '12:00';
+      document.getElementById('shakenNewDeliveryDate').value = '';
+      document.getElementById('shakenNewDeliveryTime').value = '';
       document.getElementById('shakenNewNote').value = '';
-      // 選び忘れを防ぐため、代車の有無はデフォルトでどちらも選択されていない状態にする
-      document.getElementById('shakenNewLoaner').value = '';
+      // 選び忘れを防ぐため、予約内容はデフォルトでどれも選択されていない状態にする
+      document.getElementById('shakenNewReservationType').value = '';
       // 通常の自動補完と同じ扱いにする（通検日を変更すれば入庫日も追従する）
       shakenCheckinDateTouched = false;
       openOverlay(document.getElementById('addShakenModal'));
@@ -12122,13 +12161,12 @@ window.addEventListener('pagehide', function() {
       const deliveryDate = document.getElementById('shakenNewDeliveryDate').value;
       const deliveryTime = document.getElementById('shakenNewDeliveryTime').value;
       const note = document.getElementById('shakenNewNote').value.trim();
-      const loanerVal = document.getElementById('shakenNewLoaner').value;
+      const reservationType = document.getElementById('shakenNewReservationType').value;
 
-      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || loanerVal === '') {
-        alert('顧客名・車種・通検日・入庫日・入庫時間・代車の有無は必須です。');
+      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || reservationType === '') {
+        alert('顧客名・車種・通検日・入庫日・入庫時間・予約内容は必須です。');
         return;
       }
-      const loanerCar = loanerVal === '1';
       if (checkinDate > inspectionDate) {
         alert('入庫日は通検日より前（または同日）にしてください。');
         return;
@@ -12145,7 +12183,7 @@ window.addEventListener('pagehide', function() {
       if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
       shakenBucket().shakenReservations.push({
         id: uid(), customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
-        deliveryDate, deliveryTime, loanerCar, note, ts: Date.now(),
+        deliveryDate, deliveryTime, reservationType, note, ts: Date.now(),
       });
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
@@ -12168,7 +12206,7 @@ window.addEventListener('pagehide', function() {
       document.getElementById('shakenEditDeliveryDate').value = r.deliveryDate || '';
       document.getElementById('shakenEditDeliveryTime').value = r.deliveryTime || '';
       document.getElementById('shakenEditNote').value = r.note || '';
-      document.getElementById('shakenEditLoaner').value = r.loanerCar ? '1' : '0';
+      document.getElementById('shakenEditReservationType').value = shakenType(r);
       document.getElementById('shakenEditCancelledDate').value = r.cancelledDate || '';
       editingShakenCompleted = !!r.completed;
       renderShakenEditCompleteButton();
@@ -12279,10 +12317,10 @@ window.addEventListener('pagehide', function() {
       const deliveryTime = document.getElementById('shakenEditDeliveryTime').value;
       const note = document.getElementById('shakenEditNote').value.trim();
       const cancelledDate = document.getElementById('shakenEditCancelledDate').value;
-      const loanerVal = document.getElementById('shakenEditLoaner').value;
+      const reservationType = document.getElementById('shakenEditReservationType').value;
 
-      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || loanerVal === '') {
-        alert('顧客名・車種・通検日・入庫日・入庫時間・代車の有無は必須です。');
+      if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || reservationType === '') {
+        alert('顧客名・車種・通検日・入庫日・入庫時間・予約内容は必須です。');
         return;
       }
       // 車検キャンセル中は、キャンセル日が未入力のまま保存できないようにする
@@ -12291,7 +12329,6 @@ window.addEventListener('pagehide', function() {
         alert('車検キャンセルの場合、キャンセル日を入力してください。');
         return;
       }
-      const loanerCar = loanerVal === '1';
       if (checkinDate > inspectionDate) {
         alert('入庫日は通検日より前（または同日）にしてください。');
         return;
@@ -12315,7 +12352,8 @@ window.addEventListener('pagehide', function() {
       r.checkinTime = checkinTime;
       r.deliveryDate = deliveryDate;
       r.deliveryTime = deliveryTime;
-      r.loanerCar = loanerCar;
+      r.reservationType = reservationType;
+      delete r.loanerCar;
       r.note = note;
       r.completed = editingShakenCompleted;
       r.cancelled = editingShakenCancelled;
@@ -12357,11 +12395,15 @@ window.addEventListener('pagehide', function() {
 
       // キャンセルの集計は「キャンセル処理した日付」（キャンセル日）を基準にする。
       // キャンセル日が未入力の予約はどの月にも属さないため、ここには表示されない。
+      // 「代車使用」はお客様の予約ではないため、ここには含めない。
       const items = (shakenBucket().shakenReservations || [])
-        .filter(r => r.cancelled && (r.cancelledDate || '').slice(0, 7) === monthKey)
+        .filter(r => r.cancelled && shakenType(r) !== 'loaner-use' && (r.cancelledDate || '').slice(0, 7) === monthKey)
         .sort((a, b) => (a.cancelledDate || '').localeCompare(b.cancelledDate || ''));
 
-      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">キャンセル${items.length}件</div>`;
+      const shakenCancelCount = items.filter(r => shakenTypeMeta(r).category === 'shaken').length;
+      const generalCancelCount = items.filter(r => shakenTypeMeta(r).category === 'general').length;
+      const paintCancelCount = items.filter(r => shakenTypeMeta(r).category === 'paint').length;
+      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">車検キャンセル${shakenCancelCount}件・一般整備キャンセル${generalCancelCount}件・鈑金塗装キャンセル${paintCancelCount}件</div>`;
 
       if (!items.length) {
         html += '<div style="text-align:center;color:#aaa;padding:40px 0;font-size:13px;">この月にキャンセルされた予約はありません</div>';
@@ -12371,16 +12413,17 @@ window.addEventListener('pagehide', function() {
 
       html += `<div style="border:1px solid var(--border);border-radius:6px;overflow:hidden;">`;
       html += items.map(r => {
-        const loanerBadge = r.loanerCar
-          ? '<span style="flex-shrink:0;background:#fbbf24;color:#78350f;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車あり</span>'
-          : '<span style="flex-shrink:0;background:var(--cw-green);color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">代車なし</span>';
+        const meta = shakenTypeMeta(r);
+        // 一般整備・鈑金塗装は、車検予約と混同しないよう左端に種別の色を帯として付ける
+        const accentBorder = meta.category !== 'shaken' ? `border-left:4px solid ${meta.badgeBg};` : '';
+        const typeBadge = `<span style="flex-shrink:0;background:${meta.badgeBg};color:${meta.badgeText};border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(meta.label)}</span>`;
         const noteInline = r.note ? `<span style="margin-left:16px;">備考：${escapeHtml(r.note)}</span>` : '';
-        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;">
+        return `<div class="shaken-list-item" data-sid="${r.id}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;background:var(--surface);flex-wrap:nowrap;${accentBorder}">
           <div style="flex:1;min-width:0;overflow:hidden;">
             <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}　<span style="font-weight:400;color:var(--muted);">${escapeHtml(r.carModel || '')}${r.plateNumber ? '　' + escapeHtml(r.plateNumber) : ''}</span></div>
             <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}　→　キャンセル：${r.cancelledDate || '-'}${noteInline}</div>
           </div>
-          ${loanerBadge}
+          ${typeBadge}
         </div>`;
       }).join('');
       html += `</div>`;
@@ -12422,10 +12465,15 @@ window.addEventListener('pagehide', function() {
       const title = document.getElementById('shakenMonthLabel');
       if (title) title.textContent = `${shakenCalYear}年`;
 
-      const reservationCounts = new Array(12).fill(0);
+      // 車検・一般整備・鈑金塗装で件数を分けて集計する（「代車使用」はお客様の予約ではないため対象外）。
+      const shakenCounts = new Array(12).fill(0);
+      const generalCounts = new Array(12).fill(0);
+      const paintCounts = new Array(12).fill(0);
       const cancelledCounts = new Array(12).fill(0);
       const yearStr = String(shakenCalYear);
       (shakenBucket().shakenReservations || []).forEach(r => {
+        const category = shakenTypeMeta(r).category;
+        if (category === 'loaner-use') return;
         if (r.cancelled) {
           if (r.cancelledDate && r.cancelledDate.slice(0, 4) === yearStr) {
             const m = Number(r.cancelledDate.slice(5, 7)) - 1;
@@ -12433,13 +12481,20 @@ window.addEventListener('pagehide', function() {
           }
         } else if (r.inspectionDate && r.inspectionDate.slice(0, 4) === yearStr) {
           const m = Number(r.inspectionDate.slice(5, 7)) - 1;
-          if (m >= 0 && m <= 11) reservationCounts[m]++;
+          if (m >= 0 && m <= 11) {
+            if (category === 'shaken') shakenCounts[m]++;
+            else if (category === 'general') generalCounts[m]++;
+            else if (category === 'paint') paintCounts[m]++;
+          }
         }
       });
-      const totalReservation = reservationCounts.reduce((a, b) => a + b, 0);
+      const totalShaken = shakenCounts.reduce((a, b) => a + b, 0);
+      const totalGeneral = generalCounts.reduce((a, b) => a + b, 0);
+      const totalPaint = paintCounts.reduce((a, b) => a + b, 0);
+      const totalReservation = totalShaken + totalGeneral + totalPaint;
       const totalCancelled = cancelledCounts.reduce((a, b) => a + b, 0);
 
-      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${shakenCalYear}年　予約実績合計：${totalReservation}件　キャンセル合計：${totalCancelled}件</div>`;
+      let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px;">${shakenCalYear}年　予約実績合計：${totalReservation}件（車検${totalShaken}件・一般整備${totalGeneral}件・鈑金塗装${totalPaint}件）　キャンセル合計：${totalCancelled}件</div>`;
       html += `<div style="border:1px solid var(--border);border-radius:6px;overflow-x:auto;">`;
       html += `<table style="border-collapse:collapse;width:100%;min-width:840px;table-layout:fixed;font-size:13px;">`;
       html += `<colgroup><col style="width:100px;">`;
@@ -12451,18 +12506,19 @@ window.addEventListener('pagehide', function() {
       }
       html += `<th style="padding:8px 6px;text-align:center;white-space:nowrap;background:#eef6ff;border-bottom:1px solid var(--border);border-left:1px solid var(--border);">合計</th>`;
       html += `</tr>`;
-      html += `<tr><td style="padding:8px 10px;font-weight:700;white-space:nowrap;">予約件数</td>`;
-      reservationCounts.forEach(c => {
-        html += `<td style="padding:8px 6px;text-align:center;border-left:1px solid var(--border);">${c}</td>`;
-      });
-      html += `<td style="padding:8px 6px;text-align:center;font-weight:700;background:#eef6ff;border-left:1px solid var(--border);">${totalReservation}</td>`;
-      html += `</tr>`;
-      html += `<tr><td style="padding:8px 10px;font-weight:700;white-space:nowrap;border-top:1px solid var(--border);">キャンセル数</td>`;
-      cancelledCounts.forEach(c => {
-        html += `<td style="padding:8px 6px;text-align:center;border-top:1px solid var(--border);border-left:1px solid var(--border);">${c}</td>`;
-      });
-      html += `<td style="padding:8px 6px;text-align:center;font-weight:700;background:#eef6ff;border-top:1px solid var(--border);border-left:1px solid var(--border);">${totalCancelled}</td>`;
-      html += `</tr>`;
+      const buildRow = (label, counts, total, topBorder) => {
+        let row = `<tr><td style="padding:8px 10px;font-weight:700;white-space:nowrap;${topBorder ? 'border-top:1px solid var(--border);' : ''}">${label}</td>`;
+        counts.forEach(c => {
+          row += `<td style="padding:8px 6px;text-align:center;border-left:1px solid var(--border);${topBorder ? 'border-top:1px solid var(--border);' : ''}">${c}</td>`;
+        });
+        row += `<td style="padding:8px 6px;text-align:center;font-weight:700;background:#eef6ff;border-left:1px solid var(--border);${topBorder ? 'border-top:1px solid var(--border);' : ''}">${total}</td>`;
+        row += `</tr>`;
+        return row;
+      };
+      html += buildRow('車検件数', shakenCounts, totalShaken, false);
+      html += buildRow('一般整備件数', generalCounts, totalGeneral, true);
+      html += buildRow('鈑金塗装件数', paintCounts, totalPaint, true);
+      html += buildRow('キャンセル数', cancelledCounts, totalCancelled, true);
       html += `</table></div>`;
 
       wrap.innerHTML = html;
@@ -12496,12 +12552,13 @@ window.addEventListener('pagehide', function() {
       } else {
         list.innerHTML = events.map(({ type, r }) => {
           const label = type === 'checkin' ? `入庫${r.checkinTime || ''}` : '通検';
+          const meta = shakenTypeMeta(r);
           return `
           <div class="day-detail-item" data-sid="${r.id}">
             <div class="day-detail-time">${label}</div>
             <div>
               <div class="day-detail-text">${escapeHtml(shakenCustomerLabel(r.customer))}　${escapeHtml(r.carModel || '')}${r.plateNumber ? `　<span style="color:var(--muted);">${escapeHtml(r.plateNumber)}</span>` : ''}
-                ${r.loanerCar ? '<span style="margin-left:6px;background:#fbbf24;color:#78350f;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:700;">代車あり</span>' : ''}
+                <span style="margin-left:6px;background:${meta.badgeBg};color:${meta.badgeText};border-radius:3px;padding:1px 6px;font-size:11px;font-weight:700;">${escapeHtml(meta.label)}</span>
               </div>
               ${r.note ? `<div style="font-size:12px;color:var(--muted);margin-top:4px;white-space:pre-wrap;">${escapeHtml(r.note)}</div>` : ''}
             </div>
