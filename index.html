@@ -295,7 +295,7 @@
     .sidebar-section-title {
       font-size: 15px;
       font-weight: 700;
-      color: #4a7fb5;
+      color: var(--cw-green);
       padding: 12px 14px 8px;
       text-transform: none;
     }
@@ -382,7 +382,7 @@
       padding: 6px 14px 4px;
       font-size: 13px;
       font-weight: 600;
-      color: #4a7fb5;
+      color: var(--cw-green);
     }
 
     .bm-category-toggle {
@@ -879,7 +879,7 @@
     .edit-textarea:focus { border-color: var(--cw-green); }
     .edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
     .edit-actions button {
-      padding: 7px 16px;
+      padding: 7px 14px;
       border-radius: 4px;
       font-size: 12px;
       cursor: pointer;
@@ -1242,7 +1242,7 @@
       padding: 7px 14px;
       cursor: pointer;
       font-size: 12px;
-      font-weight: bold;
+      font-weight: 600;
     }
 
     .cal-nav button:hover { opacity: 0.9; }
@@ -1257,7 +1257,7 @@
     }
 
     .task-cal-dayname.sun { color: var(--danger); }
-    .task-cal-dayname.sat { color: #4a7fb5; }
+    .task-cal-dayname.sat { color: var(--cw-green); }
 
     .task-calendar {
       display: grid;
@@ -1361,7 +1361,7 @@
 
     .task-cal-cell.today .task-cal-date { color: var(--cw-green); }
     .task-cal-cell.sun .task-cal-date { color: var(--danger); }
-    .task-cal-cell.sat .task-cal-date { color: #4a7fb5; }
+    .task-cal-cell.sat .task-cal-date { color: var(--cw-green); }
     .task-cal-cell.holiday .task-cal-date { color: var(--danger); }
 
     .task-cal-chip {
@@ -1451,7 +1451,7 @@
     .shaken-date-cell.other-month { background: #f9fafb; opacity: .6; }
     .shaken-date-cell.today .shaken-date-num { background: var(--cw-green); color: #fff; }
     .shaken-date-cell.sun .shaken-date-num { color: var(--danger); }
-    .shaken-date-cell.sat .shaken-date-num { color: #4a7fb5; }
+    .shaken-date-cell.sat .shaken-date-num { color: var(--cw-green); }
     .shaken-date-cell.holiday .shaken-date-num { color: var(--danger); }
     .shaken-date-cell.today.sun .shaken-date-num,
     .shaken-date-cell.today.sat .shaken-date-num,
@@ -1759,7 +1759,7 @@
     .mention-tag {
       display: inline-block;
       background: #dbeafe;
-      color: #3a6694;
+      color: var(--cw-green-dark);
       font-weight: 600;
       font-size: 11px;
       padding: 2px 7px;
@@ -2399,7 +2399,7 @@
 .top-cancel-btn {
   background: var(--danger);
   color: #fff; border: none; border-radius: 4px;
-  font-size: 12px; font-weight: 700; cursor: pointer;
+  font-size: 12px; font-weight: 600; cursor: pointer;
 
   letter-spacing: 0.3px;
 }
@@ -2784,9 +2784,9 @@
   color: #fff;
   border: none;
   border-radius: 4px;
-  padding: 3px 6px;
-  font-size: 10px;
-  font-weight: bold;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -2983,7 +2983,7 @@
     color:white;
     cursor:pointer;
     font-size:12px;
-    font-weight:bold;
+    font-weight:600;
 }
 
 #shift-wrap button:hover{
@@ -4178,7 +4178,7 @@
     border-radius: 4px;
     padding: 7px 14px;
     font-size: 12px;
-    font-weight: bold;
+    font-weight: 600;
     cursor: pointer;
 }
 .sales-nav-btn:hover { opacity: 0.9; }
@@ -4211,12 +4211,15 @@
 
 /* 各タブ上部のツールバー行（前月/次月・追加・一覧・営業所セレクターなど）に置く
    ボタン・セレクトのサイズを統一する。背景色・文字色・枠線は個別のまま、
-   フォントサイズ・padding・角の丸みだけを揃え、高さは明示指定せずpadding＋font-sizeで決まる形にする。
-   今後この行に新しく置くボタン・セレクトも、このクラスを付けて統一する。 */
+   フォントサイズ・padding・角の丸み・文字の太さだけを揃え、高さは明示指定せずpadding＋font-sizeで決まる形にする。
+   今後この行に新しく置くボタン・セレクトも、このクラスを付けて統一する。
+   （.sales-nav-btn / .cal-nav button / #shift-wrap button / .top-cancel-btn /
+     #kasime-history-col .hist-month-btn も同じ値に揃えてある） */
 .toolbar-ctrl {
     padding: 7px 14px;
     font-size: 12px;
     border-radius: 4px;
+    font-weight: 600;
 }
 
 #salesTable {
@@ -4736,7 +4739,7 @@
 
         <!-- 保存ボタン（記録追加＋スプレッドシート保存） -->
         <span id="kasimeSaveWrap" style="display:none;align-items:center;gap:6px;">
-          <button type="button" class="toolbar-ctrl" onclick="saveRecordToSheet()" style="background:var(--cw-green);color:#fff;border:none;font-weight:700;cursor:pointer;padding:7px 14px;">保存</button>
+          <button type="button" class="toolbar-ctrl" onclick="saveRecordToSheet()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;padding:7px 14px;">保存</button>
         </span>
 
       </div>
@@ -6158,8 +6161,8 @@ window.addEventListener('pagehide', function() {
 <div id="panelShiftWish" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelShiftWish')">
     <div class="sf-popup-modal-content" onclick="event.stopPropagation()" style="width:96vw; max-width:1400px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap:10px; flex-wrap:wrap;">
-            <h2 style="margin:0; font-size:18px; flex-shrink:0; color:#e53935;">希望休日</h2>
-            <div id="shiftWishDeadlineBanner" style="flex:1; min-width:160px; background:#fff3f3; border:1px solid #ffcdd2; border-radius:6px; padding:8px 14px; font-size:15px; font-weight:800; color:#e53935; text-align:center;"></div>
+            <h2 style="margin:0; font-size:18px; flex-shrink:0; color:var(--danger);">希望休日</h2>
+            <div id="shiftWishDeadlineBanner" style="flex:1; min-width:160px; background:#fff3f3; border:1px solid #ffcdd2; border-radius:6px; padding:8px 14px; font-size:15px; font-weight:800; color:var(--danger); text-align:center;"></div>
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex-shrink:0;">
                 <button onclick="sfChangeMonth(-1)">前月</button>
                 <div id="wishMonthLabel" style="font-weight:bold; font-size:15px; margin:0 4px;"></div>
@@ -6387,7 +6390,7 @@ window.addEventListener('pagehide', function() {
           <button type="button" id="btnSalesNextMonth" class="sales-nav-btn" onclick="changeSalesMonth(1)">次月</button>
           <span id="salesBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
           <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
-            <button type="button" class="toolbar-ctrl" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;font-weight:700;cursor:pointer;">保存</button>
+            <button type="button" class="toolbar-ctrl" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;">保存</button>
           </span>
           <div id="salesBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
             <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
@@ -15125,7 +15128,7 @@ function updateShiftWishDeadlineBanner(year, month, locked){
     const deadlineDate = getShiftDeadlineDateForMonth(year, month);
     banner.textContent = `${year}年${month + 1}月シフト希望休日の締め切りは${formatShiftDeadlineDate(deadlineDate)}です`;
     banner.style.background = locked ? "#eee" : "#fff3f3";
-    banner.style.color = locked ? "#888" : "#e53935";
+    banner.style.color = locked ? "var(--muted)" : "var(--danger)";
     banner.style.borderColor = locked ? "#ccc" : "#ffcdd2";
 }
 
