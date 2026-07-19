@@ -6429,6 +6429,9 @@ window.addEventListener('pagehide', function() {
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(-1)">前月</button>
           <div id="dailyMonthLabel" style="font-weight:bold;font-size:15px;margin:0 6px;"></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(1)">次月</button>
+          <span id="dailySaveWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
+            <button type="button" class="toolbar-ctrl" onclick="dailySaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;">保存</button>
+          </span>
           <span style="display:flex;align-items:center;gap:6px;margin-left:6px;">
             <span style="font-size:12px;color:var(--muted);white-space:nowrap;">担当者：</span>
             <select id="dailyActiveMemberSelect" class="toolbar-ctrl" style="border:1px solid var(--border);"></select>
@@ -7192,6 +7195,19 @@ window.addEventListener('pagehide', function() {
       </div>
   </div>
 
+  <!-- ===== 日常業務未保存警告モーダル ===== -->
+  <div id="dailyUnsavedWarningModal" class="sf-modal sf-unsaved-warning-modal">
+      <div class="sf-unsaved-warning-box">
+          <div class="sf-unsaved-warning-icon">⚠️</div>
+          <div class="sf-unsaved-warning-title">日常業務が保存されていません！</div>
+          <div class="sf-unsaved-warning-text">「保存」ボタンを押してください。<br>このまま閉じるとスプレッドシートにデータが保存されません。</div>
+          <div style="display:flex; gap:12px; justify-content:center; margin-top:18px;">
+              <button onclick="cancelSyncedTabUnsavedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">編集に戻る</button>
+              <button class="sf-danger-btn" onclick="confirmSyncedTabDiscardAndClose()" style="padding:10px 18px; font-size:14px;">保存せずに閉じる</button>
+          </div>
+      </div>
+  </div>
+
   <div class="modal-overlay" id="confirmModal" role="dialog" aria-modal="true">
     <div class="modal">
       <h2 id="modalTitle">確認</h2>
@@ -7867,6 +7883,37 @@ window.addEventListener('pagehide', function() {
       return state.branchData[branchName];
     }
 
+    // メンバー・項目設定・シフト共通設定など「営業所共通設定など」セル内の設定系データを
+    // 保存前マージする際のベースライン（前回サーバーとやり取りした時点の値）を作る。
+    // ページ読み込み直後（初期化完了時）に一度取り、保存が成功するたびに「今回保存した内容」へ
+    // 更新することで、個々の編集箇所にマーキング処理を仕込まなくても、実際に変更した
+    // フィールドだけを正しく検出できる（mergeRemoteStateArraysBeforeSaveから参照する）。
+    // bookmarkCategories・schedulePresetsはid管理が無く「削除済みの復活防止」ができないため、
+    // 配列全体を1つの値として扱う（この端末が触っていなければリモートの配列をそのまま採用、
+    // 触っていれば追加・削除を含めてこの端末の配列をそのまま残す）。
+    const STATE_SETTINGS_BRANCH_FLAT_KEYS = [
+      'businessHours', 'timeFrames', 'timeFrameOrder', 'calcConditions', 'shiftDeadline',
+      'lastRead', 'timeUnit', 'scheduleTimeStart', 'scheduleTimeEnd',
+      'bookmarkCategories', 'schedulePresets',
+    ];
+    let stateSettingsBaseline = null;
+    function buildStateSettingsSnapshot() {
+      const branches = {};
+      Object.keys(state.branchData || {}).forEach(branchName => {
+        const bucket = state.branchData[branchName] || {};
+        const flat = {};
+        STATE_SETTINGS_BRANCH_FLAT_KEYS.forEach(key => { flat[key] = bucket[key]; });
+        branches[branchName] = { flat };
+      });
+      return { branches };
+    }
+    function captureStateSettingsBaseline() {
+      stateSettingsBaseline = cloneJsonValue(buildStateSettingsSnapshot());
+    }
+    function markStateSettingsSynced() {
+      captureStateSettingsBaseline();
+    }
+
     // 旧バージョン（営業所ごとに分かれていない単一データ）からの移行。
     // 既存データは、登録済みの全営業所にコピーして引き継ぐ（以後は営業所ごとに独立して更新される）。
     function migrateStateToPerBranch() {
@@ -7943,6 +7990,11 @@ window.addEventListener('pagehide', function() {
       state.legacyMessagesMigrated = true;
       saveState();
     }
+
+    // ここまでで初期化・移行処理は完了。この時点の設定値を「前回サーバーとやり取りした時点」の
+    // ベースラインとして記録しておく（保存前マージで、この端末が実際に変更したフィールドだけを
+    // 正しく検出するために使う）。
+    captureStateSettingsBaseline();
 
     let currentRoom = 'all';
     let currentTab = 'chat';
@@ -10156,8 +10208,28 @@ window.addEventListener('pagehide', function() {
       focusSalesInputAt(prevDay, itemIndex, true);
     }
 
+    // Enterキー専用：下（次の日、同じ項目）へ移動。月末に達したら次の項目の1日目へ折り返す
+    // （シフト作成ビューのmoveToNextShiftCellと同じ仕様）
+    function moveToNextSalesCellVerticalWrap(day, itemIndex) {
+      const year = salesCurrentDate.getFullYear();
+      const month = salesCurrentDate.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const nextDay = day + 1;
+      if (nextDay <= daysInMonth) {
+        focusSalesInputAt(nextDay, itemIndex, true);
+        return;
+      }
+      const nextItemIndex = itemIndex + 1;
+      if (nextItemIndex >= salesItems.length) { return; }
+      focusSalesInputAt(1, nextItemIndex, true);
+    }
+
     const SALES_ARROW_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
 
+    // キー操作はシフト作成ビュー（handleShiftInputKeydown）と同じ仕様にしてある。
+    // Tab＝右（次の項目、同じ日）へ移動・月末で次の日へ折り返し・Shift+Tabで逆方向。
+    // Enter＝下（次の日、同じ項目）へ移動・項目末で次の項目へ折り返し・逆方向は無し。
+    // 全角入力時はシフトと同じく、1回目のEnterで確定のみ行いセルに留まる（IME変換確定用）。
     function handleSalesInputKeydown(event, day, itemIndex) {
       if (event.isComposing || event.keyCode === 229) { return; } // IME変換確定中は無視
 
@@ -10169,7 +10241,7 @@ window.addEventListener('pagehide', function() {
         }
       };
 
-      if (event.key === "Tab" || event.key === "Enter") {
+      if (event.key === "Tab") {
         event.preventDefault();
         commitIfNeeded();
         if (event.shiftKey) {
@@ -10177,6 +10249,20 @@ window.addEventListener('pagehide', function() {
         } else {
           moveToNextSalesCellHorizontal(day, itemIndex);
         }
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const isFullWidth = /[^\x00-\x7F]/.test(input.value);
+        if (input.dataset.committed === "false") {
+          onSalesDailyInput(day, item, input.value.trim(), input);
+          if (isFullWidth) {
+            focusSalesInputAt(day, itemIndex, true);
+            return;
+          }
+        }
+        moveToNextSalesCellVerticalWrap(day, itemIndex);
         return;
       }
 
@@ -10904,9 +10990,7 @@ window.addEventListener('pagehide', function() {
       window._hasUnsyncedTabChanges = true;
       saveDailyTaskRecords();
       renderDailyTable();
-      // 日常業務タブの例外ルール：保存ボタンを待たず、クリックした時点で自動的にシートへ保存する。
-      // 連続タップで保存処理が重ならないよう、少し間を置いてからまとめて保存する。
-      if (typeof scheduleDailySaveToSheet === 'function') scheduleDailySaveToSheet();
+      // 販売実績表と同じ保存ルール：ここではシートへ自動保存せず、「保存」ボタンを押した時点で反映する。
     }
 
     function renderDailyTable() {
@@ -11020,6 +11104,8 @@ window.addEventListener('pagehide', function() {
           if (i === -1) return;
           if (!confirm(`「${dailyTaskItems[i].name}」を削除しますか？`)) return;
           dailyTaskItems.splice(i, 1);
+          // 保存前マージで、他端末の古いデータにより削除した項目が復活しないようにする
+          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
           saveDailyTaskItems();
           renderDailyItemsList();
           renderDailyTable();
@@ -11268,6 +11354,8 @@ window.addEventListener('pagehide', function() {
       openModal('メンバー削除', `「${m.name}」を削除しますか？`, () => {
         const deletedName = m.name;
         state.members = state.members.filter(x => x.id !== id);
+        // 保存前マージで、他端末の古いデータにより削除したメンバーが復活しないようにする
+        if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
         saveState();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
         renderMemberSelects();
@@ -12868,6 +12956,10 @@ window.addEventListener('pagehide', function() {
         }
         if (currentTab === 'sales' && targetTab !== 'sales' && window._hasUnsyncedTabChanges) {
           attemptLeaveSyncedTab('salesUnsavedWarningModal', () => applyTabSwitch(targetTab));
+          return;
+        }
+        if (currentTab === 'daily' && targetTab !== 'daily' && window._hasUnsyncedTabChanges) {
+          attemptLeaveSyncedTab('dailyUnsavedWarningModal', () => applyTabSwitch(targetTab));
           return;
         }
         applyTabSwitch(targetTab);
@@ -16436,14 +16528,15 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
       state.messages = mergeArrayById(state.messages, remoteMessages);
     }
 
-    // 連絡ノートのタスク・ブックマークは営業所ごとに state.branchData[営業所名][項目] に保持されているため、
+    // 連絡ノートのタスク・ブックマーク・メンバー・日常業務項目・ブックマークカテゴリ・予定プリセット・
+    // シフト共通設定は、いずれも営業所ごとに state.branchData[営業所名][項目] に保持されているため
     // （state.tasks 等はそのプロキシに過ぎない）、営業所ごとにマージする。
-    // 予定カレンダー（schedules）・タスク一覧（sidebarTasks）は、それぞれ独立した保存キーで
-    // 個別にマージする（mergeRemoteScheduleBeforeSave / mergeRemoteSidebarTasksBeforeSave）ため、
-    // ここでは扱わない。
+    // 予定カレンダー（schedules）・タスク一覧（sidebarTasks）・車検予約・仮締め記録は、
+    // それぞれ独立した保存キーで個別にマージするため、ここでは扱わない。
     if (raw) {
       const remote = JSON.parse(raw);
-      const ARRAY_PER_BRANCH_KEYS = ['tasks', 'bookmarks'];
+      const ARRAY_ID_PER_BRANCH_KEYS = ['tasks', 'bookmarks', 'members', 'dailyTaskItems'];
+      const baseline = stateSettingsBaseline || buildStateSettingsSnapshot();
       if (remote.branchData && typeof remote.branchData === 'object') {
         if (!state.branchData) state.branchData = {};
         Object.keys(remote.branchData).forEach(branchName => {
@@ -16452,10 +16545,28 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
           const localBucket = (typeof ensureBranchBucket === 'function')
             ? ensureBranchBucket(branchName)
             : (state.branchData[branchName] || (state.branchData[branchName] = {}));
-          ARRAY_PER_BRANCH_KEYS.forEach(key => {
+          // id付きの項目（追加は必ず反映。削除時はmarkIdsAsDeletedで復活を防いでいる）
+          ARRAY_ID_PER_BRANCH_KEYS.forEach(key => {
             localBucket[key] = mergeArrayById(localBucket[key], remoteBucket[key]);
           });
+          // シフト共通設定など「フラットな設定値」は、前回同期時点（baseline）と比べて
+          // この端末が実際に変更したものだけローカル優先、触れていないものはリモートを採用する
+          const baseBucket = (baseline.branches && baseline.branches[branchName]) || {};
+          const localFlat = {};
+          const remoteFlat = {};
+          STATE_SETTINGS_BRANCH_FLAT_KEYS.forEach(key => {
+            localFlat[key] = localBucket[key];
+            remoteFlat[key] = remoteBucket[key];
+          });
+          const mergedFlat = mergeFlatDictByBaseline(localFlat, remoteFlat, baseBucket.flat || {});
+          STATE_SETTINGS_BRANCH_FLAT_KEYS.forEach(key => {
+            if (mergedFlat[key] !== undefined) localBucket[key] = mergedFlat[key];
+          });
         });
+      }
+      // 販売実績表の項目設定は全営業所共通のトップレベル配列（idあり）
+      if (Array.isArray(remote.salesItems)) {
+        state.salesItems = mergeArrayById(state.salesItems, remote.salesItems);
       }
     }
 
@@ -16477,12 +16588,20 @@ function mergeFlatDictByBaseline(localDict, remoteDict, baseDict) {
   const base = (baseDict && typeof baseDict === 'object') ? baseDict : {};
   const merged = Object.assign({}, local);
   Object.keys(remote).forEach(key => {
-    if (!(key in local) || local[key] === base[key]) {
+    if (!(key in local) || valuesEqualForMerge(local[key], base[key])) {
       merged[key] = remote[key];
     }
-    // local[key] !== base[key] の場合は、この端末での編集を優先してそのまま残す
+    // local[key]がbase[key]と異なる（＝この端末で実際に変更した）場合は、そのまま残す
   });
   return merged;
+}
+
+// mergeFlatDictByBaseline用の値比較。文字列・数値等の単純な値だけでなく、
+// シフト共通設定（時間枠・営業時間など）のようなオブジェクト値も「内容が同じか」で
+// 正しく比較できるよう、参照比較（===）ではなくJSON文字列化して比較する。
+function valuesEqualForMerge(a, b) {
+  if (a === b) return true;
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return false; }
 }
 
 // シフトのマス目（日付×スタッフ）は複数端末・複数スタッフが同時に編集しうる高リスクなデータのため、
@@ -16609,6 +16728,24 @@ async function mergeRemoteShakenBeforeSave(branchName, spreadsheetId) {
   }
 }
 
+// 仮締め記録も、id付きで追記されていくだけの配列のため他と同様にマージする
+// （「仮締め入力下書き」は、1台の端末が今まさに入力中の一時データであり、複数端末の下書きを
+// フィールド単位で混ぜ合わせても意味のある現金精算にならないため、意図的にマージ対象外とする）。
+async function mergeRemoteKasimeBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof records === 'undefined' || typeof kasimeKey !== 'function') return;
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    if (!result || !result.ok || !result.data) return;
+    const raw = result.data[`仮締め記録_${branchName}`];
+    if (!raw) return;
+    const remoteRecords = JSON.parse(raw);
+    records = mergeArrayById(records, remoteRecords);
+    localStorage.setItem(`仮締め記録_${branchName}`, JSON.stringify(records));
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+}
+
 // アプリ → スプレッドシートへ保存
 // keysOverride省略時は全キーを対象にする（全営業所への一括同期など）。
 // タブ別保存では、そのタブに関係するキーだけに絞り込んで渡すことで、
@@ -16641,6 +16778,9 @@ async function syncToSheet(branchName, keysOverride) {
   if (keys.includes(`shakenReservations_${branchName}`)) {
     await mergeRemoteShakenBeforeSave(branchName, spreadsheetId);
   }
+  if (keys.includes(`仮締め記録_${branchName}`)) {
+    await mergeRemoteKasimeBeforeSave(branchName, spreadsheetId);
+  }
   const data = {};
   keys.forEach(k => {
     const v = localStorage.getItem(k);
@@ -16653,7 +16793,13 @@ async function syncToSheet(branchName, keysOverride) {
   if (typeof checkCellSizeBeforeSave === 'function') {
     checkCellSizeBeforeSave(data);
   }
-  return gasRequest('save', spreadsheetId, data);
+  const saveResult = await gasRequest('save', spreadsheetId, data);
+  // 設定系データ（kawakyu-chatwork-v5）の保存に成功したら、その時点の内容を次回の
+  // 保存前マージのベースラインとして記録し直す（以後、実際に変更したフィールドだけを検出できるようにする）。
+  if (keys.includes('kawakyu-chatwork-v5') && typeof markStateSettingsSynced === 'function') {
+    markStateSettingsSynced();
+  }
+  return saveResult;
 }
 
 const CELL_CHAR_LIMIT = 50000;
@@ -16961,7 +17107,7 @@ function syncAllBranchesToSheet(successMsg) {
 function updateTabSaveBtnVisibility() {
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
   const show = !!(branchName && getGasUrl() && getSpreadsheetId(branchName));
-  ['shiftSaveWrap', 'wishSaveWrap', 'salesSaveWrap', 'kasimeSaveWrap'].forEach(id => {
+  ['shiftSaveWrap', 'wishSaveWrap', 'salesSaveWrap', 'kasimeSaveWrap', 'dailySaveWrap'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? 'flex' : 'none';
   });
