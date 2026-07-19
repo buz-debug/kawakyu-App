@@ -4235,10 +4235,14 @@
     text-align: center;
     box-sizing: border-box;
 }
-/* stickyヘッダーとborder-collapseの組み合わせでは、先頭列（sticky）に接する
-   見出しセルの上端の罫線が正しく描画されないことがあるため、border-collapseの
-   影響を受けないbox-shadowで上端の罫線を確実に描画する（他の罫線とは重ならず同じ見た目になる）。 */
+/* stickyヘッダーとborder-collapseの組み合わせは、見出し行の上端の罫線が
+   正しく描画されないブラウザの既知の不具合があるため、box-shadowでの補強に加えて、
+   テーブルの罫線の仕組みに依存しない専用の帯（.sales-table-wrapperの::before）で
+   スクロール時も含めて上端の罫線を確実に表示する（下記.sales-table-wrapper::before参照）。 */
 #salesTable th {
+    box-shadow: inset 0 1px 0 0 var(--border);
+}
+#salesTable tr.sales-first-row > td {
     box-shadow: inset 0 1px 0 0 var(--border);
 }
 #salesTable th {
@@ -4286,6 +4290,24 @@
     font-weight: 600;
     color: #0f766e;
 }
+/* テーブル自体の罫線（border-collapse）に頼らず、専用の帯を見出し行の上端に重ねて表示する。
+   スクロールしても見出しと同じ高さ（top:0）に留まり続けるため、常に上端の罫線が見える。
+   横幅はJS（ResizeObserverでテーブル本体の実際の幅を反映）で --sales-table-w に設定する
+   （項目数が多く横スクロールが発生する場合でも、帯が右端まで確実に届くようにするため）。 */
+.sales-table-wrapper {
+    position: relative;
+}
+.sales-table-wrapper::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    left: 0;
+    display: block;
+    height: 1px;
+    width: var(--sales-table-w, 100%);
+    background: var(--border);
+    z-index: 2;
+}
 
 /* ======================
 日常業務
@@ -4303,10 +4325,14 @@
     text-align: center;
     box-sizing: border-box;
 }
-/* stickyヘッダーとborder-collapseの組み合わせでは、先頭列（sticky）に接する
-   見出しセルの上端の罫線が正しく描画されないことがあるため、border-collapseの
-   影響を受けないbox-shadowで上端の罫線を確実に描画する（他の罫線とは重ならず同じ見た目になる）。 */
+/* stickyヘッダーとborder-collapseの組み合わせでは、見出し行と最初のデータ行の間の
+   罫線が正しく描画されないことがあるため、border-collapseの影響を受けない
+   box-shadowで、見出しセルの上端・最初のデータ行のセルの上端を確実に描画する
+   （他の罫線とは重ならず同じ見た目になる）。 */
 #dailyTable th {
+    box-shadow: inset 0 1px 0 0 var(--border);
+}
+#dailyTable tr.daily-first-row > td {
     box-shadow: inset 0 1px 0 0 var(--border);
 }
 #dailyTable th {
@@ -4364,6 +4390,24 @@
 #dailyTable tr.daily-row-alt > td.daily-item-col,
 #dailyTable tr.daily-row-alt > td.daily-day-col {
     background: #eef3fb;
+}
+/* テーブル自体の罫線（border-collapse）に頼らず、専用の帯を見出し行の上端に重ねて表示する。
+   スクロールしても見出しと同じ高さ（top:0）に留まり続けるため、常に上端の罫線が見える。
+   横幅はJS（ResizeObserverでテーブル本体の実際の幅を反映）で --daily-table-w に設定する
+   （日数分の列で横スクロールが発生する場合でも、帯が右端まで確実に届くようにするため）。 */
+.daily-table-wrapper {
+    position: relative;
+}
+.daily-table-wrapper::before {
+    content: '';
+    position: sticky;
+    top: 0;
+    left: 0;
+    display: block;
+    height: 1px;
+    width: var(--daily-table-w, 100%);
+    background: var(--border);
+    z-index: 2;
 }
 
 
@@ -10694,7 +10738,8 @@ window.addEventListener('pagehide', function() {
         else if (date.getDay() === 0) { dayColorClass = ' sf-sunday'; }
         else if (date.getDay() === 6) { dayColorClass = ' sf-saturday'; }
 
-        bodyHtml += `<tr${isToday ? ' class="sales-today"' : ''}><td class="sales-day-col${dayColorClass}" style="cursor:pointer;" onclick="enterSalesDayView(${d})" title="この日の全営業所一覧を見る">${d}（${week}）</td>`;
+        const firstRowClass = d === 1 ? ' sales-first-row' : '';
+        bodyHtml += `<tr class="${isToday ? 'sales-today' : ''}${firstRowClass}"><td class="sales-day-col${dayColorClass}" style="cursor:pointer;" onclick="enterSalesDayView(${d})" title="この日の全営業所一覧を見る">${d}（${week}）</td>`;
         salesItems.forEach((item, itemIndex) => {
           const val = dayRecord[item.id];
           cumulative[item.id] += (typeof val === 'number') ? val : 0;
@@ -10719,10 +10764,12 @@ window.addEventListener('pagehide', function() {
             const date = new Date(year, month, d);
             return `<tr><td class="sales-day-col" style="cursor:pointer;" onclick="enterSalesDayView(${d})">${d}（${weekNames[date.getDay()]}）</td><td></td></tr>`;
           }).join('');
+        syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
         return;
       }
 
       table.innerHTML = headerRow1 + headerRow2 + bodyHtml;
+      syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
     }
 
     // 指定した日の、全営業所の実績一覧を表示する（縦軸=営業所、横軸=項目）
@@ -10771,10 +10818,12 @@ window.addEventListener('pagehide', function() {
       if (!salesItems.length) {
         table.innerHTML = `<tr><th class="sales-day-col">営業所</th><th>項目がありません</th></tr>` +
           branches.map(b => `<tr><td class="sales-day-col">${escapeHtml(b.name)}</td><td></td></tr>`).join('');
+        syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
         return;
       }
 
       table.innerHTML = headerRow1 + headerRow2 + bodyHtml;
+      syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
     }
 
     // 並び替え・編集・削除はすべて項目IDで対象を特定する（並び順を変えても単位等が確実に追従する）
@@ -11036,6 +11085,7 @@ window.addEventListener('pagehide', function() {
 
       if (!dailyTaskItems.length) {
         table.innerHTML = `<tr><th class="daily-time-col">時間</th><th class="daily-item-col">項目がありません</th></tr>`;
+        syncStickyBorderBarWidth(table, '.daily-table-wrapper', '--daily-table-w');
         return;
       }
 
@@ -11067,7 +11117,8 @@ window.addEventListener('pagehide', function() {
         const showTime = item.time && item.time !== lastShownTime;
         if (item.time) lastShownTime = item.time;
         // 項目が縦に並ぶとチェックを入れる行を見失いやすいため、1行ごとに背景色を交互に変える
-        const rowClass = itemIndex % 2 === 1 ? ' class="daily-row-alt"' : '';
+        const classNames = [itemIndex % 2 === 1 ? 'daily-row-alt' : '', itemIndex === 0 ? 'daily-first-row' : ''].filter(Boolean).join(' ');
+        const rowClass = classNames ? ` class="${classNames}"` : '';
         bodyHtml += `<tr${rowClass}><td class="daily-time-col">${showTime ? escapeHtml(item.time) : ''}</td><td class="daily-item-col" style="cursor:pointer;" title="${escapeHtml(item.name)}（クリックで備考を表示）" onclick="openDailyItemNotePopup('${item.id}')">${escapeHtml(item.name)}</td>`;
         for (let d = 1; d <= days; d++) {
           const isToday = (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d);
@@ -11081,6 +11132,7 @@ window.addEventListener('pagehide', function() {
       });
 
       table.innerHTML = headerRow + bodyHtml;
+      syncStickyBorderBarWidth(table, '.daily-table-wrapper', '--daily-table-w');
     }
 
     function findDailyItemIndexById(id) {
@@ -16250,6 +16302,17 @@ function isMobileDevice(){
     const uaIsPhone = /iPhone|iPod|Android.*Mobile|Windows Phone/i.test(navigator.userAgent);
     const screenIsPhoneWidth = window.innerWidth <= 480;
     return uaIsPhone || screenIsPhoneWidth;
+}
+
+// 販売実績表・日常業務：見出し行の上端に重ねて表示する罫線の帯（.sales-table-wrapper::before /
+// .daily-table-wrapper::before）の横幅を、テーブル本体の実際の幅（項目数に応じて変わる）に
+// 追従させる。項目数が多く横スクロールが発生する場合でも、帯が右端まで確実に届くようにするため、
+// 各テーブルのrender関数（table.innerHTMLを書き換えた直後）から呼ぶ。
+function syncStickyBorderBarWidth(table, wrapperSelector, varName) {
+  if (!table) return;
+  const wrapper = document.querySelector(wrapperSelector);
+  if (!wrapper) return;
+  wrapper.style.setProperty(varName, table.scrollWidth + 'px');
 }
 
 renderViewTable();
