@@ -4249,7 +4249,7 @@
     background: #fcfcfc;
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
     padding: 3px 6px;
     height: auto;
 }
@@ -4271,6 +4271,13 @@
     font-weight: bold;
     width: 68px;
     padding: 0 4px;
+}
+/* 「日付」列は見出しセル・各行のセルの両方が.sales-day-col（sticky）で、同じz-indexのままだと
+   スクロール時にDOM順で後ろにある行セルが見出しセルの前面に重なって表示されてしまう
+   （見出しの背面に隠れず、逆に見出しの上をすり抜けて見える）。見出しセルのz-indexを
+   行セルより明確に高くし、常に見出しが手前に表示されるようにする。 */
+#salesTable th.sales-day-col {
+    z-index: 3;
 }
 #salesTable .sales-daily-col {
     background: #eef6ff;
@@ -4316,7 +4323,7 @@
     height: 1px;
     width: var(--sales-table-w, 100%);
     background: var(--border);
-    z-index: 2;
+    z-index: 4;
 }
 
 /* ======================
@@ -4349,7 +4356,7 @@
     background: #fcfcfc;
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 3;
     padding: 2px 4px;
     height: auto;
     font-size: 10px;
@@ -4381,6 +4388,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     border-right: 2px solid var(--text);
+}
+/* 「時間」「項目」列は見出しセル・各行のセルの両方が同じクラス（sticky）で、同じz-indexのままだと
+   スクロール時にDOM順で後ろにある行セルが見出しセルの前面に重なって表示されてしまう
+   （見出しの背面に隠れず、逆に見出しの上をすり抜けて見える）。見出しセルのz-indexを
+   行セルより明確に高くし、常に見出しが手前に表示されるようにする。 */
+#dailyTable th.daily-time-col {
+    z-index: 5;
+}
+#dailyTable th.daily-item-col {
+    z-index: 4;
 }
 #dailyTable .daily-day-col {
     width: 40px;
@@ -4417,7 +4434,7 @@
     height: 1px;
     width: var(--daily-table-w, 100%);
     background: var(--border);
-    z-index: 2;
+    z-index: 6;
 }
 
 
@@ -7043,7 +7060,10 @@ window.addEventListener('pagehide', function() {
           </div>
           <div id="shakenNewLoanerWrap">
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
-            <select id="shakenNewLoaner" required
+            <!-- requiredは付けない：「代車使用」選択時はこの欄自体を非表示にするが、hidden状態の
+                 requiredフィールドがブラウザによってはフォーム送信をブロックしてしまうことがあるため。
+                 必須チェックはJS側（submitハンドラ内）で行う。 -->
+            <select id="shakenNewLoaner"
               style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
               <option value="" selected disabled>選択してください</option>
               <option value="1">あり</option>
@@ -7142,7 +7162,10 @@ window.addEventListener('pagehide', function() {
         </div>
         <div id="shakenEditLoanerWrap">
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">代車</label>
-          <select id="shakenEditLoaner" required
+          <!-- requiredは付けない：「代車使用」選択時はこの欄自体を非表示にするが、hidden状態の
+               requiredフィールドがブラウザによってはフォーム送信をブロックしてしまうことがあるため。
+               必須チェックはJS側（保存ハンドラ内）で行う。 -->
+          <select id="shakenEditLoaner"
             style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
             <option value="" selected disabled>選択してください</option>
             <option value="1">あり</option>
@@ -7310,6 +7333,7 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openChatSettingsSubPanel('taskPresetModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予定プルダウン管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予約時間範囲指定</button>
         <button type="button" onclick="openDailyItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">日常業務項目管理</button>
+        <button type="button" id="btnLoanerCarCountSettings" onclick="openLoanerCarCountModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">代車台数設定</button>
         <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
       </div>
@@ -7481,6 +7505,37 @@ window.addEventListener('pagehide', function() {
       <div id="taskTimeMount"></div>
       <div class="modal-actions" style="margin-top:8px;">
         <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('taskTimeModal'))">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 車検予約タブ：代車台数設定 -->
+  <div class="modal-overlay settings-modal" id="loanerCarCountModal" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">代車台数設定</h3>
+      <p class="settings-note">この営業所が保有する代車の台数を設定します。入庫日〜納車日（納車日が未入力の場合は通検日まで）の期間で、「代車あり」の予約・「代車使用」の合計がこの台数を超える場合は保存できません。</p>
+      <div style="display:flex;align-items:center;gap:8px;margin:14px 0;">
+        <span id="loanerCarCountBranchLabel" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
+        <input type="number" id="loanerCarCountInput" min="0" step="1" style="width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:13px;text-align:right;">
+        <span style="font-size:12px;color:var(--text);">台</span>
+      </div>
+      <p class="settings-note">0台のままにすると、台数のチェックは行われません（無制限）。</p>
+      <div class="modal-actions" style="margin-top:8px;">
+        <button type="button" onclick="closeOverlay(document.getElementById('loanerCarCountModal'))">キャンセル</button>
+        <button type="button" class="primary" onclick="saveLoanerCarCount()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 車検予約タブ：代車の台数超過アラート（重複予約アラートと同じ強調デザイン、文言のみ変更） -->
+  <div class="modal-overlay conflict-alert-overlay" id="loanerCarLimitAlertModal" role="alertdialog" aria-modal="true" aria-label="代車の台数超過">
+    <div class="modal conflict-alert-modal">
+      <div class="conflict-alert-icon">⚠</div>
+      <h2 class="conflict-alert-title">代車が足りません！</h2>
+      <p class="conflict-alert-desc">入庫〜納車の期間中に、保有台数（<span id="loanerCarLimitAlertCount"></span>台）を超えて代車が必要になる日があるため、この内容では<span id="loanerCarLimitAlertAction">保存</span>できません。</p>
+      <div class="conflict-alert-list" id="loanerCarLimitAlertList"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" class="primary conflict-alert-ok" id="loanerCarLimitAlertOk">確認しました</button>
       </div>
     </div>
   </div>
@@ -7924,6 +7979,8 @@ window.addEventListener('pagehide', function() {
         // 日常業務の項目設定。以前は個別のセルに保存していたが、
         // 「営業所共通設定など」セルにまとめるよう整理した。
         dailyTaskItems: [],
+        // 車検予約タブ：この営業所が保有する代車の台数（0は未設定＝台数チェックをしない）。
+        loanerCarCount: 0,
       };
     }
 
@@ -7960,7 +8017,7 @@ window.addEventListener('pagehide', function() {
     const STATE_SETTINGS_BRANCH_FLAT_KEYS = [
       'businessHours', 'timeFrames', 'timeFrameOrder', 'calcConditions', 'shiftDeadline',
       'lastRead', 'timeUnit', 'scheduleTimeStart', 'scheduleTimeEnd',
-      'bookmarkCategories', 'schedulePresets',
+      'bookmarkCategories', 'schedulePresets', 'loanerCarCount',
     ];
     let stateSettingsBaseline = null;
     function buildStateSettingsSnapshot() {
@@ -9484,6 +9541,9 @@ window.addEventListener('pagehide', function() {
         document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
         initKasimePdfPicker();
         commonMenu.style.display = 'flex';
+        // 代車台数設定は車検予約タブでのみ意味があるため、そのタブのときだけメニューに出す
+        const loanerCarCountBtn = document.getElementById('btnLoanerCarCountSettings');
+        if (loanerCarCountBtn) loanerCarCountBtn.style.display = (tab === 'shaken') ? '' : 'none';
       } else {
         // 元の位置に戻す（インライン表示）。adminRowは常にこの中にあるため基準点にする。
         const modalBody = document.querySelector('#settingsModal .modal');
@@ -11975,6 +12035,92 @@ window.addEventListener('pagehide', function() {
       };
     }
 
+    // 予約1件が代車を必要とするか（種別が「代車使用」なら常にtrue、それ以外は代車の有無次第）
+    function shakenUsesLoanerCar(r) {
+      return shakenType(r) === 'loaner-use' ? true : shakenLoanerCar(r);
+    }
+
+    // その予約が代車を占有している期間（入庫日〜納車日。納車日未入力なら入庫日〜通検日）
+    function shakenLoanerOccupiedRange(r) {
+      const end = (r.deliveryDate && r.deliveryDate > r.inspectionDate) ? r.deliveryDate : r.inspectionDate;
+      return { start: r.checkinDate, end };
+    }
+
+    // 指定営業所・指定日に、代車を占有している予約一覧を返す（キャンセル済みは除外、excludeIdは除外）
+    function shakenLoanerUsageOnDate(branch, dateISO, excludeId) {
+      const bucket = ensureBranchBucket(branch);
+      return (bucket.shakenReservations || []).filter(r => {
+        if (r.id === excludeId) return false;
+        if (r.cancelled) return false;
+        if (!r.checkinDate || !r.inspectionDate) return false;
+        if (!shakenUsesLoanerCar(r)) return false;
+        const range = shakenLoanerOccupiedRange(r);
+        return range.start <= dateISO && range.end >= dateISO;
+      });
+    }
+
+    // 新規・編集しようとしている予約（checkinDate〜effectiveEndの期間）が、営業所の保有代車台数を
+    // 超えていないか確認する。超えている日があれば、その日にその予約と重なっている既存予約の
+    // 一覧（=一緒に台数オーバーの原因になっている予約）を返す。台数未設定（0）ならチェックしない。
+    function checkLoanerCarCapacity(branch, checkinDate, effectiveEnd, excludeId) {
+      if (!checkinDate || !effectiveEnd) return null;
+      const bucket = ensureBranchBucket(branch);
+      const limit = bucket.loanerCarCount || 0;
+      if (!limit) return null;
+
+      let worst = null;
+      let cursor = checkinDate;
+      let guard = 0;
+      while (cursor <= effectiveEnd && guard < 366) {
+        guard++;
+        const usage = shakenLoanerUsageOnDate(branch, cursor, excludeId);
+        if (usage.length + 1 > limit && (!worst || usage.length > worst.conflicts.length)) {
+          worst = { date: cursor, conflicts: usage, limit };
+        }
+        cursor = shakenAddDaysISO(cursor, 1);
+      }
+      return worst;
+    }
+
+    function showLoanerCarLimitAlert(info, actionLabel) {
+      const list = document.getElementById('loanerCarLimitAlertList');
+      list.innerHTML = info.conflicts.map(r => {
+        const range = shakenLoanerOccupiedRange(r);
+        const periodLabel = range.start === range.end ? range.start : `${range.start}〜${range.end}`;
+        return `
+        <div class="conflict-alert-item">
+          <span class="conflict-alert-time">${escapeHtml(periodLabel)}</span>
+          <span class="conflict-alert-text">${escapeHtml(shakenCustomerLabel(r.customer))}${r.carModel ? '　' + escapeHtml(r.carModel) : ''}（${escapeHtml(shakenTypeMeta(r).label)}）</span>
+        </div>`;
+      }).join('');
+      document.getElementById('loanerCarLimitAlertCount').textContent = info.limit;
+      document.getElementById('loanerCarLimitAlertAction').textContent = actionLabel || '保存';
+      const modal = document.getElementById('loanerCarLimitAlertModal');
+      openOverlay(modal);
+      document.getElementById('loanerCarLimitAlertOk').focus();
+    }
+
+    function openLoanerCarCountModal() {
+      const branch = (typeof shakenViewBranch !== 'undefined' && shakenViewBranch) ? shakenViewBranch : state.currentBranch;
+      const bucket = ensureBranchBucket(branch);
+      const label = document.getElementById('loanerCarCountBranchLabel');
+      if (label) label.textContent = branch + '：';
+      const input = document.getElementById('loanerCarCountInput');
+      if (input) input.value = bucket.loanerCarCount || 0;
+      openOverlay(document.getElementById('loanerCarCountModal'));
+    }
+
+    function saveLoanerCarCount() {
+      const branch = (typeof shakenViewBranch !== 'undefined' && shakenViewBranch) ? shakenViewBranch : state.currentBranch;
+      const raw = document.getElementById('loanerCarCountInput').value;
+      const val = Math.max(0, parseInt(raw, 10) || 0);
+      const bucket = ensureBranchBucket(branch);
+      bucket.loanerCarCount = val;
+      saveState();
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet('代車台数を保存しました');
+      closeOverlay(document.getElementById('loanerCarCountModal'));
+    }
+
     function buildShakenCalendarWeeks(year, month) {
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -12415,6 +12561,16 @@ window.addEventListener('pagehide', function() {
         return;
       }
 
+      const newUsesLoaner = reservationType === 'loaner-use' ? true : (loanerVal === '1');
+      if (newUsesLoaner) {
+        const effectiveEnd = (deliveryDate && deliveryDate > inspectionDate) ? deliveryDate : inspectionDate;
+        const capacityIssue = checkLoanerCarCapacity(shakenViewBranch, checkinDate, effectiveEnd, null);
+        if (capacityIssue) {
+          showLoanerCarLimitAlert(capacityIssue, '追加');
+          return;
+        }
+      }
+
       if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
       shakenBucket().shakenReservations.push({
         id: uid(), customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
@@ -12623,6 +12779,17 @@ window.addEventListener('pagehide', function() {
       if (deliveryDate && deliveryDate < inspectionDate) {
         alert('納車日は通検日より後（または同日）にしてください。');
         return;
+      }
+
+      // キャンセルする場合は代車を占有しなくなるため、台数チェックは対象外にする
+      const editUsesLoaner = !editingShakenCancelled && (reservationType === 'loaner-use' ? true : (loanerVal === '1'));
+      if (editUsesLoaner) {
+        const effectiveEnd = (deliveryDate && deliveryDate > inspectionDate) ? deliveryDate : inspectionDate;
+        const capacityIssue = checkLoanerCarCapacity(shakenViewBranch, checkinDate, effectiveEnd, editingShakenId);
+        if (capacityIssue) {
+          showLoanerCarLimitAlert(capacityIssue, '保存');
+          return;
+        }
       }
 
       const r = (shakenBucket().shakenReservations || []).find(x => x.id === editingShakenId);
@@ -13262,6 +13429,9 @@ window.addEventListener('pagehide', function() {
     });
     document.getElementById('conflictAlertOk').addEventListener('click', () => {
       closeOverlay(document.getElementById('conflictAlertModal'));
+    });
+    document.getElementById('loanerCarLimitAlertOk').addEventListener('click', () => {
+      closeOverlay(document.getElementById('loanerCarLimitAlertModal'));
     });
 
     document.getElementById('memberAddBtn').addEventListener('click', () => {
