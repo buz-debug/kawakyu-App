@@ -4235,6 +4235,12 @@
     text-align: center;
     box-sizing: border-box;
 }
+/* stickyヘッダーとborder-collapseの組み合わせでは、先頭列（sticky）に接する
+   見出しセルの上端の罫線が正しく描画されないことがあるため、border-collapseの
+   影響を受けないbox-shadowで上端の罫線を確実に描画する（他の罫線とは重ならず同じ見た目になる）。 */
+#salesTable th {
+    box-shadow: inset 0 1px 0 0 var(--border);
+}
 #salesTable th {
     background: #fcfcfc;
     position: sticky;
@@ -4296,6 +4302,12 @@
     height: 22px;
     text-align: center;
     box-sizing: border-box;
+}
+/* stickyヘッダーとborder-collapseの組み合わせでは、先頭列（sticky）に接する
+   見出しセルの上端の罫線が正しく描画されないことがあるため、border-collapseの
+   影響を受けないbox-shadowで上端の罫線を確実に描画する（他の罫線とは重ならず同じ見た目になる）。 */
+#dailyTable th {
+    box-shadow: inset 0 1px 0 0 var(--border);
 }
 #dailyTable th {
     background: #fcfcfc;
@@ -6390,7 +6402,7 @@ window.addEventListener('pagehide', function() {
           <button type="button" id="btnSalesNextMonth" class="sales-nav-btn" onclick="changeSalesMonth(1)">次月</button>
           <span id="salesBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
           <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
-            <button type="button" class="toolbar-ctrl" onclick="salesSaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;">保存</button>
+            <button type="button" class="toolbar-ctrl" onclick="salesSaveToSheetAndKeepFocus()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;">保存</button>
           </span>
           <div id="salesBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
             <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
@@ -9950,6 +9962,10 @@ window.addEventListener('pagehide', function() {
     let salesCurrentDate = new Date();
     let salesItems = [];
     let salesRecords = {};
+    // 直近フォーカスしていたセル（{day, itemIndex}）。「保存」ボタンをクリックすると
+    // フォーカスがボタン側へ移ってしまい入力欄のカーソルが消えて見えるため、
+    // 保存後にこのセルへフォーカスを戻す（salesSaveToSheetAndKeepFocusで使う）。
+    let salesLastFocusedCell = null;
 
     // 「保存」を押すまでの編集内容を、保存前マージの基準点として保持するスナップショット
     // （シフト・日常業務の仕組みと同様）。シート同期に成功した時点でクリアされ、
@@ -10683,7 +10699,7 @@ window.addEventListener('pagehide', function() {
           const val = dayRecord[item.id];
           cumulative[item.id] += (typeof val === 'number') ? val : 0;
           bodyHtml += `<td class="sales-daily-col"><input type="text" inputmode="decimal" class="sales-daily-input" data-day="${d}" data-item-index="${itemIndex}" data-committed="true" value="${(typeof val === 'number') ? val : ''}"
-            onfocus="if (isBranchViewReadOnly(salesViewBranch)) { this.blur(); showBranchReadOnlyWarning(); } else { this.select(); }"
+            onfocus="if (isBranchViewReadOnly(salesViewBranch)) { this.blur(); showBranchReadOnlyWarning(); } else { this.select(); salesLastFocusedCell = {day:${d}, itemIndex:${itemIndex}}; }"
             oninput="this.dataset.committed='false'"
             onkeydown="handleSalesInputKeydown(event, ${d}, ${itemIndex})"
             onblur="handleSalesInputBlur(event, ${d}, ${itemIndex})"></td>`;
@@ -17030,6 +17046,17 @@ function salesSaveToSheet() {
   return _tabSaveToSheet('sales', undefined, salesViewBranch, function () {
     if (typeof markSalesRecordsSynced === 'function') markSalesRecordsSynced();
   }).finally(() => { _salesSaveInProgress = false; });
+}
+
+// 「保存」ボタンをクリックすると、保存処理自体は問題なくてもフォーカスがボタン側に移り、
+// 直前まで入力していたセルのカーソル（選択表示）が消えて見えてしまう。
+// 保存はそのまま実行しつつ、直前にフォーカスしていたセルへフォーカスを戻すことでカーソルを保つ。
+function salesSaveToSheetAndKeepFocus() {
+  const cell = salesLastFocusedCell;
+  salesSaveToSheet();
+  if (cell && typeof focusSalesInputAt === 'function') {
+    focusSalesInputAt(cell.day, cell.itemIndex);
+  }
 }
 
 // 日常業務タブのセルをすばやく連続でタップされると、保存処理が重なって走り、
