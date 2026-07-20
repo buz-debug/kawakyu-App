@@ -1993,7 +1993,6 @@
     .del,
     #taskEditDelete,
     #taskDetailDelete,
-    #btnClearDoneTasks,
     #btnClearRoom,
     #kasime-wrap .modal-delete {
       background: var(--danger) !important;
@@ -2003,7 +2002,6 @@
     .del:hover,
     #taskEditDelete:hover,
     #taskDetailDelete:hover,
-    #btnClearDoneTasks:hover,
     #btnClearRoom:hover,
     #kasime-wrap .modal-delete:hover {
       background: #c62828 !important;
@@ -4739,12 +4737,6 @@
 
     </div>
 
-    <!-- 車検予約タブ: 事前点検の日程が未決定の顧客リスト -->
-    <div id="shakenPreScheduleSidebar" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:hidden;">
-      <div class="sidebar-section-title" style="font-size:13px;">40日前TEL（車検日程を確認し事前点検の日程を決めてください）</div>
-      <div id="shakenPreScheduleList" style="flex:1;overflow-y:auto;padding:0 8px 8px;"></div>
-    </div>
-
   </aside>
 
   <!-- 中央 -->
@@ -6892,7 +6884,6 @@ window.addEventListener('pagehide', function() {
       <h2 style="font-size:14px;margin-bottom:12px;flex-shrink:0;">✅ 完了タスク</h2>
       <div id="doneTasksList" style="flex:1;overflow-y:auto;margin-bottom:12px;"></div>
       <div class="modal-actions" style="flex-shrink:0;">
-        <button type="button" id="btnClearDoneTasks" style="margin-right:auto;color:var(--danger);border-color:#fcc;background:#fff5f5;">全て削除</button>
         <button type="button" id="doneTasksClose">閉じる</button>
       </div>
     </div>
@@ -9140,6 +9131,7 @@ window.addEventListener('pagehide', function() {
             const task = state.sidebarTasks.find(x => x.id === cb.dataset.stask);
             if (!task) return;
             task.done = cb.checked;
+            if (cb.checked) task.doneAt = Date.now();
             // 繰り返しタスクは、完了させたタイミングで次回分を新しいタスクとして生成する
             if (task.recur && cb.checked) {
               const base = task.due || todayISO;
@@ -9152,6 +9144,7 @@ window.addEventListener('pagehide', function() {
               });
               appToast(`次回：${nextDue}`);
             }
+            if (cb.checked && typeof pruneOldDoneTasks === 'function') pruneOldDoneTasks();
             saveState();
             if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
             render4ColTasks();
@@ -12009,7 +12002,6 @@ window.addEventListener('pagehide', function() {
       if (!name || name === shakenViewBranch) return;
       shakenViewBranch = name;
       renderShakenView(); // まずはこの端末にあるキャッシュを即座に表示する
-      if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
       // この端末が他営業所の車検予約をまだ一度も同期していない場合、ローカルキャッシュが
       // 空/古いままになるため、切替時にその営業所のスプレッドシートから最新データを取得して反映する
       // （閲覧のみのため、保存時と同じ安全なマージ処理をそのまま流用できる）
@@ -12017,7 +12009,6 @@ window.addEventListener('pagehide', function() {
         await mergeRemoteShakenBeforeSave(name, getSpreadsheetId(name));
         if (shakenViewBranch === name) {
           renderShakenView();
-          if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
         }
       }
       if (!silent && typeof appToast === 'function') appToast(`「${name}」の車検予約を表示しています`);
@@ -12214,8 +12205,7 @@ window.addEventListener('pagehide', function() {
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
     }
 
-    // 40日前TELの対象者。車検予約タブの左カラム（renderShakenPreScheduleSidebar）と
-    // 予定タブのタスク一覧（shaken40DayTelVirtualTasks）の両方から共通で使う。
+    // 40日前TELの対象者。予定タブのタスク一覧（shaken40DayTelVirtualTasks）から使う。
     function shaken40DayTelTargets() {
       return shakenPendingActionTargets(40, 'preScheduled');
     }
@@ -12250,39 +12240,6 @@ window.addEventListener('pagehide', function() {
     // 車検予約タブの左カラムには表示しない（40日前TELとの違いはここのみ）。
     function shakenPreInspectionVirtualTasks() {
       return shakenVirtualTasksFrom(shakenPreInspectionTargets(), '事前点検日程', 20, 'shakenPreInspection-');
-    }
-
-    // 左カラム: 事前点検の日程が未決定の顧客リスト（車検予約タブ）
-    function renderShakenPreScheduleSidebar() {
-      const listEl = document.getElementById('shakenPreScheduleList');
-      if (!listEl) return;
-      const items = shaken40DayTelTargets();
-
-      if (!items.length) {
-        listEl.innerHTML = '<div style="text-align:center;color:#1e3a5f;opacity:.6;padding:20px 8px;font-size:12px;">対象の予約はありません</div>';
-        return;
-      }
-
-      // 日程目安は、事前点検を通検日の何日前までに済ませておきたいかの目安として、通検日の15日前を表示する
-      const jpDate = iso => {
-        if (!iso) return '';
-        const [y, m, d] = iso.split('-').map(Number);
-        return `${y}年${m}月${d}日`;
-      };
-      listEl.innerHTML = items.map(r => `
-        <div class="shaken-preschedule-item" data-sid="${r.id}" style="padding:8px 6px;border-bottom:1px solid rgba(30,58,95,.12);cursor:pointer;">
-          <div style="font-size:12px;font-weight:700;color:#1e3a5f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shakenCustomerLabel(r.customer))}</div>
-          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(r.carModel || '')}</div>
-          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;white-space:nowrap;">通検：${r.inspectionDate || '-'}</div>
-          <div style="font-size:11px;color:#1e3a5f;opacity:.75;margin-top:1px;white-space:nowrap;">事前日程目安：${jpDate(shakenAddDaysISO(r.inspectionDate, -15))}</div>
-        </div>
-      `).join('');
-
-      listEl.querySelectorAll('[data-sid]').forEach(el => {
-        el.addEventListener('click', () => {
-          if (typeof openShakenEditModal === 'function') openShakenEditModal(el.dataset.sid);
-        });
-      });
     }
 
     function renderShakenCalendar() {
@@ -12686,7 +12643,6 @@ window.addEventListener('pagehide', function() {
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeOverlay(document.getElementById('addShakenModal'));
       renderShakenView();
-      if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
     });
 
     // ── 編集モーダル ──
@@ -12952,8 +12908,7 @@ window.addEventListener('pagehide', function() {
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeShakenEditModal();
       renderShakenView();
-      if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
-      // 予定タブの「40日前TEL」タスクは車検予約データから毎回算出しているため、
+      // 予定タブの「40日前TEL」「事前点検日程」タスクは車検予約データから毎回算出しているため、
       // 予定タブを開いていなくても保存直後に反映されるよう、ここでも再描画しておく
       if (typeof render4ColTasks === 'function') render4ColTasks();
     });
@@ -12970,7 +12925,6 @@ window.addEventListener('pagehide', function() {
         if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet('スプレッドシートから削除しました');
         closeShakenEditModal();
         renderShakenView();
-        if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
         if (typeof render4ColTasks === 'function') render4ColTasks();
       });
     });
@@ -13366,10 +13320,6 @@ window.addEventListener('pagehide', function() {
         document.getElementById('panelDaily').classList.toggle('active', currentTab === 'daily');
         document.getElementById('panelShaken').classList.toggle('active', currentTab === 'shaken');
 
-        // 車検予約タブ: 事前点検の日程が未決定の顧客リスト（左カラム）
-        const preScheduleSidebar = document.getElementById('shakenPreScheduleSidebar');
-        if (preScheduleSidebar) preScheduleSidebar.style.display = currentTab === 'shaken' ? 'flex' : 'none';
-
         // ヘッダーの「設定」ボタンは、共通の設定メニューを使うタブ（連絡ノート・予定・
         // 車検予約・仮締め・日常業務）でのみ表示する（シフト・販売実績表は独自の設定ボタンを持つ）。
         const headerSettingsBtn = document.getElementById('btnHeaderSettings');
@@ -13449,12 +13399,11 @@ window.addEventListener('pagehide', function() {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
           taskOnly.style.display = 'none';
-          // 予定タブと同じ2カラムレイアウトにする。左カラムには事前点検の日程が
-          // 未決定の顧客リストを表示する。
+          // 左カラムに表示するものが無いため、他の独自レイアウトタブ（日常業務等）と同様に
+          // メインサイドバーを非表示にし、車検予約タブは全幅で表示する。
           const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = '';
+          if (mainSidebar) mainSidebar.style.display = 'none';
           if (typeof renderShakenView === 'function') renderShakenView();
-          if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
         } else {
           chatOnly.style.display = '';
           roomList.style.display = '';
@@ -13897,9 +13846,31 @@ window.addEventListener('pagehide', function() {
       }
     });
 
+    // 完了タスクは最大10件まで保持し、11件目以降は古い完了タスクから自動的に削除する。
+    // これは保存期間ベースの自動削除ルール（cleanupOldMessages等）とは別枠の、件数ベースの
+    // 削除ルールで、保存期間内かどうかに関わらず11件目以降を削除する。
+    // 削除が発生した場合はtrueを返す（呼び出し側で保存が必要かどうかの判断に使う）
+    function pruneOldDoneTasks() {
+      if (!state.sidebarTasks) return false;
+      const doneTasks = state.sidebarTasks.filter(t => t.done);
+      if (doneTasks.length <= 10) return false;
+      const sorted = doneTasks.slice().sort((a, b) => (b.doneAt || b.ts || 0) - (a.doneAt || a.ts || 0));
+      const toDeleteIds = sorted.slice(10).map(t => t.id);
+      if (!toDeleteIds.length) return false;
+      if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(toDeleteIds);
+      const deleteSet = new Set(toDeleteIds);
+      state.sidebarTasks = state.sidebarTasks.filter(t => !deleteSet.has(t.id));
+      return true;
+    }
+
     function openDoneTasksModal() {
       if (!state.sidebarTasks) state.sidebarTasks = [];
-      const done = state.sidebarTasks.filter(t => t.done);
+      // 他端末との同期で件数超過が持ち越されている場合に備え、表示前にも念のため整理する
+      if (pruneOldDoneTasks()) {
+        saveState();
+        if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet();
+      }
+      const done = state.sidebarTasks.filter(t => t.done).sort((a, b) => (b.doneAt || b.ts || 0) - (a.doneAt || a.ts || 0));
       const list = document.getElementById('doneTasksList');
       if (!done.length) {
         list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:13px;">完了タスクはありません</div>';
@@ -13943,19 +13914,6 @@ window.addEventListener('pagehide', function() {
 
     document.getElementById('doneTasksModal').addEventListener('click', e => {
       if (e.target.id === 'doneTasksModal') closeOverlay(document.getElementById('doneTasksModal'));
-    });
-
-    document.getElementById('btnClearDoneTasks').addEventListener('click', () => {
-      openModal('完了タスクを全て削除', '完了済みのタスクをすべて削除しますか？', () => {
-        if (typeof markIdsAsDeleted === 'function') {
-          markIdsAsDeleted(state.sidebarTasks.filter(t => t.done).map(t => t.id));
-        }
-        state.sidebarTasks = state.sidebarTasks.filter(t => !t.done);
-        saveState();
-        if (typeof sidebarTaskSaveToSheet === 'function') sidebarTaskSaveToSheet('スプレッドシートから削除しました');
-        closeOverlay(document.getElementById('doneTasksModal'));
-        render4ColTasks();
-      });
     });
 
     // ── カラーパレット（30色） ──
