@@ -7088,77 +7088,73 @@ window.addEventListener('pagehide', function() {
 
   <!-- 車検予約 編集モーダル -->
   <div class="modal-overlay" id="shakenEditModal" role="dialog" aria-modal="true">
-    <div class="modal" style="width:min(460px,92vw);">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
+    <div class="modal" style="width:min(680px,94vw);max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
         <h2 style="margin:0;font-size:14px;">予約を編集</h2>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <button type="button" id="shakenEditVoidBtn" onclick="toggleShakenEditVoid()"
-            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--danger);color:#fff;transition:background .15s,color .15s;">
+            style="flex-shrink:0;padding:6px 10px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--danger);color:#fff;transition:background .15s,color .15s;white-space:nowrap;">
             <span id="shakenEditVoidLabel">予約キャンセル</span>
           </button>
           <button type="button" id="shakenEditPreScheduleBtn" onclick="toggleShakenEditPreSchedule()"
-            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
+            style="flex-shrink:0;padding:6px 10px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;white-space:nowrap;">
             <span id="shakenEditPreScheduleLabel">40日前TEL</span>
           </button>
           <button type="button" id="shakenEditPreInspectionBtn" onclick="toggleShakenEditPreInspection()"
-            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
+            style="flex-shrink:0;padding:6px 10px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;white-space:nowrap;">
             <span id="shakenEditPreInspectionLabel">事前点検日程</span>
           </button>
           <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
-            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
+            style="flex-shrink:0;padding:6px 10px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;white-space:nowrap;">
             <span id="shakenEditCompleteLabel">作業完了</span>
           </button>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-bottom:16px;">
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">顧客名</label>
           <input type="text" id="shakenEditCustomer" maxlength="50"
-            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;box-sizing:border-box;">
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車種</label>
           <input type="text" id="shakenEditCarModel" maxlength="50"
-            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;box-sizing:border-box;">
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車番（任意）</label>
           <input type="text" id="shakenEditPlate" maxlength="30"
-            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;box-sizing:border-box;">
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">通検日</label>
           <input type="date" id="shakenEditInspectionDate"
-            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
         </div>
-        <div style="display:flex;gap:8px;">
-          <div style="flex:1;">
-            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫日</label>
-            <input type="date" id="shakenEditCheckinDate"
-              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-          </div>
-          <div style="flex:1;">
-            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫時間</label>
-            <input type="time" id="shakenEditCheckinTime"
-              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-          </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫日</label>
+          <input type="date" id="shakenEditCheckinDate"
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
         </div>
-        <div style="display:flex;gap:8px;">
-          <div style="flex:1;">
-            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車日（任意）</label>
-            <input type="date" id="shakenEditDeliveryDate"
-              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-          </div>
-          <div style="flex:1;">
-            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車時間（任意）</label>
-            <input type="time" id="shakenEditDeliveryTime"
-              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-          </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫時間</label>
+          <input type="time" id="shakenEditCheckinTime"
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車日（任意）</label>
+          <input type="date" id="shakenEditDeliveryDate"
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車時間（任意）</label>
+          <input type="time" id="shakenEditDeliveryTime"
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">予約内容</label>
           <select id="shakenEditReservationType" required
-            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);box-sizing:border-box;">
             <option value="" selected disabled>選択してください</option>
             <option value="shaken">車検</option>
             <option value="general">一般整備</option>
@@ -7172,21 +7168,21 @@ window.addEventListener('pagehide', function() {
                requiredフィールドがブラウザによってはフォーム送信をブロックしてしまうことがあるため。
                必須チェックはJS側（保存ハンドラ内）で行う。 -->
           <select id="shakenEditLoaner"
-            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);box-sizing:border-box;">
             <option value="" selected disabled>選択してください</option>
             <option value="1">あり</option>
             <option value="0">なし</option>
           </select>
         </div>
-        <div>
+        <div style="grid-column:1 / -1;">
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
-          <textarea id="shakenEditNote" maxlength="500" rows="3" placeholder="備考"
-            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;"></textarea>
+          <textarea id="shakenEditNote" maxlength="500" rows="2" placeholder="備考"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box;"></textarea>
         </div>
         <div>
           <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">キャンセル日</label>
           <input type="date" id="shakenEditCancelledDate"
-            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+            style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
         </div>
       </div>
       <div class="modal-actions">
@@ -12492,12 +12488,10 @@ window.addEventListener('pagehide', function() {
         const meta = shakenTypeMeta(r);
         // 一般整備・鈑金塗装は、車検予約と混同しないよう左端に種別の色を帯として付ける
         const accentBorder = meta.category !== 'shaken' ? `border-left:4px solid ${meta.badgeBg};` : '';
-        const preScheduleBadge = r.preScheduled
-          ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">40日前TEL OK</span>'
-          : '';
-        const preInspectionBadge = r.preInspectionScheduled
-          ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">事前点検日程OK</span>'
-          : '';
+        // 40日前TEL OK・事前点検日程OKは、付いていない行でも同じ幅の列を確保することで、
+        // 行ごとにバッジの有無が違っても後続のバッジ（予約内容・完了マーク）の位置が揃うようにする。
+        const preScheduleBadge = `<span style="flex-shrink:0;width:96px;text-align:center;">${r.preScheduled ? '<span style="display:inline-block;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">40日前TEL OK</span>' : ''}</span>`;
+        const preInspectionBadge = `<span style="flex-shrink:0;width:108px;text-align:center;">${r.preInspectionScheduled ? '<span style="display:inline-block;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">事前点検日程OK</span>' : ''}</span>`;
         const typeBadge = `<span style="flex-shrink:0;background:${meta.badgeBg};color:${meta.badgeText};border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(meta.label)}</span>`;
         // 完了マークをリスト右端に表示。未完了時も幅を確保し、右端の位置がずれないようにする
         const completeMark = r.completed
