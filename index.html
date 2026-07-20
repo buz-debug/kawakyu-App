@@ -7100,6 +7100,10 @@ window.addEventListener('pagehide', function() {
             style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
             <span id="shakenEditPreScheduleLabel">40日前TEL</span>
           </button>
+          <button type="button" id="shakenEditPreInspectionBtn" onclick="toggleShakenEditPreInspection()"
+            style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
+            <span id="shakenEditPreInspectionLabel">事前点検日程</span>
+          </button>
           <button type="button" id="shakenEditCompleteBtn" onclick="toggleShakenEditComplete()"
             style="flex-shrink:0;padding:6px 12px;border:none;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#22c55e;color:#fff;transition:background .15s,color .15s;">
             <span id="shakenEditCompleteLabel">作業完了</span>
@@ -9074,9 +9078,12 @@ window.addEventListener('pagehide', function() {
       const tom = new Date(now); tom.setDate(tom.getDate() + 1);
       const tomorrowISO = toLocalISO(tom);
 
-      // 40日前TEL対象者は、車検予約データから毎回算出する仮想タスクとして合流させる
-      // （state.sidebarTasksには保存しない。事前日程を決定・キャンセルすれば自動的に一覧から消える）
-      const virtualTasks = typeof shaken40DayTelVirtualTasks === 'function' ? shaken40DayTelVirtualTasks() : [];
+      // 40日前TEL・事前点検日程の対象者は、車検予約データから毎回算出する仮想タスクとして合流させる
+      // （state.sidebarTasksには保存しない。対象フラグを立てる・キャンセルすれば自動的に一覧から消える）
+      const virtualTasks = [
+        ...(typeof shaken40DayTelVirtualTasks === 'function' ? shaken40DayTelVirtualTasks() : []),
+        ...(typeof shakenPreInspectionVirtualTasks === 'function' ? shakenPreInspectionVirtualTasks() : []),
+      ];
       const all = state.sidebarTasks.concat(virtualTasks);
 
       // 分類
@@ -11989,6 +11996,7 @@ window.addEventListener('pagehide', function() {
     let editingShakenCompleted = false; // 「予約を編集」モーダル内で保存前に一時的に保持する完了状態
     let editingShakenCancelled = false; // 同様に、保存前に一時的に保持する車検キャンセル状態
     let editingShakenPreScheduled = false; // 同様に、保存前に一時的に保持する「事前日程」決定状態
+    let editingShakenPreInspectionScheduled = false; // 同様に、保存前に一時的に保持する「事前点検日程」決定状態
     // 販売実績表・シフトタブと同じ「営業所切り替えセレクター」。ログイン中の営業所とは別に、
     // 閲覧（および編集）対象の営業所を切り替えられるようにする。
     let shakenViewBranch = (typeof state !== 'undefined' && state.currentBranch) ? state.currentBranch : '本社';
@@ -12200,30 +12208,52 @@ window.addEventListener('pagehide', function() {
       return weeks;
     }
 
-    // 40日前TELの対象者（①通検日から40日を切った予約 かつ ②『事前日程』ボタンが押されていない予約）を抽出する。
-    // キャンセル済み・完了済みの予約は、もう事前点検の日程を決める必要が無いため対象外とする。
-    // 対象は車検（代車あり・代車なし）のみ。一般整備・鈑金塗装・代車使用は事前点検が不要なため対象外。
-    // 車検予約タブの左カラム（renderShakenPreScheduleSidebar）と予定タブのタスク一覧
-    // （shaken40DayTelVirtualTasks）の両方から共通で使う。
-    function shaken40DayTelTargets() {
-      const cutoffISO = shakenAddDaysISO(todayStr(), 40);
+    // 「通検日からNN日を切った予約」かつ「指定のフラグが立っていない予約」を抽出する共通ロジック。
+    // キャンセル済み・完了済みの予約は対象外。対象は車検（代車あり・代車なし）のみ。
+    // 40日前TEL・事前点検日程のどちらも同じ抽出ロジックで、日数と対象フラグだけが異なる。
+    function shakenPendingActionTargets(daysBefore, flagField) {
+      const cutoffISO = shakenAddDaysISO(todayStr(), daysBefore);
       return (shakenBucket().shakenReservations || [])
-        .filter(r => !r.cancelled && !r.completed && !r.preScheduled && r.inspectionDate && r.inspectionDate <= cutoffISO && shakenTypeMeta(r).category === 'shaken')
+        .filter(r => !r.cancelled && !r.completed && !r[flagField] && r.inspectionDate && r.inspectionDate <= cutoffISO && shakenTypeMeta(r).category === 'shaken')
         .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
     }
 
-    // 予定タブの左カラムに表示する「40日前TEL」の仮想タスク一覧。
+    // 40日前TELの対象者。車検予約タブの左カラム（renderShakenPreScheduleSidebar）と
+    // 予定タブのタスク一覧（shaken40DayTelVirtualTasks）の両方から共通で使う。
+    function shaken40DayTelTargets() {
+      return shakenPendingActionTargets(40, 'preScheduled');
+    }
+
+    // 事前点検日程の対象者。40日前TELと同じロジックで、日数（20日前）と対象フラグ
+    // （preInspectionScheduled）だけが異なる。こちらは予定タブのタスク一覧にのみ表示し、
+    // 車検予約タブの左カラムには表示しない。
+    function shakenPreInspectionTargets() {
+      return shakenPendingActionTargets(20, 'preInspectionScheduled');
+    }
+
+    // 予定タブの左カラムに表示する仮想タスクを、車検予約の対象リストから組み立てる共通ロジック。
     // 実体は車検予約データそのものなので state.sidebarTasks には保存せず、表示のたびに毎回算出する
-    // （事前日程を決定・キャンセルすればshaken40DayTelTargetsから外れ、自動的にこの一覧からも消える）。
-    function shaken40DayTelVirtualTasks() {
-      return shaken40DayTelTargets().map(r => ({
-        id: 'shakenTel-' + r.id,
-        text: `40日前TEL（${shakenCustomerLabel(r.customer)}・${r.carModel || ''}）`,
-        due: shakenAddDaysISO(r.inspectionDate, -40),
+    // （対象フラグを立てる・キャンセルすれば対象リストから外れ、自動的にこの一覧からも消える）。
+    function shakenVirtualTasksFrom(targets, titlePrefix, daysBefore, idPrefix) {
+      return targets.map(r => ({
+        id: idPrefix + r.id,
+        text: `${titlePrefix}（${shakenCustomerLabel(r.customer)}・${r.carModel || ''}）`,
+        due: shakenAddDaysISO(r.inspectionDate, -daysBefore),
         done: false,
         virtual: true,
         shakenId: r.id,
       }));
+    }
+
+    // 予定タブの左カラムに表示する「40日前TEL」の仮想タスク一覧。
+    function shaken40DayTelVirtualTasks() {
+      return shakenVirtualTasksFrom(shaken40DayTelTargets(), '40日前TEL', 40, 'shakenTel-');
+    }
+
+    // 予定タブの左カラムに表示する「事前点検日程」の仮想タスク一覧。
+    // 車検予約タブの左カラムには表示しない（40日前TELとの違いはここのみ）。
+    function shakenPreInspectionVirtualTasks() {
+      return shakenVirtualTasksFrom(shakenPreInspectionTargets(), '事前点検日程', 20, 'shakenPreInspection-');
     }
 
     // 左カラム: 事前点検の日程が未決定の顧客リスト（車検予約タブ）
@@ -12684,6 +12714,8 @@ window.addEventListener('pagehide', function() {
       renderShakenEditVoidButton();
       editingShakenPreScheduled = !!r.preScheduled;
       renderShakenEditPreScheduleButton();
+      editingShakenPreInspectionScheduled = !!r.preInspectionScheduled;
+      renderShakenEditPreInspectionButton();
       updateShakenEditButtonsVisibility();
       openOverlay(document.getElementById('shakenEditModal'));
     }
@@ -12702,9 +12734,16 @@ window.addEventListener('pagehide', function() {
         renderShakenEditVoidButton();
       }
     }
-    // 「40日前TEL」ボタンは車検にのみ必要なため、一般整備・鈑金塗装・代車使用では非表示にする。
+    // 「40日前TEL」「事前点検日程」ボタンは車検にのみ必要なため、一般整備・鈑金塗装・代車使用では非表示にする。
     function updateShakenEditPreScheduleBtnVisibility() {
       const btn = document.getElementById('shakenEditPreScheduleBtn');
+      if (!btn) return;
+      const typeVal = document.getElementById('shakenEditReservationType').value;
+      const isShaken = typeVal === 'shaken';
+      btn.style.display = isShaken ? '' : 'none';
+    }
+    function updateShakenEditPreInspectionBtnVisibility() {
+      const btn = document.getElementById('shakenEditPreInspectionBtn');
       if (!btn) return;
       const typeVal = document.getElementById('shakenEditReservationType').value;
       const isShaken = typeVal === 'shaken';
@@ -12720,6 +12759,7 @@ window.addEventListener('pagehide', function() {
     function updateShakenEditButtonsVisibility() {
       updateShakenEditVoidBtnVisibility();
       updateShakenEditPreScheduleBtnVisibility();
+      updateShakenEditPreInspectionBtnVisibility();
       updateShakenEditLoanerWrapVisibility();
     }
     document.getElementById('shakenEditReservationType').addEventListener('change', updateShakenEditButtonsVisibility);
@@ -12893,6 +12933,9 @@ window.addEventListener('pagehide', function() {
       closeShakenEditModal();
       renderShakenView();
       if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
+      // 予定タブの「40日前TEL」タスクは車検予約データから毎回算出しているため、
+      // 予定タブを開いていなくても保存直後に反映されるよう、ここでも再描画しておく
+      if (typeof render4ColTasks === 'function') render4ColTasks();
     });
 
     document.getElementById('shakenEditDelete').addEventListener('click', () => {
@@ -12908,6 +12951,7 @@ window.addEventListener('pagehide', function() {
         closeShakenEditModal();
         renderShakenView();
         if (typeof renderShakenPreScheduleSidebar === 'function') renderShakenPreScheduleSidebar();
+        if (typeof render4ColTasks === 'function') render4ColTasks();
       });
     });
 
