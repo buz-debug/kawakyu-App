@@ -12287,9 +12287,9 @@ window.addEventListener('pagehide', function() {
         });
         const maxRows = rowEndDates.length;
         const barsAreaHeight = maxRows ? maxRows * BAR_ROW_H + Math.max(0, maxRows - 1) * BAR_GAP : 0;
-        // 予定タブのカレンダーセル（.task-cal-cell、min-height:72px）と同じ大きさを
-        // デフォルトとし、予定が多く重なる週だけそれより高くする
-        const cellMinHeight = Math.max(72, DATE_NUM_AREA + barsAreaHeight + 14);
+        // デフォルトの高さは96px（予定タブのカレンダーセルの72pxより高くしてある）とし、
+        // 予定が多く重なる週だけそれより高くする
+        const cellMinHeight = Math.max(96, DATE_NUM_AREA + barsAreaHeight + 14);
 
         const dateCellsHtml = week.map(({ date, current }) => {
           const iso = shakenToLocalISO(date);
