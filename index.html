@@ -12495,6 +12495,9 @@ window.addEventListener('pagehide', function() {
         const preScheduleBadge = r.preScheduled
           ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">40日前TEL OK</span>'
           : '';
+        const preInspectionBadge = r.preInspectionScheduled
+          ? '<span style="flex-shrink:0;background:#22c55e;color:#fff;border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">事前点検日程OK</span>'
+          : '';
         const typeBadge = `<span style="flex-shrink:0;background:${meta.badgeBg};color:${meta.badgeText};border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;">${escapeHtml(meta.label)}</span>`;
         // 完了マークをリスト右端に表示。未完了時も幅を確保し、右端の位置がずれないようにする
         const completeMark = r.completed
@@ -12507,6 +12510,7 @@ window.addEventListener('pagehide', function() {
             <div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">入庫：${r.checkinDate || '-'} ${r.checkinTime || ''}　→　通検：${r.inspectionDate || '-'}${noteInline}</div>
           </div>
           ${preScheduleBadge}
+          ${preInspectionBadge}
           ${typeBadge}
           ${completeMark}
         </div>`;
@@ -12812,6 +12816,27 @@ window.addEventListener('pagehide', function() {
       renderShakenEditPreScheduleButton();
     }
 
+    // 「事前点検日程」ボタン。40日前TELと同じ扱いのトグルボタン（実際の反映は保存時に行う。
+    // 何度でも押し直せる）。押すと車検予約リストに「事前点検日程OK」バッジが表示される。
+    function renderShakenEditPreInspectionButton() {
+      const btn = document.getElementById('shakenEditPreInspectionBtn');
+      const label = document.getElementById('shakenEditPreInspectionLabel');
+      if (!btn) return;
+      label.textContent = '事前点検日程';
+      if (editingShakenPreInspectionScheduled) {
+        btn.style.background = '#9ca3af';
+        btn.style.color = '#fff';
+      } else {
+        btn.style.background = '#22c55e';
+        btn.style.color = '#fff';
+      }
+    }
+
+    function toggleShakenEditPreInspection() {
+      editingShakenPreInspectionScheduled = !editingShakenPreInspectionScheduled;
+      renderShakenEditPreInspectionButton();
+    }
+
     // 「車検キャンセル」ボタンも「完了」ボタンと同様、押すたびにキャンセル⇔キャンセル解除を
     // 繰り返すトグルとして扱い、実際の反映は保存時に行う
     function renderShakenEditVoidButton() {
@@ -12928,6 +12953,7 @@ window.addEventListener('pagehide', function() {
       // キャンセル集計は「キャンセル処理した日付」を基準にするため、キャンセルでない場合は保持しない
       r.cancelledDate = editingShakenCancelled ? cancelledDate : '';
       r.preScheduled = editingShakenPreScheduled;
+      r.preInspectionScheduled = editingShakenPreInspectionScheduled;
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeShakenEditModal();
