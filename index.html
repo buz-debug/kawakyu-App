@@ -4437,29 +4437,8 @@
 
 
 
-/* シフトタブの「設定」ボタン：他タブと同様に左カラム下部に配置 */
-#shift-wrap .shift-settings-btn {
-      width: calc(100% - 24px);
-      margin: 8px 12px 12px;
-      padding: 7px;
-      border: none;
-      border-radius: 4px;
-      background: var(--cw-green-dark);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
-      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-#shift-wrap .shift-settings-btn:hover { opacity: 0.9; }
-
-/* 上下2カラム時、設定ボタンがヘッダー内（ダウンロード/印刷の右隣）にある場合は幅広にしない */
-.sf-calendar-header #btnShiftSettings.shift-settings-btn {
-      width: auto;
-      margin: 0;
-      padding: 7px 12px;
-}
+/* シフトタブの「設定」ボタンは他タブと同様グローバルヘッダーの営業所名の左隣に配置するため、
+   #btnHeaderSettings等と共通の.tab-row-btnスタイルを使う（ここでの専用スタイルは不要）。 */
 
 /* シフト編集ポップアップ内の時間枠一覧は元の10列レイアウトを維持 */
 #timeframeListEdit.sf-timeframe-grid {
@@ -4657,6 +4636,7 @@
       <div style="display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;color:var(--muted);flex-shrink:0;">
         <button type="button" id="btnHeaderDownloadPrint" class="tab-row-btn" style="background:#555;color:#fff;border:none;display:none;" onclick="openHeaderDownloadPrint()">ダウンロード/印刷</button>
         <button type="button" class="sales-settings-btn tab-row-btn" id="btnHeaderSettings" onclick="openSettingsGated()">設定</button>
+        <button type="button" class="shift-settings-btn sales-settings-btn tab-row-btn" id="btnShiftSettings" onclick="sfOpenSettings()" style="display:none;">設定</button>
         <span id="currentBranchLabel" style="font-size:17px;font-weight:700;color:#1e293b;"></span>
         <button type="button" id="btnLogout" class="tab-row-btn" style="border:1px solid var(--border);background:var(--surface);color:inherit;">ログアウト</button>
       </div>
@@ -6018,7 +5998,6 @@ window.addEventListener('pagehide', function() {
             <div class="sf-timeframe-header-title">時間枠</div>
         </div>
         <div id="timeframeList" class="sf-timeframe-grid sf-timeframe-body"></div>
-        <button id="btnShiftSettings" class="shift-settings-btn" onclick="sfOpenSettings()">設定</button>
     </div>
 
     <div class="sf-calendar-view">
@@ -13321,11 +13300,17 @@ window.addEventListener('pagehide', function() {
         document.getElementById('panelShaken').classList.toggle('active', currentTab === 'shaken');
 
         // ヘッダーの「設定」ボタンは、共通の設定メニューを使うタブ（連絡ノート・予定・
-        // 車検予約・仮締め・日常業務）でのみ表示する（シフト・販売実績表は独自の設定ボタンを持つ）。
+        // 車検予約・仮締め・日常業務）でのみ表示する（シフト・販売実績表は独自の設定画面を持つ）。
         const headerSettingsBtn = document.getElementById('btnHeaderSettings');
         if (headerSettingsBtn) {
           const showHeaderSettings = ['chat', 'tasks', 'kasime', 'shaken', 'daily'].includes(currentTab);
           headerSettingsBtn.style.display = showHeaderSettings ? '' : 'none';
+        }
+
+        // シフトタブの「設定」ボタンも、他タブと同様に営業所名の左隣（ヘッダー）に表示する。
+        const headerShiftSettingsBtn = document.getElementById('btnShiftSettings');
+        if (headerShiftSettingsBtn) {
+          headerShiftSettingsBtn.style.display = currentTab === 'shift' ? '' : 'none';
         }
 
         // ヘッダーの「ダウンロード/印刷」ボタンは、仮締め・シフト・販売実績表タブでのみ表示する。
@@ -15697,18 +15682,6 @@ function applyShiftLayoutMode(mode) {
     if (!layout) return;
     layout.classList.toggle("sf-layout-stack", mode === "stack");
     if (btn) btn.textContent = mode === "stack" ? "レイアウト切替：上下" : "レイアウト切替：左右";
-
-    // 上下2カラム時は「設定」ボタンを「ダウンロード/印刷」ボタンの右隣へ移動する
-    const settingsBtn = document.getElementById("btnShiftSettings");
-    const timeframeView = document.querySelector(".sf-timeframe-view");
-    const printBtn = document.getElementById("btnShiftPrint");
-    if (settingsBtn && printBtn) {
-        if (mode === "stack") {
-            printBtn.insertAdjacentElement("afterend", settingsBtn);
-        } else if (timeframeView) {
-            timeframeView.appendChild(settingsBtn);
-        }
-    }
 }
 
 function toggleShiftLayout() {
