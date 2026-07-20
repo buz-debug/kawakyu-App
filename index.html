@@ -4477,6 +4477,7 @@
   #btnSmartphoneView,
   .shift-settings-btn,
   #btnShiftLayoutToggle,
+  #btnShiftCreate,
   #btnShiftPrevMonth,
   #btnShiftNextMonth {
     display: none !important;
@@ -6015,6 +6016,7 @@ window.addEventListener('pagehide', function() {
                     <select id="shiftBranchSwitcherSelect" class="toolbar-ctrl" onchange="switchShiftViewBranch(this.value)" style="border:1px solid var(--border);padding:7px 14px;border-radius:4px;"></select>
                 </div>
                 <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;margin-left:auto;">レイアウト切替：左右</button>
+                <button id="btnShiftCreate" onclick="sfOpenShiftEditGated()" style="background:#555;">シフト作成</button>
             </div>
         </div>
         <div class="sf-calendar-body">
@@ -6160,7 +6162,6 @@ window.addEventListener('pagehide', function() {
         <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
 
         <div id="sfSettingsMenu" style="display:flex;flex-direction:column;gap:8px;margin-bottom:0;">
-            <button type="button" onclick="openSubPanel('panelShiftEdit')">シフト作成</button>
             <button type="button" onclick="openStaffSettingsFromShift()">メンバー管理</button>
             <button type="button" onclick="openSubPanel('panelTimeFrame')">時間枠設定</button>
             <button type="button" onclick="openSubPanel('panelCalcConditions')">休日集計条件設定</button>
@@ -15723,6 +15724,23 @@ function sfOpenSettings(){
     renderEditTable();
     renderTimeFrameEditor();
     settingsDirty = false;
+}
+
+// 「シフト作成」は元は設定メニューの中の1項目だったが、月送りUIと同じ行に単独ボタンとして
+// 独立させた。設定メニューの外に出た分、パスワード・他営業所閲覧中のガードは
+// sfOpenSettings()と同じ内容をここでも行い、保護レベルを変えない。
+function sfOpenShiftEditGated(){
+    if (typeof shiftViewBranch !== "undefined" && typeof state !== "undefined" && shiftViewBranch !== state.currentBranch) {
+        alert("他営業所を表示中はシフト作成を開けません。ログイン中の営業所に切り替えてから操作してください。");
+        return;
+    }
+    const inputPass = prompt("シフト作成を開くにはパスワードを入力してください");
+    if(inputPass === null){ return; }
+    if(inputPass !== getCurrentBranchShiftPassword()){
+        alert("パスワードが正しくありません");
+        return;
+    }
+    openSubPanel('panelShiftEdit');
 }
 
 function sfCloseSettings(){
