@@ -3020,18 +3020,6 @@
     font-weight:normal;
 }
 
-/* シフトタブ「設定」メニューを他タブと同じトーン（縦並び・左揃え）に統一 */
-#sfSettingsMenu button{
-    padding:10px 14px;
-    border:1px solid var(--border);
-    border-radius:4px;
-    font-size:13px;
-    background:var(--surface);
-    color:inherit;
-    text-align:left;
-    width:100%;
-}
-
 #shift-wrap .sf-secondary-btn{
     background:#666;
 }
@@ -3345,15 +3333,6 @@
     padding:20px;
     border-radius:0;
     overflow-y:auto;
-}
-
-#sfSettingsModal .sf-modal-content {
-    width: min(440px, 92vw);
-    max-width: min(440px, 92vw);
-    height: auto;
-    max-height: 85vh;
-    margin: 7.5vh auto;
-    border-radius: 8px;
 }
 
 .sf-sub-settings-modal {
@@ -4637,7 +4616,7 @@
       <div style="display:flex;align-items:center;gap:8px;padding:0 12px;font-size:11px;color:var(--muted);flex-shrink:0;">
         <button type="button" id="btnHeaderDownloadPrint" class="tab-row-btn" style="background:#555;color:#fff;border:none;display:none;" onclick="openHeaderDownloadPrint()">ダウンロード/印刷</button>
         <button type="button" class="sales-settings-btn tab-row-btn" id="btnHeaderSettings" onclick="openSettingsGated()">設定</button>
-        <button type="button" class="shift-settings-btn sales-settings-btn tab-row-btn" id="btnShiftSettings" onclick="sfOpenSettings()" style="display:none;">設定</button>
+        <button type="button" class="shift-settings-btn sales-settings-btn tab-row-btn" id="btnShiftSettings" onclick="openSettingsGated()" style="display:none;">設定</button>
         <span id="currentBranchLabel" style="font-size:17px;font-weight:700;color:#1e293b;"></span>
         <button type="button" id="btnLogout" class="tab-row-btn" style="border:1px solid var(--border);background:var(--surface);color:inherit;">ログアウト</button>
       </div>
@@ -6154,34 +6133,8 @@ window.addEventListener('pagehide', function() {
     <div id="smartphoneLoadingExtraMsg" style="display:none; color:#fff; font-size:12px; opacity:0.85;">もう少しお待ちください</div>
 </div>
 
-<div id="sfSettingsModal" class="sf-modal">
-    <div class="sf-modal-content">
-        <div class="sf-controls" style="justify-content: space-between;">
-            <h2 style="margin:0; font-size:20px;">設定</h2>
-        </div>
-        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
-
-        <div id="sfSettingsMenu" style="display:flex;flex-direction:column;gap:8px;margin-bottom:0;">
-            <button type="button" onclick="openStaffSettingsFromShift()">メンバー管理</button>
-            <button type="button" onclick="openSubPanel('panelTimeFrame')">時間枠設定</button>
-            <button type="button" onclick="openSubPanel('panelCalcConditions')">休日集計条件設定</button>
-            <button type="button" onclick="openSubPanel('panelBusinessHours')">営業時間設定</button>
-            <button type="button" onclick="openSubPanel('panelDeadline')">希望休日締め切り設定</button>
-            <button type="button" onclick="openSubPanel('panelPassword')">設定パスワード変更</button>
-            <button type="button" onclick="openSettingsCellSizeModal()">セル使用文字数の確認</button>
-            <button type="button" onclick="openSubPanel('panelLoginPassword')">ログインパスワード変更</button>
-        </div>
-
-        <div style="margin-top:28px;text-align:right;">
-            <button type="button" onclick="openAdminPage()" style="padding:3px 8px;background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;text-decoration:underline;">保守・管理</button>
-        </div>
-
-        <div class="modal-actions" style="margin-top:8px;">
-            <button type="button" class="sf-close-btn" onclick="sfCloseSettings()">閉じる</button>
-        </div>
-
-    </div>
-</div>
+<!-- シフトタブの「設定」ボタンは他タブと共通のsettingsModal（commonSettingsMenu）を使うため、
+     シフト専用の設定モーダルはここには存在しない。 -->
 
 <!-- ===== シフト編集 ポップアップ ===== -->
 <div id="panelShiftEdit" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelShiftEdit')">
@@ -6246,114 +6199,6 @@ window.addEventListener('pagehide', function() {
         <div class="sf-unsaved-warning-text" id="shiftWishClosedWarningText"></div>
         <div style="display:flex; justify-content:center; margin-top:18px;">
             <button onclick="closeShiftWishClosedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">閉じる</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== 時間枠管理 ポップアップ ===== -->
-<div id="panelTimeFrame" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelTimeFrame')">
-    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(820px, 95vw); max-width:820px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">時間枠設定</h3>
-        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
-        <div id="timeFrameArea" class="sf-scroll-container"></div>
-        <div style="margin-top:10px;">
-            <button type="button" onclick="addTimeFrame()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">時間枠追加</button>
-        </div>
-        <div class="modal-actions" style="margin-top:16px;">
-            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelTimeFrame')">閉じる</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== 集計条件設定 ポップアップ ===== -->
-<div id="panelCalcConditions" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelCalcConditions')">
-    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px; min-height:520px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">休日集計条件設定</h3>
-        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
-        <div style="display: flex; flex-direction: column; gap: 14px;">
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <span style="font-weight: bold; width: 140px;">公休として集計する記号：</span>
-                <div class="sf-multiselect-container" id="holidaySymbolsContainer">
-                    <div class="sf-multiselect-trigger" id="holidaySymbolsTrigger" onclick="toggleMultiselect('holidaySymbolsDropdown')">選択してください</div>
-                    <div class="sf-multiselect-dropdown" id="holidaySymbolsDropdown"></div>
-                </div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <span style="font-weight: bold; width: 140px;">有休として集計する記号：</span>
-                <div class="sf-multiselect-container" id="paidLeaveSymbolsContainer">
-                    <div class="sf-multiselect-trigger" id="paidLeaveSymbolsTrigger" onclick="toggleMultiselect('paidLeaveSymbolsDropdown')">選択してください</div>
-                    <div class="sf-multiselect-dropdown" id="paidLeaveSymbolsDropdown"></div>
-                </div>
-            </div>
-        </div>
-        <p style="margin:14px 0 0 0; font-size:12px; color:#666;">選択した記号を休日として集計します</p>
-        <div style="margin-top:10px;">
-            <button type="button" onclick="saveCalcConditions()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">保存</button>
-        </div>
-        <div class="modal-actions" style="margin-top:16px;">
-            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelCalcConditions')">閉じる</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== 表示時間枠設定 ポップアップ ===== -->
-<div id="panelBusinessHours" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelBusinessHours')">
-    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">営業時間設定</h3>
-        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span>営業時間：</span>
-            <input type="time" id="businessStartInput">
-            <span> 〜 </span>
-            <input type="time" id="businessEndInput">
-        </div>
-        <p style="margin-top:8px; font-size: 12px; color: #555;">※1日の出勤状況表示の横軸メモリに反映されます。</p>
-        <div style="margin-top:10px;">
-            <button type="button" onclick="saveBusinessHours()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">保存</button>
-        </div>
-        <div class="modal-actions" style="margin-top:16px;">
-            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelBusinessHours')">閉じる</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== 希望休日締め切り設定 ポップアップ ===== -->
-<div id="panelDeadline" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelDeadline')">
-    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">希望休日締め切り設定</h3>
-        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
-        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span>毎月</span>
-            <input type="number" id="deadlineDayInput" min="1" max="31" style="width:70px;">
-            <span>日の</span>
-            <input type="time" id="deadlineTimeInput">
-            <span>に締め切る</span>
-        </div>
-        <p style="margin:14px 0 0 0; font-size:12px; color:#666;">この日時を過ぎると、対象シフト月はスマホ表示で「希望シフト入力」画面から「シフト表示」画面へ自動的に切り替わり、編集できなくなります。（例：毎月25日12時30分に設定した場合、6月分のシフトは5月25日12時30分に締め切られます）</p>
-        <div style="margin-top:10px;">
-            <button type="button" onclick="saveDeadlineSettings()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">保存</button>
-        </div>
-        <div class="modal-actions" style="margin-top:16px;">
-            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelDeadline')">閉じる</button>
-        </div>
-    </div>
-</div>
-
-<div id="panelLoginPassword" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelLoginPassword')">
-    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">ログインパスワード変更</h3>
-        <p class="settings-note">※現在ログイン中の営業所のログインパスワードを変更します</p>
-        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 320px;">
-            <label style="font-size:11px;color:var(--muted);">現在のパスワード
-                <input type="password" id="sfBranchPasswordCurrentInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
-            </label>
-            <label style="font-size:11px;color:var(--muted);">新しいパスワード
-                <input type="password" id="sfBranchPasswordNewInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
-            </label>
-            <button type="button" onclick="changeBranchLoginPasswordFromShift()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">パスワードを変更</button>
-        </div>
-        <div class="modal-actions" style="margin-top:16px;">
-            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelLoginPassword')">閉じる</button>
         </div>
     </div>
 </div>
@@ -6430,7 +6275,7 @@ window.addEventListener('pagehide', function() {
           </div>
           <button type="button" id="salesDayViewBackBtn" class="sales-nav-btn" onclick="exitSalesDayView()" style="display:none;">戻る</button>
           <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
-            <button type="button" id="salesSettingsBtn" class="sales-settings-btn" onclick="openSalesItemsModal()">設定</button>
+            <button type="button" id="salesSettingsBtn" class="sales-settings-btn" onclick="openSettingsGated()">設定</button>
           </div>
         </div>
         <div id="salesDayViewLabel" style="display:none;text-align:center;font-weight:bold;font-size:15px;padding:5px 0 10px;"></div>
@@ -6590,6 +6435,94 @@ window.addEventListener('pagehide', function() {
         </div>
         <div class="modal-actions" style="margin-top:16px;">
             <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelPassword')">閉じる</button>
+        </div>
+    </div>
+  </div>
+
+  <!-- ===== 時間枠設定・休日集計条件設定・営業時間設定・希望休日締め切り設定 ポップアップ
+       （元はシフトタブの設定画面専用だったが、全タブ共通の設定メニューに統合したため、
+       panelPasswordと同様シフトタブの外に配置する） ===== -->
+  <div id="panelTimeFrame" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelTimeFrame')">
+    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(820px, 95vw); max-width:820px;">
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">時間枠設定</h3>
+        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
+        <div id="timeFrameArea" class="sf-scroll-container"></div>
+        <div style="margin-top:10px;">
+            <button type="button" onclick="addTimeFrame()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">時間枠追加</button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelTimeFrame')">閉じる</button>
+        </div>
+    </div>
+  </div>
+
+  <div id="panelCalcConditions" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelCalcConditions')">
+    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px; min-height:520px;">
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">休日集計条件設定</h3>
+        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-weight: bold; width: 140px;">公休として集計する記号：</span>
+                <div class="sf-multiselect-container" id="holidaySymbolsContainer">
+                    <div class="sf-multiselect-trigger" id="holidaySymbolsTrigger" onclick="toggleMultiselect('holidaySymbolsDropdown')">選択してください</div>
+                    <div class="sf-multiselect-dropdown" id="holidaySymbolsDropdown"></div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-weight: bold; width: 140px;">有休として集計する記号：</span>
+                <div class="sf-multiselect-container" id="paidLeaveSymbolsContainer">
+                    <div class="sf-multiselect-trigger" id="paidLeaveSymbolsTrigger" onclick="toggleMultiselect('paidLeaveSymbolsDropdown')">選択してください</div>
+                    <div class="sf-multiselect-dropdown" id="paidLeaveSymbolsDropdown"></div>
+                </div>
+            </div>
+        </div>
+        <p style="margin:14px 0 0 0; font-size:12px; color:#666;">選択した記号を休日として集計します</p>
+        <div style="margin-top:10px;">
+            <button type="button" onclick="saveCalcConditions()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">保存</button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelCalcConditions')">閉じる</button>
+        </div>
+    </div>
+  </div>
+
+  <div id="panelBusinessHours" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelBusinessHours')">
+    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">営業時間設定</h3>
+        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span>営業時間：</span>
+            <input type="time" id="businessStartInput">
+            <span> 〜 </span>
+            <input type="time" id="businessEndInput">
+        </div>
+        <p style="margin-top:8px; font-size: 12px; color: #555;">※1日の出勤状況表示の横軸メモリに反映されます。</p>
+        <div style="margin-top:10px;">
+            <button type="button" onclick="saveBusinessHours()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">保存</button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelBusinessHours')">閉じる</button>
+        </div>
+    </div>
+  </div>
+
+  <div id="panelDeadline" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelDeadline')">
+    <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
+        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">希望休日締め切り設定</h3>
+        <p class="settings-note">※設定を変更したら「保存」を押してください</p>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span>毎月</span>
+            <input type="number" id="deadlineDayInput" min="1" max="31" style="width:70px;">
+            <span>日の</span>
+            <input type="time" id="deadlineTimeInput">
+            <span>に締め切る</span>
+        </div>
+        <p style="margin:14px 0 0 0; font-size:12px; color:#666;">この日時を過ぎると、対象シフト月はスマホ表示で「希望シフト入力」画面から「シフト表示」画面へ自動的に切り替わり、編集できなくなります。（例：毎月25日12時30分に設定した場合、6月分のシフトは5月25日12時30分に締め切られます）</p>
+        <div style="margin-top:10px;">
+            <button type="button" onclick="saveDeadlineSettings()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">保存</button>
+        </div>
+        <div class="modal-actions" style="margin-top:16px;">
+            <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelDeadline')">閉じる</button>
         </div>
     </div>
   </div>
@@ -7299,7 +7232,7 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <h2 id="settingsModalTitle">設定</h2>
 
-      <!-- 連絡ノート・予定・車検予約・仮締め・日常業務タブ共通の設定メニュー（内容はすべて同じ） -->
+      <!-- 全タブ共通の設定メニュー（どのタブの「設定」ボタンから開いても内容は同じ） -->
       <div id="commonSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
         <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
         <button type="button" onclick="openChatSettingsSubPanel('bmCatManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ブックマーク項目管理</button>
@@ -7307,6 +7240,11 @@ window.addEventListener('pagehide', function() {
         <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予約時間範囲指定</button>
         <button type="button" onclick="openDailyItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">日常業務項目管理</button>
         <button type="button" id="btnLoanerCarCountSettings" onclick="openLoanerCarCountModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">代車台数設定</button>
+        <button type="button" onclick="openSalesItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">販売実績表 項目管理</button>
+        <button type="button" onclick="openShiftConfigPanel('panelTimeFrame')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">時間枠設定</button>
+        <button type="button" onclick="openShiftConfigPanel('panelCalcConditions')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">休日集計条件設定</button>
+        <button type="button" onclick="openShiftConfigPanel('panelBusinessHours')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">営業時間設定</button>
+        <button type="button" onclick="openShiftConfigPanel('panelDeadline')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">希望休日締め切り設定</button>
         <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
         <button type="button" onclick="openPanelPasswordDialog()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">設定パスワード変更</button>
         <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
@@ -7384,7 +7322,7 @@ window.addEventListener('pagehide', function() {
         </div>
       </div>
 
-      <div data-settings-section="chat" id="settingsChatSection">
+      <div id="settingsChatSection">
         <h3 style="font-size:12px;color:#888;margin:20px 0 8px;">ブックマーク項目管理</h3>
         <p class="settings-note">ブックマーク時に選択できるカテゴリを管理します。</p>
         <ul class="member-list" id="settingsBmCatList"></ul>
@@ -7395,7 +7333,7 @@ window.addEventListener('pagehide', function() {
       </div>
 
 
-      <div id="settingsPdfSection" data-settings-section="kasime">
+      <div id="settingsPdfSection">
         <h3 style="font-size:12px;color:#888;margin-bottom:8px;">PDFダウンロード/印刷</h3>
         <p class="settings-note">カレンダーから出力したい年月を選んでください。</p>
         <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:10px;">
@@ -7414,7 +7352,7 @@ window.addEventListener('pagehide', function() {
         </div>
       </div>
 
-      <div data-settings-section-exclude="shift" id="settingsLoginPwdSection">
+      <div id="settingsLoginPwdSection">
         <h3 style="font-size:12px;color:#888;margin:20px 0 8px;">ログインパスワード変更</h3>
         <p class="settings-note">※現在ログイン中の営業所のログインパスワードを変更します</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
@@ -9462,10 +9400,8 @@ window.addEventListener('pagehide', function() {
       document.getElementById('memberAddColorPalette').classList.remove('open');
     }
 
-    // 連絡ノート・予定・車検予約・仮締め・日常業務タブの「設定」ボタンは、シフトタブの設定と
-    // 共通のパスワードで保護する（openSettings自体はシフト設定画面からの内部遷移
-    // openStaffSettingsFromShiftでも呼ばれるため、二重にパスワードを聞かないよう
-    // ボタンの入り口側だけをこの関数でガードする）。
+    // 全タブ共通の「設定」ボタンの入り口。どのタブから開いても同じ設定メニュー
+    // （commonSettingsMenu）を表示し、同じ共通パスワードで保護する。
     function openSettingsGated() {
       const inputPass = prompt('設定画面を開くにはパスワードを入力してください');
       if (inputPass === null) return;
@@ -9476,24 +9412,31 @@ window.addEventListener('pagehide', function() {
       openSettings();
     }
 
-    // 「設定パスワード変更」（panelPassword）は元々シフトタブの設定画面専用で、
-    // 静的なz-index（.sf-sub-settings-modal、1100）で親（sfSettingsModal、1000）より
-    // 手前に表示される仕組みだった。commonSettingsMenuや販売実績表の項目管理モーダルなど、
-    // openOverlay()（1500〜、呼ぶたびに加算）で開く親モーダルの中から開く場合は、
-    // 静的な1100のままだと親モーダルより奥に隠れてしまうため、ここでz-indexを
-    // 明示的に引き上げてから表示する。
-    function openPanelPasswordDialog() {
-      openSubPanel('panelPassword');
-      const panel = document.getElementById('panelPassword');
+    // panelPassword・panelTimeFrame・panelCalcConditions・panelBusinessHours・panelDeadlineは
+    // 元々シフトタブの設定画面専用で、静的なz-index（.sf-sub-settings-modal、1100）でシフトの
+    // 設定モーダルより手前に表示される仕組みだった。全タブ共通のcommonSettingsMenu（settingsModal、
+    // openOverlay()で1500〜を割り当てる）に統合した今は、静的な1100のままだと親モーダルより
+    // 奥に隠れてしまうため、ここでz-indexを明示的に引き上げてから表示する。
+    function openSfSubPanelFromCommonMenu(id) {
+      openSubPanel(id);
+      const panel = document.getElementById(id);
       if (panel && typeof overlayZIndex !== 'undefined') {
         overlayZIndex += 1;
         panel.style.zIndex = overlayZIndex;
       }
     }
 
+    function openPanelPasswordDialog() {
+      openSfSubPanelFromCommonMenu('panelPassword');
+    }
+
     function openSettings() {
-      // 仮締めタブで営業所セレクターを使って他営業所を閲覧中は、その営業所の設定を開けないようにする
+      // 仮締め・シフトタブで営業所セレクターを使って他営業所を閲覧中は、その営業所の設定を開けないようにする
       if (currentTab === 'kasime' && typeof kasimeViewBranch !== 'undefined' && kasimeViewBranch !== state.currentBranch) {
+        alert('他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。');
+        return;
+      }
+      if (currentTab === 'shift' && typeof shiftViewBranch !== 'undefined' && shiftViewBranch !== state.currentBranch) {
         alert('他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。');
         return;
       }
@@ -9519,20 +9462,12 @@ window.addEventListener('pagehide', function() {
         setMemberAddColorPreview(c);
         closeMemberAddColorDropdown();
       }, true);
-      // 開いているタブで使う項目のみ表示する（メンバー管理は共通のため常に表示）
-      document.querySelectorAll('#settingsModal [data-settings-section]').forEach(sec => {
-        sec.style.display = sec.dataset.settingsSection === currentTab ? '' : 'none';
-      });
-      document.querySelectorAll('#settingsModal [data-settings-section-exclude]').forEach(sec => {
-        sec.style.display = sec.dataset.settingsSectionExclude === currentTab ? 'none' : '';
-      });
-      applySettingsMenuLayout(currentTab);
+      applySettingsMenuLayout();
       openOverlay(document.getElementById('settingsModal'));
     }
 
-    // 連絡ノート・予定・仮締めタブの設定は「メニュー→個別ウインドウ」表示にする。
-    // 他タブを開いたときは元の位置に戻し、通常のインライン表示に復元する。
-    function applySettingsMenuLayout(tab) {
+    // 全タブ共通で「メニュー→個別ウインドウ」表示にする（タブによって内容を出し分けない）。
+    function applySettingsMenuLayout() {
       const memberSection = document.getElementById('settingsMemberSection');
       const taskPresetSection = document.getElementById('settingsTaskPresetSection');
       const taskTimeSection = document.getElementById('settingsTaskTimeSection');
@@ -9540,47 +9475,23 @@ window.addEventListener('pagehide', function() {
       const pdfSection = document.getElementById('settingsPdfSection');
       const loginSection = document.getElementById('settingsLoginPwdSection');
       const commonMenu = document.getElementById('commonSettingsMenu');
-      const adminRow = document.getElementById('settingsAdminRow');
-      const titleEl = document.getElementById('settingsModalTitle');
-
-      // 連絡ノート・予定・車検予約・仮締めの4タブは、設定メニューの内容を統一する
-      // （どのタブから開いても同じメニューが表示される）。
-      const isCommonTab = (tab === 'chat' || tab === 'tasks' || tab === 'kasime' || tab === 'shaken' || tab === 'daily');
-
-      if (titleEl) titleEl.style.display = (tab === 'shift') ? 'none' : '';
-      commonMenu.style.display = 'none';
-      adminRow.style.display = (tab === 'shift') ? 'none' : '';
 
       // 各セクションは移動先のモーダルが#settingsModalの外にあるため、
       // 表示・非表示は必ずここで明示的に指定する（要素がどこに居ても確実に効くようにする）。
-      taskPresetSection.style.display = isCommonTab ? '' : 'none';
-      taskTimeSection.style.display = isCommonTab ? '' : 'none';
-      chatSection.style.display = isCommonTab ? '' : 'none';
-      pdfSection.style.display = isCommonTab ? '' : 'none';
-      loginSection.style.display = isCommonTab ? '' : 'none';
+      taskPresetSection.style.display = '';
+      taskTimeSection.style.display = '';
+      chatSection.style.display = '';
+      pdfSection.style.display = '';
+      loginSection.style.display = '';
 
-      if (isCommonTab) {
-        document.getElementById('memberManageMount').appendChild(memberSection);
-        document.getElementById('bmCatManageMount').appendChild(chatSection);
-        document.getElementById('taskPresetMount').appendChild(taskPresetSection);
-        document.getElementById('taskTimeMount').appendChild(taskTimeSection);
-        document.getElementById('kasimePdfMount').appendChild(pdfSection);
-        document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
-        initKasimePdfPicker();
-        commonMenu.style.display = 'flex';
-        // 代車台数設定は車検予約タブでのみ意味があるため、そのタブのときだけメニューに出す
-        const loanerCarCountBtn = document.getElementById('btnLoanerCarCountSettings');
-        if (loanerCarCountBtn) loanerCarCountBtn.style.display = (tab === 'shaken') ? '' : 'none';
-      } else {
-        // 元の位置に戻す（インライン表示）。adminRowは常にこの中にあるため基準点にする。
-        const modalBody = document.querySelector('#settingsModal .modal');
-        modalBody.insertBefore(memberSection, adminRow);
-        modalBody.insertBefore(taskPresetSection, adminRow);
-        modalBody.insertBefore(taskTimeSection, adminRow);
-        modalBody.insertBefore(chatSection, adminRow);
-        modalBody.insertBefore(pdfSection, adminRow);
-        modalBody.insertBefore(loginSection, adminRow);
-      }
+      document.getElementById('memberManageMount').appendChild(memberSection);
+      document.getElementById('bmCatManageMount').appendChild(chatSection);
+      document.getElementById('taskPresetMount').appendChild(taskPresetSection);
+      document.getElementById('taskTimeMount').appendChild(taskTimeSection);
+      document.getElementById('kasimePdfMount').appendChild(pdfSection);
+      document.getElementById('chatLoginPasswordMount').appendChild(loginSection);
+      initKasimePdfPicker();
+      commonMenu.style.display = 'flex';
     }
 
     function openChatSettingsSubPanel(modalId) {
@@ -11043,14 +10954,9 @@ window.addEventListener('pagehide', function() {
       });
     }
 
-    // 販売実績表タブの「設定」ボタンも、シフトタブと共通のパスワードで保護する。
+    // 全タブ共通の設定メニュー（commonSettingsMenu）の「販売実績表 項目管理」から開く。
+    // 設定メニュー自体が既にパスワードで保護されているため、ここでは再度聞かない。
     function openSalesItemsModal() {
-      const inputPass = prompt('設定画面を開くにはパスワードを入力してください');
-      if (inputPass === null) return;
-      if (typeof getCurrentBranchShiftPassword !== 'function' || inputPass !== getCurrentBranchShiftPassword()) {
-        alert('パスワードが正しくありません');
-        return;
-      }
       renderSalesItemsList();
       openOverlay(document.getElementById('salesItemsModal'));
     }
@@ -11422,11 +11328,6 @@ window.addEventListener('pagehide', function() {
 
     function closeSettings() {
       closeOverlay(document.getElementById('settingsModal'));
-      // シフトタブの「スタッフ設定」から開いた場合は、シフトの設定メニューに戻る
-      if (currentTab === 'shift') {
-        const sfModal = document.getElementById('sfSettingsModal');
-        if (sfModal) sfModal.style.display = 'block';
-      }
     }
 
     function addMember(name, staffCode) {
@@ -15697,33 +15598,19 @@ function toggleShiftLayout() {
     applyShiftLayoutMode(saved);
 })();
 
-function sfOpenSettings(){
-    // 営業所セレクターで他営業所を閲覧中は、その営業所の設定を開けないようにする
-    if (typeof shiftViewBranch !== "undefined" && typeof state !== "undefined" && shiftViewBranch !== state.currentBranch) {
-        alert("他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。");
-        return;
-    }
-    const inputPass = prompt("設定画面を開くにはパスワードを入力してください");
-    if(inputPass === null){ return; }
-    if(inputPass !== getCurrentBranchShiftPassword()){
-        alert("パスワードが正しくありません");
-        return;
-    }
-
-    document.getElementById("sfSettingsModal").style.display = "block";
+// 時間枠設定・休日集計条件設定・営業時間設定・希望休日締め切り設定を開く直前に、
+// フォームへ最新の値を反映する（元はsfOpenSettings()内で行っていた初期化と同じ内容）。
+// これらは全タブ共通の設定メニュー（commonSettingsMenu）から開くため、
+// z-indexの調整も含めてopenSfSubPanelFromCommonMenu()に委ねる。
+function openShiftConfigPanel(id){
     document.getElementById("businessStartInput").value = businessHours.start;
     document.getElementById("businessEndInput").value = businessHours.end;
     document.getElementById("deadlineDayInput").value = shiftDeadline.day;
     document.getElementById("deadlineTimeInput").value = shiftDeadline.time;
-
-    Object.keys(timeFrames).forEach(code => {
-        selectedColorsTemp[code] = timeFrames[code].color;
-    });
-
     renderMultiselectDropdowns();
-    renderEditTable();
     renderTimeFrameEditor();
     settingsDirty = false;
+    openSfSubPanelFromCommonMenu(id);
 }
 
 // 「シフト作成」は元は設定メニューの中の1項目だったが、月送りUIと同じ行に単独ボタンとして
@@ -15743,21 +15630,6 @@ function sfOpenShiftEditGated(){
     openSubPanel('panelShiftEdit');
 }
 
-function sfCloseSettings(){
-    attemptClose(function(){
-        document.getElementById("sfSettingsModal").style.display = "none";
-        document.querySelectorAll(".sf-sub-settings-modal").forEach(p => p.style.display = "none");
-    });
-}
-
-// スタッフ（メンバー）はどのタブからでもパスワードなしで編集できる共通項目のため、
-// シフト設定画面からは共通の「設定」（メンバー管理）を開く
-function openStaffSettingsFromShift(){
-    document.getElementById("sfSettingsModal").style.display = "none";
-    document.querySelectorAll(".sf-sub-settings-modal").forEach(p => p.style.display = "none");
-    if (typeof openSettings === "function") openSettings();
-}
-
 function openSubPanel(id){
     document.getElementById(id).style.display = "block";
     if(id === "panelPassword"){
@@ -15765,28 +15637,9 @@ function openSubPanel(id){
         document.getElementById("newPasswordInput").value = "";
         document.getElementById("newPasswordConfirmInput").value = "";
     }
-    if(id === "panelLoginPassword"){
-        document.getElementById("sfBranchPasswordCurrentInput").value = "";
-        document.getElementById("sfBranchPasswordNewInput").value = "";
-    }
     if(id === "panelShiftEdit" && typeof loadShiftEditMemo === "function"){
         loadShiftEditMemo();
     }
-}
-
-function changeBranchLoginPasswordFromShift(){
-    if (typeof state === "undefined" || !state.branches) return;
-    const branch = state.branches.find(b => b.name === state.currentBranch);
-    if (!branch) return;
-    const current = document.getElementById("sfBranchPasswordCurrentInput").value;
-    const next = document.getElementById("sfBranchPasswordNewInput").value;
-    if (current !== branch.password) { alert("現在のパスワードが正しくありません"); return; }
-    if (!next) { alert("新しいパスワードを入力してください"); return; }
-    branch.password = next;
-    saveState();
-    if (typeof syncAllBranchesToSheet === 'function') syncAllBranchesToSheet('スプレッドシートに保存しました');
-    document.getElementById("sfBranchPasswordCurrentInput").value = "";
-    document.getElementById("sfBranchPasswordNewInput").value = "";
 }
 
 function changeSettingsPassword(){
