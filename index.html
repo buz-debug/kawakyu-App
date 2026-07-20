@@ -9074,7 +9074,10 @@ window.addEventListener('pagehide', function() {
       const tom = new Date(now); tom.setDate(tom.getDate() + 1);
       const tomorrowISO = toLocalISO(tom);
 
-      const all = state.sidebarTasks;
+      // 40日前TEL対象者は、車検予約データから毎回算出する仮想タスクとして合流させる
+      // （state.sidebarTasksには保存しない。事前日程を決定・キャンセルすれば自動的に一覧から消える）
+      const virtualTasks = typeof shaken40DayTelVirtualTasks === 'function' ? shaken40DayTelVirtualTasks() : [];
+      const all = state.sidebarTasks.concat(virtualTasks);
 
       // 分類
       const overdue = all.filter(t => !t.done && t.due && t.due < todayISO);
@@ -9099,6 +9102,17 @@ window.addEventListener('pagehide', function() {
 
       const cardHtml = (t) => {
         const overdueCls = !t.done && t.due && t.due < todayISO;
+        // 40日前TELの仮想タスクは車検予約タブ側で完了操作（事前日程ボタン）を行うため、
+        // ここではチェックボックスを持たせず、クリックで該当の車検予約編集画面を開く
+        if (t.virtual) {
+          return `<div style="padding:6px 14px;display:flex;align-items:flex-start;gap:8px;cursor:pointer;" data-shakentelcard="${t.shakenId}">
+            <span style="margin-top:3px;width:10px;height:10px;border-radius:2px;background:#fbbf24;flex-shrink:0;display:inline-block;"></span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;color:#1e293b;word-break:break-word;line-height:1.4;">${escapeHtml(t.text)}</div>
+              ${t.due ? `<div style="font-size:10px;color:${overdueCls ? '#d97706' : '#64748b'};margin-top:2px;">${t.due}</div>` : ''}
+            </div>
+          </div>`;
+        }
         const recurLabel = taskRecurLabel(t.recur);
         return `<div style="padding:6px 14px;display:flex;align-items:flex-start;gap:8px;">
           <input type="checkbox" data-stask="${t.id}" ${t.done ? 'checked' : ''}
@@ -9142,6 +9156,11 @@ window.addEventListener('pagehide', function() {
         });
         el.querySelectorAll('[data-edittask]').forEach(div => {
           div.addEventListener('click', () => openTaskDetailModal(div.dataset.edittask));
+        });
+        el.querySelectorAll('[data-shakentelcard]').forEach(div => {
+          div.addEventListener('click', () => {
+            if (typeof openShakenEditModal === 'function') openShakenEditModal(div.dataset.shakentelcard);
+          });
         });
       });
     }
@@ -12181,17 +12200,37 @@ window.addEventListener('pagehide', function() {
       return weeks;
     }
 
-    // 左カラム: 事前点検の日程が未決定の顧客リスト。
-    // 抽出条件は「①通検日から40日を切った予約」かつ「②『事前日程』ボタンが押されていない予約」の両方。
+    // 40日前TELの対象者（①通検日から40日を切った予約 かつ ②『事前日程』ボタンが押されていない予約）を抽出する。
     // キャンセル済み・完了済みの予約は、もう事前点検の日程を決める必要が無いため対象外とする。
     // 対象は車検（代車あり・代車なし）のみ。一般整備・鈑金塗装・代車使用は事前点検が不要なため対象外。
+    // 車検予約タブの左カラム（renderShakenPreScheduleSidebar）と予定タブのタスク一覧
+    // （shaken40DayTelVirtualTasks）の両方から共通で使う。
+    function shaken40DayTelTargets() {
+      const cutoffISO = shakenAddDaysISO(todayStr(), 40);
+      return (shakenBucket().shakenReservations || [])
+        .filter(r => !r.cancelled && !r.completed && !r.preScheduled && r.inspectionDate && r.inspectionDate <= cutoffISO && shakenTypeMeta(r).category === 'shaken')
+        .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
+    }
+
+    // 予定タブの左カラムに表示する「40日前TEL」の仮想タスク一覧。
+    // 実体は車検予約データそのものなので state.sidebarTasks には保存せず、表示のたびに毎回算出する
+    // （事前日程を決定・キャンセルすればshaken40DayTelTargetsから外れ、自動的にこの一覧からも消える）。
+    function shaken40DayTelVirtualTasks() {
+      return shaken40DayTelTargets().map(r => ({
+        id: 'shakenTel-' + r.id,
+        text: `40日前TEL（${shakenCustomerLabel(r.customer)}・${r.carModel || ''}）`,
+        due: shakenAddDaysISO(r.inspectionDate, -40),
+        done: false,
+        virtual: true,
+        shakenId: r.id,
+      }));
+    }
+
+    // 左カラム: 事前点検の日程が未決定の顧客リスト（車検予約タブ）
     function renderShakenPreScheduleSidebar() {
       const listEl = document.getElementById('shakenPreScheduleList');
       if (!listEl) return;
-      const cutoffISO = shakenAddDaysISO(todayStr(), 40);
-      const items = (shakenBucket().shakenReservations || [])
-        .filter(r => !r.cancelled && !r.completed && !r.preScheduled && r.inspectionDate && r.inspectionDate <= cutoffISO && shakenTypeMeta(r).category === 'shaken')
-        .sort((a, b) => (a.inspectionDate || '').localeCompare(b.inspectionDate || ''));
+      const items = shaken40DayTelTargets();
 
       if (!items.length) {
         listEl.innerHTML = '<div style="text-align:center;color:#1e3a5f;opacity:.6;padding:20px 8px;font-size:12px;">対象の予約はありません</div>';
