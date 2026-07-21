@@ -1633,6 +1633,12 @@
       gap: 4px;
       flex-shrink: 0;
     }
+    /* .settings-row-grid内では、行によってボタン数が変わっても列の右端が
+       揃うよう、gridトラック幅いっぱいに広げる（flexコンテナはgridの
+       stretchで自動では広がらないため明示指定する） */
+    .settings-row-grid > .member-actions {
+      width: 100%;
+    }
 
     .member-actions button {
       font-size: 11px;
@@ -1659,8 +1665,10 @@
        販売実績表項目管理・時間枠設定など）の行を、各列が縦にきれいに揃うよう
        flexではなくgridで並べる共通クラス。各画面はgrid-template-columnsだけを
        インラインstyleで指定して列幅を決める。 */
+    /* .member-list li（クラス+要素セレクタ）の方が詳細度が高く display:flex が
+       勝ってしまうため、!important で確実にgrid表示にする */
     .settings-row-grid {
-      display: grid;
+      display: grid !important;
       align-items: center;
       gap: 8px;
       padding: 6px 0;
@@ -4145,11 +4153,12 @@
 }
 .sales-settings-btn:hover { opacity: 0.9; }
 
-/* タブ行（ヘッダー）に置くボタン（設定・ログアウト・ダウンロード/印刷）の高さを統一する */
+/* タブ行（ヘッダー）に置くボタン（設定・ログアウト・ダウンロード/印刷）は、
+   固定高さの独自サイズをやめ、メイン画面の標準ボタン規格（.sales-settings-btn等と
+   同じ padding:7px 14px / font-size:12px / border-radius:4px）に統一する。 */
 .tab-row-btn {
-    height: 26px;
     box-sizing: border-box;
-    padding: 0 12px;
+    padding: 7px 14px;
     font-size: 12px;
     font-weight: 600;
     display: inline-flex;
@@ -4591,7 +4600,7 @@
         <button type="button" id="btnHeaderDownloadPrint" class="tab-row-btn" style="background:#555;color:#fff;border:none;display:none;" onclick="openHeaderDownloadPrint()">ダウンロード/印刷</button>
         <button type="button" class="sales-settings-btn tab-row-btn" id="btnHeaderSettings" onclick="openSettingsGated()">設定</button>
         <button type="button" class="shift-settings-btn sales-settings-btn tab-row-btn" id="btnShiftSettings" onclick="openSettingsGated()" style="display:none;">設定</button>
-        <span id="currentBranchLabel" style="font-size:17px;font-weight:700;color:#1e293b;"></span>
+        <span id="currentBranchLabel" style="font-size:13px;font-weight:700;color:var(--text);"></span>
         <button type="button" id="btnLogout" class="tab-row-btn" style="border:1px solid var(--border);background:var(--surface);color:inherit;">ログアウト</button>
       </div>
     </div>
@@ -6254,7 +6263,7 @@ window.addEventListener('pagehide', function() {
           </div>
           <button type="button" id="salesDayViewBackBtn" class="sales-nav-btn" onclick="exitSalesDayView()" style="display:none;">戻る</button>
           <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;">
-            <button type="button" id="salesSettingsBtn" class="sales-settings-btn" onclick="openSettingsGated()">設定</button>
+            <button type="button" id="salesSettingsBtn" class="sales-settings-btn tab-row-btn" onclick="openSettingsGated()">設定</button>
           </div>
         </div>
         <div id="salesDayViewLabel" style="display:none;text-align:center;font-weight:bold;font-size:15px;padding:5px 0 10px;"></div>
@@ -9240,7 +9249,7 @@ window.addEventListener('pagehide', function() {
     }
 
     function renderSettingsMembers() {
-      const memberCols = '24px 1fr 64px 40px auto';
+      const memberCols = '24px 1fr 64px 40px 122px';
       document.getElementById('settingsMemberList').innerHTML = getMembers().map(m => {
         if (isSystemMember(m)) {
           return `<li class="settings-row-grid" style="grid-template-columns:${memberCols};">
@@ -9458,7 +9467,7 @@ window.addEventListener('pagehide', function() {
       if (!list) return;
       sortSchedulePresetsFixedFirst();
       const presets = state.schedulePresets || [];
-      const presetCols = '30px 1fr 100px auto';
+      const presetCols = '30px 1fr 100px 122px';
       const fixedRowHtml = `<li class="settings-row-grid" style="grid-template-columns:${presetCols};">
         <span style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${ALL_DAY_BLOCK_PRESET_COLOR};border:1px solid rgba(0,0,0,.1);"></span>
         <span style="font-size:12px;">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</span>
@@ -11188,7 +11197,7 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = salesItems.map((item, i) => `
-        <li class="settings-row-grid" style="grid-template-columns:34px 1fr 64px 100px auto;">
+        <li class="settings-row-grid" style="grid-template-columns:34px 1fr 64px 100px 122px;">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap;">ID:${escapeHtml(item.id)}</span>
           <input type="text" data-salesitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           <input type="text" data-salesitem-unit="${item.id}" value="${escapeHtml(item.unit || '')}" maxlength="10" placeholder="単位" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
@@ -11446,7 +11455,7 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = dailyTaskItems.map((item, i) => `
-        <li class="settings-row-grid" style="grid-template-columns:34px 96px 1fr 1fr auto;">
+        <li class="settings-row-grid" style="grid-template-columns:34px 96px 1fr 1fr 122px;">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap;">ID:${escapeHtml(item.id)}</span>
           <input type="time" data-dailyitem-time="${item.id}" value="${escapeHtml(item.time || '')}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           <input type="text" data-dailyitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
@@ -15996,7 +16005,7 @@ function shiftDeleteStaffData(name){
 ====================== */
 function renderTimeFrameEditor(){
     const area = document.getElementById("timeFrameArea");
-    const cols = '70px 100px 100px 110px 30px auto';
+    const cols = '70px 100px 100px 110px 30px 122px';
     let html = "";
     timeFrameOrder.forEach((code,index)=>{
         if(!timeFrames[code]){ return; }
