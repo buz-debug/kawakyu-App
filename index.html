@@ -2010,20 +2010,14 @@
     /* 「編集」ボタンは背景色を緑で統一（連絡ノートの「返信」「ブックマーク」も同じ色に揃える） */
     [data-action="edit"],
     [data-action="reply"],
-    [data-action="bookmark"],
-    [data-member-edit],
-    [data-preset-edit],
-    [data-bmedit] {
+    [data-action="bookmark"] {
       background: var(--cw-green) !important;
       color: #fff !important;
       border: none !important;
     }
     [data-action="edit"]:hover,
     [data-action="reply"]:hover,
-    [data-action="bookmark"]:hover,
-    [data-member-edit]:hover,
-    [data-preset-edit]:hover,
-    [data-bmedit]:hover {
+    [data-action="bookmark"]:hover {
       background: var(--cw-green-dark) !important;
     }
 
@@ -6529,7 +6523,6 @@ window.addEventListener('pagehide', function() {
         <button type="button" id="salesItemAddBtn">追加</button>
       </div>
       <div class="modal-actions" style="margin-top:16px;">
-        <button type="button" onclick="openPanelPasswordDialog()" style="margin-right:auto;">設定パスワード変更</button>
         <button type="button" id="salesItemsModalClose">閉じる</button>
         <button type="button" id="salesItemsSaveBtn" class="primary">保存</button>
       </div>
@@ -9683,30 +9676,15 @@ window.addEventListener('pagehide', function() {
       list.innerHTML = cats.map((cat, i) => `
         <li>
           <span class="member-dot" style="background:${COLORS[i % COLORS.length]}">${escapeHtml(cat.charAt(0))}</span>
-          <span class="member-name">${escapeHtml(cat)}</span>
+          <input type="text" data-bmcat-name="${i}" value="${escapeHtml(cat)}" maxlength="20" style="flex:1;min-width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           <span class="member-actions">
-            <button type="button" data-bmedit="${i}">編集</button>
             <button type="button" data-bmdel="${i}" class="del">削除</button>
           </span>
         </li>`).join('');
 
-      list.querySelectorAll('[data-bmedit]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const i = parseInt(btn.dataset.bmedit);
-          const cur = state.bookmarkCategories[i];
-          const newName = prompt('カテゴリ名を変更', cur);
-          if (!newName || !newName.trim() || newName.trim() === cur) return;
-          const trimmed = newName.trim();
-          if (state.bookmarkCategories.includes(trimmed)) { alert('同じ名前が既にあります。'); return; }
-          // ブックマークデータの更新
-          (state.bookmarks || []).forEach(b => { if (b.category === cur) b.category = trimmed; });
-          state.bookmarkCategories[i] = trimmed;
-          saveState();
-          markListSettingsDirty();
-          renderSettingsBmCats();
-          renderRoomList();
-          renderMessages();
-        });
+      list.querySelectorAll('[data-bmcat-name]').forEach(input => {
+        input.addEventListener('change', () => updateBmCatName(parseInt(input.dataset.bmcatName), input.value));
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
       });
       list.querySelectorAll('[data-bmdel]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -9722,6 +9700,27 @@ window.addEventListener('pagehide', function() {
           renderMessages();
         });
       });
+    }
+
+    function updateBmCatName(i, newNameRaw) {
+      const cats = state.bookmarkCategories;
+      if (!Array.isArray(cats) || i < 0 || i >= cats.length) return;
+      const cur = cats[i];
+      const newName = (newNameRaw || '').trim();
+      if (!newName || newName === cur) { renderSettingsBmCats(); return; }
+      if (cats.includes(newName)) {
+        alert('同じ名前が既にあります。');
+        renderSettingsBmCats();
+        return;
+      }
+      // ブックマークデータの更新
+      (state.bookmarks || []).forEach(b => { if (b.category === cur) b.category = newName; });
+      cats[i] = newName;
+      saveState();
+      markListSettingsDirty();
+      renderSettingsBmCats();
+      renderRoomList();
+      renderMessages();
     }
 
     function renderCurrentBranchLabel() {
@@ -14968,19 +14967,10 @@ function togglePalette(code) {
 }
 
 function selectPaletteColor(code, selectedColor) {
+    if (!timeFrames[code]) return;
+    timeFrames[code].color = selectedColor;
     selectedColorsTemp[code] = selectedColor;
-    const btn = document.getElementById(`btn_color_${code}`);
-    if (btn) {
-        if (selectedColor === "") {
-            btn.style.cssText = "background:repeating-linear-gradient(45deg,#fff 0 5px,#eee 5px 10px);border:1px dashed #888;color:#555;";
-            btn.innerText = "無地";
-        } else {
-            btn.style.cssText = `background:${selectedColor};border:1px solid #ccc;color:#333;`;
-            btn.innerText = "色選択";
-        }
-    }
-    const palette = document.getElementById(`palette_container_${code}`);
-    if (palette) palette.style.display = "none";
+    saveTimeFrames();
 }
 
 function toggleMultiselect(id) {
@@ -15990,7 +15980,6 @@ function renderTimeFrameEditor(){
     let html = "";
     timeFrameOrder.forEach((code,index)=>{
         if(!timeFrames[code]){ return; }
-        const isFixed = false;
         if (selectedColorsTemp[code] === undefined) selectedColorsTemp[code] = timeFrames[code].color || "";
         const currentBgColor = selectedColorsTemp[code];
 
@@ -16002,15 +15991,13 @@ function renderTimeFrameEditor(){
         html += `
         <div class="sf-staff-card" style="flex-direction: column; align-items: flex-start; gap: 4px;">
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <input value="${code}" id="code_${code}" style="width:70px" ${isFixed ? "disabled" : ""}>
-                <input type="time" value="${timeFrames[code].start}" id="start_${code}" ${isFixed ? "disabled" : ""}>
-                <input type="time" value="${timeFrames[code].end}" id="end_${code}" ${isFixed ? "disabled" : ""}>
-                <select id="break_${code}" ${isFixed ? "disabled" : ""}>${createBreakOptions(timeFrames[code].break || 0)}</select>
+                <input value="${code}" id="code_${code}" style="width:70px" onchange="updateTimeFrameCode('${code}', this.value)">
+                <input type="time" value="${timeFrames[code].start}" id="start_${code}" onchange="updateTimeFrameField('${code}','start',this.value)">
+                <input type="time" value="${timeFrames[code].end}" id="end_${code}" onchange="updateTimeFrameField('${code}','end',this.value)">
+                <select id="break_${code}" onchange="updateTimeFrameField('${code}','break',this.value)">${createBreakOptions(timeFrames[code].break || 0)}</select>
                 <button type="button" id="btn_color_${code}" class="sf-color-select-btn" style="${btnStyle}" onclick="togglePalette('${code}')">${btnText}</button>
-                ${isFixed ? `<button onclick="saveFixedTimeFrameColor('${code}')">背景保存</button>` : `
-                    <button onclick="updateTimeFrame('${code}')">保存</button><button class="sf-danger-btn" onclick='deleteTimeFrame("${code}")'>削除</button>
-                    <button class="sf-order-btn" onclick="moveTimeFrameUp(${index})">↑</button><button class="sf-order-btn" onclick="moveTimeFrameDown(${index})">↓</button>
-                `}
+                <button class="sf-danger-btn" onclick='deleteTimeFrame("${code}")'>削除</button>
+                <button class="sf-order-btn" onclick="moveTimeFrameUp(${index})">↑</button><button class="sf-order-btn" onclick="moveTimeFrameDown(${index})">↓</button>
             </div>
             <div class="sf-color-palette-container" id="palette_container_${code}">
                 <p class="sf-color-palette-title">カラーパレット</p>
@@ -16036,34 +16023,30 @@ function saveTimeFrameOrder(){
     settingsDirty = true;
 }
 
-function saveFixedTimeFrameColor(code){
-    if(!timeFrames[code]){ return; }
-    timeFrames[code].color = selectedColorsTemp[code];
-    persistShiftSettings();
-    renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable();
-    settingsDirty = true;
-}
+function updateTimeFrameCode(oldCode, newCodeRaw){
+    const newCode = (newCodeRaw || '').trim();
+    if (!newCode || newCode === oldCode) { renderTimeFrameEditor(); return; }
+    if (timeFrames[newCode]) { alert("既に存在します"); renderTimeFrameEditor(); return; }
 
-function updateTimeFrame(oldCode){
-    const newCode = document.getElementById(`code_${oldCode}`).value.trim();
-    const start = document.getElementById(`start_${oldCode}`).value;
-    const end = document.getElementById(`end_${oldCode}`).value;
-    const breakTime = Number(document.getElementById(`break_${oldCode}`).value);
-    const color = selectedColorsTemp[oldCode];
-
+    timeFrames[newCode] = timeFrames[oldCode];
     delete timeFrames[oldCode];
-    timeFrames[newCode] = { start, end, "break":breakTime, color };
 
     const orderIndex = timeFrameOrder.indexOf(oldCode);
     if(orderIndex !== -1){ timeFrameOrder[orderIndex] = newCode; }
 
-    if (oldCode !== newCode) {
+    if (selectedColorsTemp[oldCode] !== undefined) {
         selectedColorsTemp[newCode] = selectedColorsTemp[oldCode];
         delete selectedColorsTemp[oldCode];
-        if(calcConditions.holidaySymbols.includes(oldCode)) calcConditions.holidaySymbols = calcConditions.holidaySymbols.map(c => c === oldCode ? newCode : c);
-        if(calcConditions.paidLeaveSymbols.includes(oldCode)) calcConditions.paidLeaveSymbols = calcConditions.paidLeaveSymbols.map(c => c === oldCode ? newCode : c);
     }
+    if(calcConditions.holidaySymbols.includes(oldCode)) calcConditions.holidaySymbols = calcConditions.holidaySymbols.map(c => c === oldCode ? newCode : c);
+    if(calcConditions.paidLeaveSymbols.includes(oldCode)) calcConditions.paidLeaveSymbols = calcConditions.paidLeaveSymbols.map(c => c === oldCode ? newCode : c);
     Object.keys(shifts).forEach(key=>{ if(shifts[key]===oldCode){ shifts[key]=newCode; } });
+    saveTimeFrames();
+}
+
+function updateTimeFrameField(code, field, rawValue){
+    if (!timeFrames[code]) return;
+    timeFrames[code][field] = field === 'break' ? Number(rawValue) : rawValue;
     saveTimeFrames();
 }
 
