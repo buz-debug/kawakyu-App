@@ -1655,6 +1655,22 @@
       margin-bottom: 8px;
     }
 
+    /* 設定の一覧編集画面（メンバー管理・予定プルダウン管理・日常業務項目管理・
+       販売実績表項目管理・時間枠設定など）の行を、各列が縦にきれいに揃うよう
+       flexではなくgridで並べる共通クラス。各画面はgrid-template-columnsだけを
+       インラインstyleで指定して列幅を決める。 */
+    .settings-row-grid {
+      display: grid;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .settings-row-grid:last-child { border-bottom: none; }
+    /* gridアイテムは既定でmin-width:autoのため、select/inputの内容幅次第で
+       トラック幅を突き破ってはみ出すことがある。常にトラック幅を優先させる。 */
+    .settings-row-grid > * { min-width: 0; }
+
     .settings-menu-section + .settings-menu-section { margin-top: 14px; }
 
     .settings-menu-heading {
@@ -3806,18 +3822,6 @@
     border:1px solid #ccc;
 }
 
-.sf-staff-card{
-    display:flex;
-    gap:10px;
-    align-items:center;
-    background:#fafafa;
-    padding:4px;
-    border-radius:8px;
-    margin-bottom:3px;
-    flex-wrap:wrap;
-    border:1px solid #eee;
-}
-
 /* 縦幅の圧縮用スクロールコンテナ（縦幅を140%の504pxに拡大） */
 .sf-scroll-container {
     max-height: 504px;
@@ -3833,72 +3837,6 @@
 /* ======================
 パステルカラーパレット
 ====================== */
-/* 時間枠設定の各行を1行に収める */
-#timeFrameArea .sf-staff-card > div {
-    flex-wrap: nowrap;
-    gap: 6px;
-}
-#timeFrameArea input[id^="code_"] {
-    width: 60px !important;
-    padding: 6px;
-}
-#timeFrameArea input[type="time"] {
-    width: 95px;
-    padding: 6px;
-}
-#timeFrameArea select[id^="break_"] {
-    width: 92px;
-    padding: 6px;
-}
-#timeFrameArea .sf-color-select-btn {
-    width: 56px;
-    padding: 6px 8px;
-    flex-shrink: 0;
-}
-#timeFrameArea button {
-    padding: 6px 8px;
-    font-size: 11px;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.sf-color-select-btn {
-    background: #eee;
-    color: #333;
-    border: 1px solid #ccc;
-    padding: 8px 12px;
-    font-size: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    width: 70px;
-    box-sizing: border-box;
-}
-.sf-color-select-btn:hover {
-    background: #e0e0e0;
-}
-
-.sf-color-palette-container {
-    display: none;
-    flex-direction: column;
-    gap: 4px;
-    background: #fff;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    margin-top: 6px;
-    max-width: 320px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 100;
-}
-
-.sf-color-palette-title {
-    font-size: 11px;
-    color: #666;
-    margin: 0 0 2px 0;
-    font-weight: bold;
-}
 
 .sf-color-palette-grid {
     display: grid;
@@ -6415,7 +6353,7 @@ window.addEventListener('pagehide', function() {
 
   <!-- 日常業務：項目管理 -->
   <div class="modal-overlay settings-modal" id="dailyItemsModal" role="dialog" aria-modal="true">
-    <div class="modal">
+    <div class="modal" style="width:min(560px, 92vw);">
       <h3 class="settings-panel-title">日常業務 項目管理</h3>
       <p class="settings-note">表の縦軸に表示する業務項目を追加・編集・削除します。</p>
       <ul class="member-list" id="dailyItemsList"></ul>
@@ -6556,7 +6494,7 @@ window.addEventListener('pagehide', function() {
 
   <!-- 販売実績表：項目管理 -->
   <div class="modal-overlay settings-modal" id="salesItemsModal" role="dialog" aria-modal="true">
-    <div class="modal">
+    <div class="modal" style="width:min(560px, 92vw);">
       <h3 class="settings-panel-title">販売実績表 項目管理</h3>
       <p class="settings-note">表の横軸に表示する項目を追加・編集・削除します。</p>
       <ul class="member-list" id="salesItemsList"></ul>
@@ -9302,20 +9240,22 @@ window.addEventListener('pagehide', function() {
     }
 
     function renderSettingsMembers() {
+      const memberCols = '24px 1fr 64px 40px auto';
       document.getElementById('settingsMemberList').innerHTML = getMembers().map(m => {
         if (isSystemMember(m)) {
-          return `<li>
+          return `<li class="settings-row-grid" style="grid-template-columns:${memberCols};">
             <span class="member-dot" style="background:${authorColor(m.name)}">全</span>
             <span class="member-name">${escapeHtml(m.name)}<span class="member-system-badge">全員宛・変更不可</span></span>
+            <span></span><span></span><span></span>
           </li>`;
         }
         const branch = (state.branches || []).find(b => b.name === state.currentBranch);
         const staffId = m.staffCode ? `${branch ? branch.branchId : '??'}-${m.staffCode}` : '';
         const hasColor = !!m.color;
-        return `<li>
+        return `<li class="settings-row-grid" style="grid-template-columns:${memberCols};">
           <span class="member-dot" style="background:${authorColor(m.name)}">${escapeHtml(m.name.charAt(0))}</span>
-          <input type="text" data-member-name="${m.id}" value="${escapeHtml(m.name)}" maxlength="30" style="flex:1;min-width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-          ${staffId ? `<span style="color:var(--muted);font-size:11px;white-space:nowrap;">${escapeHtml(staffId)}</span>` : ''}
+          <input type="text" data-member-name="${m.id}" value="${escapeHtml(m.name)}" maxlength="30" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <span style="color:var(--muted);font-size:11px;white-space:nowrap;">${escapeHtml(staffId)}</span>
           <div class="member-color-picker-wrap" id="memberRowColorWrap_${m.id}">
             <button type="button" class="member-color-btn${hasColor ? ' has-color' : ''}" style="${hasColor ? `background:${m.color};` : ''}" title="アイコンの背景色を選択" onclick="toggleInlineColorDropdown('memberRowColorWrap_${m.id}')">色</button>
             <div id="memberRowColorPalette_${m.id}" class="member-color-dropdown"></div>
@@ -9497,14 +9437,33 @@ window.addEventListener('pagehide', function() {
       ).join('');
     }
 
+    // 固定メニュー（FIXED_SCHEDULE_PRESET_NAMES）が並べ替えでカスタム項目と混ざってしまわないよう、
+    // 表示・保存の両方で「固定項目→カスタム項目」の順に揃え直す（各グループ内の相対順は保持）。
+    function sortSchedulePresetsFixedFirst() {
+      const presets = state.schedulePresets;
+      if (!Array.isArray(presets) || !presets.length) return;
+      const fixed = presets.filter(p => FIXED_SCHEDULE_PRESET_NAMES.includes(p.name));
+      const custom = presets.filter(p => !FIXED_SCHEDULE_PRESET_NAMES.includes(p.name));
+      const sorted = [...fixed, ...custom];
+      const changed = sorted.some((p, i) => p !== presets[i]);
+      if (changed) {
+        state.schedulePresets = sorted;
+        saveState();
+        markListSettingsDirty();
+      }
+    }
+
     function renderSettingsPresets() {
       const list = document.getElementById('settingsPresetList');
       if (!list) return;
+      sortSchedulePresetsFixedFirst();
       const presets = state.schedulePresets || [];
-      const fixedRowHtml = `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${ALL_DAY_BLOCK_PRESET_COLOR};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></span>
-        <span style="flex:1;font-size:12px;">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</span>
+      const presetCols = '30px 1fr 100px auto';
+      const fixedRowHtml = `<li class="settings-row-grid" style="grid-template-columns:${presetCols};">
+        <span style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${ALL_DAY_BLOCK_PRESET_COLOR};border:1px solid rgba(0,0,0,.1);"></span>
+        <span style="font-size:12px;">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</span>
         <span style="font-size:11px;color:var(--muted);white-space:nowrap;">🔒固定メニュー</span>
+        <span></span>
       </li>`;
       if (!presets.length) {
         list.innerHTML = fixedRowHtml;
@@ -9513,14 +9472,14 @@ window.addEventListener('pagehide', function() {
       list.innerHTML = presets.map((p, i) => {
         const isFixed = FIXED_SCHEDULE_PRESET_NAMES.includes(p.name);
         const color = p.color || '#4a7fb5';
-        return `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
+        return `<li class="settings-row-grid" style="grid-template-columns:${presetCols};">
         <div class="member-color-picker-wrap" id="presetRowColorWrap_${i}">
           <button type="button" class="member-color-btn has-color" style="width:22px;height:22px;padding:0;background:${color};" title="色を選択" onclick="toggleInlineColorDropdown('presetRowColorWrap_${i}')"></button>
           <div id="presetRowColorPalette_${i}" class="member-color-dropdown"></div>
         </div>
         ${isFixed
-          ? `<span style="flex:1;font-size:12px;">${escapeHtml(p.name)}<span style="font-size:10px;color:var(--muted);margin-left:4px;" title="項目名は固定です">🔒</span></span>`
-          : `<input type="text" data-preset-name="${i}" value="${escapeHtml(p.name)}" maxlength="30" style="flex:1;min-width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">`}
+          ? `<span style="font-size:12px;">${escapeHtml(p.name)}<span style="font-size:10px;color:var(--muted);margin-left:4px;" title="項目名は固定です">🔒</span></span>`
+          : `<input type="text" data-preset-name="${i}" value="${escapeHtml(p.name)}" maxlength="30" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">`}
         <select data-preset-duration="${i}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           ${presetDurationOptionsHtml(p.duration || 60)}
         </select>
@@ -9609,6 +9568,10 @@ window.addEventListener('pagehide', function() {
       if (!Array.isArray(presets)) return;
       const target = i + dir;
       if (i < 0 || i >= presets.length || target < 0 || target >= presets.length) return;
+      // 固定項目とカスタム項目の境界を跨ぐ並べ替えは禁止（固定項目は常に上部にまとめる）
+      const isFixedI = FIXED_SCHEDULE_PRESET_NAMES.includes(presets[i].name);
+      const isFixedTarget = FIXED_SCHEDULE_PRESET_NAMES.includes(presets[target].name);
+      if (isFixedI !== isFixedTarget) return;
       [presets[i], presets[target]] = [presets[target], presets[i]];
       saveState();
       markListSettingsDirty();
@@ -9738,9 +9701,9 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = cats.map((cat, i) => `
-        <li>
+        <li class="settings-row-grid" style="grid-template-columns:24px 1fr auto;">
           <span class="member-dot" style="background:${COLORS[i % COLORS.length]}">${escapeHtml(cat.charAt(0))}</span>
-          <input type="text" data-bmcat-name="${i}" value="${escapeHtml(cat)}" maxlength="20" style="flex:1;min-width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-bmcat-name="${i}" value="${escapeHtml(cat)}" maxlength="20" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           <span class="member-actions">
             <button type="button" data-bmdel="${i}" class="del">削除</button>
           </span>
@@ -11225,17 +11188,19 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = salesItems.map((item, i) => `
-        <li style="display:flex;align-items:center;gap:6px;padding:6px 0;flex-wrap:wrap;">
+        <li class="settings-row-grid" style="grid-template-columns:34px 1fr 64px 100px auto;">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap;">ID:${escapeHtml(item.id)}</span>
-          <input type="text" data-salesitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="flex:1;min-width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-          <input type="text" data-salesitem-unit="${item.id}" value="${escapeHtml(item.unit || '')}" maxlength="10" placeholder="単位" style="width:64px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-salesitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-salesitem-unit="${item.id}" value="${escapeHtml(item.unit || '')}" maxlength="10" placeholder="単位" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           <select data-salesitemmode="${item.id}" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
             <option value="both" ${item.mode !== 'dailyOnly' ? 'selected' : ''}>日計＋累計</option>
             <option value="dailyOnly" ${item.mode === 'dailyOnly' ? 'selected' : ''}>日計のみ</option>
           </select>
-          <button type="button" data-salesitemup="${item.id}" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
-          <button type="button" data-salesitemdown="${item.id}" title="下へ" ${i === salesItems.length - 1 ? 'disabled' : ''}>↓</button>
-          <button type="button" data-salesitemdel="${item.id}" class="del">削除</button>
+          <span class="member-actions">
+            <button type="button" data-salesitemup="${item.id}" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
+            <button type="button" data-salesitemdown="${item.id}" title="下へ" ${i === salesItems.length - 1 ? 'disabled' : ''}>↓</button>
+            <button type="button" data-salesitemdel="${item.id}" class="del">削除</button>
+          </span>
         </li>`).join('');
       list.querySelectorAll('[data-salesitemmode]').forEach(sel => {
         sel.addEventListener('change', () => {
@@ -11481,14 +11446,16 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = dailyTaskItems.map((item, i) => `
-        <li style="display:flex;align-items:center;gap:6px;padding:6px 0;flex-wrap:wrap;">
+        <li class="settings-row-grid" style="grid-template-columns:34px 96px 1fr 1fr auto;">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap;">ID:${escapeHtml(item.id)}</span>
-          <input type="time" data-dailyitem-time="${item.id}" value="${escapeHtml(item.time || '')}" style="width:96px;padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-          <input type="text" data-dailyitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="flex:1;min-width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-          <input type="text" data-dailyitem-note="${item.id}" value="${escapeHtml(item.note || '')}" maxlength="500" placeholder="備考" style="flex:1;min-width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-          <button type="button" data-dailyitemup="${item.id}" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
-          <button type="button" data-dailyitemdown="${item.id}" title="下へ" ${i === dailyTaskItems.length - 1 ? 'disabled' : ''}>↓</button>
-          <button type="button" data-dailyitemdel="${item.id}" class="del">削除</button>
+          <input type="time" data-dailyitem-time="${item.id}" value="${escapeHtml(item.time || '')}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-dailyitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-dailyitem-note="${item.id}" value="${escapeHtml(item.note || '')}" maxlength="500" placeholder="備考" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <span class="member-actions">
+            <button type="button" data-dailyitemup="${item.id}" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
+            <button type="button" data-dailyitemdown="${item.id}" title="下へ" ${i === dailyTaskItems.length - 1 ? 'disabled' : ''}>↓</button>
+            <button type="button" data-dailyitemdel="${item.id}" class="del">削除</button>
+          </span>
         </li>`).join('');
       list.querySelectorAll('[data-dailyitemup]').forEach(btn => {
         btn.addEventListener('click', () => moveDailyItem(btn.dataset.dailyitemup, -1));
@@ -15021,15 +14988,6 @@ document.addEventListener("keydown", function(e) {
     }
 });
 
-function togglePalette(code) {
-    const palette = document.getElementById(`palette_container_${code}`);
-    if (palette) {
-        const isCurrentBlock = window.getComputedStyle(palette).display === "block";
-        document.querySelectorAll('.sf-color-palette-container').forEach(p => { if(p !== palette) p.style.display = 'none'; });
-        palette.style.display = isCurrentBlock ? "none" : "block";
-    }
-}
-
 function selectPaletteColor(code, selectedColor) {
     if (!timeFrames[code]) return;
     timeFrames[code].color = selectedColor;
@@ -15047,9 +15005,6 @@ function toggleMultiselect(id) {
 document.addEventListener("click", function(e) {
     if (!e.target.closest(".sf-multiselect-container")) {
         document.querySelectorAll('.sf-multiselect-dropdown').forEach(d => d.style.display = 'none');
-    }
-    if (!e.target.closest(".sf-color-select-btn") && !e.target.closest(".sf-color-palette-container")) {
-        document.querySelectorAll('.sf-color-palette-container').forEach(p => p.style.display = 'none');
     }
     if (!e.target.closest(".sf-shift-cell") && !e.target.closest("#timeframeListEdit")) {
         clearShiftSelection();
@@ -16041,38 +15996,37 @@ function shiftDeleteStaffData(name){
 ====================== */
 function renderTimeFrameEditor(){
     const area = document.getElementById("timeFrameArea");
+    const cols = '70px 100px 100px 110px 30px auto';
     let html = "";
     timeFrameOrder.forEach((code,index)=>{
         if(!timeFrames[code]){ return; }
         if (selectedColorsTemp[code] === undefined) selectedColorsTemp[code] = timeFrames[code].color || "";
-        const currentBgColor = selectedColorsTemp[code];
-
-        const btnStyle = currentBgColor
-            ? `background:${currentBgColor};border:1px solid #ccc;color:#333;`
-            : `background:repeating-linear-gradient(45deg,#fff 0 5px,#eee 5px 10px);border:1px dashed #888;color:#555;`;
-        const btnText = currentBgColor ? "色選択" : "無地";
+        const currentColor = selectedColorsTemp[code];
+        const swatchStyle = currentColor
+            ? `background:${currentColor};`
+            : `background:repeating-linear-gradient(45deg,#fff 0 4px,#eee 4px 8px);`;
 
         html += `
-        <div class="sf-staff-card" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <input value="${code}" id="code_${code}" style="width:70px" onchange="updateTimeFrameCode('${code}', this.value)">
-                <input type="time" value="${timeFrames[code].start}" id="start_${code}" onchange="updateTimeFrameField('${code}','start',this.value)">
-                <input type="time" value="${timeFrames[code].end}" id="end_${code}" onchange="updateTimeFrameField('${code}','end',this.value)">
-                <select id="break_${code}" onchange="updateTimeFrameField('${code}','break',this.value)">${createBreakOptions(timeFrames[code].break || 0)}</select>
-                <button type="button" id="btn_color_${code}" class="sf-color-select-btn" style="${btnStyle}" onclick="togglePalette('${code}')">${btnText}</button>
-                <button class="sf-danger-btn" onclick='deleteTimeFrame("${code}")'>削除</button>
-                <button class="sf-order-btn" onclick="moveTimeFrameUp(${index})">↑</button><button class="sf-order-btn" onclick="moveTimeFrameDown(${index})">↓</button>
+        <div class="settings-row-grid" style="grid-template-columns:${cols};">
+            <input value="${code}" id="code_${code}" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;" onchange="updateTimeFrameCode('${code}', this.value)">
+            <input type="time" value="${timeFrames[code].start}" id="start_${code}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" onchange="updateTimeFrameField('${code}','start',this.value)">
+            <input type="time" value="${timeFrames[code].end}" id="end_${code}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" onchange="updateTimeFrameField('${code}','end',this.value)">
+            <select id="break_${code}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;" onchange="updateTimeFrameField('${code}','break',this.value)">${createBreakOptions(timeFrames[code].break || 0)}</select>
+            <div class="member-color-picker-wrap" id="timeFrameRowColorWrap_${code}">
+              <button type="button" class="member-color-btn${currentColor ? ' has-color' : ''}" style="width:22px;height:22px;padding:0;${swatchStyle}" title="色を選択" onclick="toggleInlineColorDropdown('timeFrameRowColorWrap_${code}')"></button>
+              <div id="timeFrameRowColorPalette_${code}" class="member-color-dropdown"></div>
             </div>
-            <div class="sf-color-palette-container" id="palette_container_${code}">
-                <p class="sf-color-palette-title">カラーパレット</p>
-                <div id="palette_grid_${code}" style="display:grid;grid-template-columns:repeat(10,1fr);gap:4px;width:222px;"></div>
-            </div>
+            <span class="member-actions">
+              <button type="button" onclick='deleteTimeFrame("${code}")' class="del">削除</button>
+              <button type="button" onclick="moveTimeFrameUp(${index})">↑</button>
+              <button type="button" onclick="moveTimeFrameDown(${index})">↓</button>
+            </span>
         </div>`;
     });
     area.innerHTML = html;
     timeFrameOrder.forEach((code) => {
         if (!timeFrames[code]) return;
-        renderColorPalette(`palette_grid_${code}`, selectedColorsTemp[code] || '', c => {
+        renderColorPalette(`timeFrameRowColorPalette_${code}`, selectedColorsTemp[code] || '', c => {
             selectPaletteColor(code, c);
         }, true);
     });
