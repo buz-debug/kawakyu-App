@@ -6389,6 +6389,7 @@ window.addEventListener('pagehide', function() {
       </div>
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" id="dailyItemsModalClose">閉じる</button>
+        <button type="button" id="dailyItemsSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -6436,7 +6437,7 @@ window.addEventListener('pagehide', function() {
             <label style="font-size:11px;color:var(--muted);">新しいパスワード（確認）
                 <input type="password" id="newPasswordConfirmInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
             </label>
-            <button type="button" onclick="changeSettingsPassword()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">パスワードを変更</button>
+            <button type="button" onclick="changeSettingsPassword()" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">保存</button>
         </div>
         <div class="modal-actions" style="margin-top:16px;">
             <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelPassword')">閉じる</button>
@@ -6457,6 +6458,7 @@ window.addEventListener('pagehide', function() {
         </div>
         <div class="modal-actions" style="margin-top:16px;">
             <button type="button" class="sf-close-btn" onclick="closeSubPanel(null,'panelTimeFrame')">閉じる</button>
+            <button type="button" class="primary" onclick="saveTimeFramePanelChanges()">保存</button>
         </div>
     </div>
   </div>
@@ -6545,6 +6547,7 @@ window.addEventListener('pagehide', function() {
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" onclick="openPanelPasswordDialog()" style="margin-right:auto;">設定パスワード変更</button>
         <button type="button" id="salesItemsModalClose">閉じる</button>
+        <button type="button" id="salesItemsSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -7309,7 +7312,7 @@ window.addEventListener('pagehide', function() {
           <select id="schedTimeStart" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
           <span style="font-size:13px;color:var(--muted);">〜</span>
           <select id="schedTimeEnd" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
-          <button type="button" id="schedTimeRangeSave" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">適用</button>
+          <button type="button" id="schedTimeRangeSave" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">保存</button>
         </div>
 
         <h3 style="font-size:12px;color:#888;margin:20px 0 8px;">時間単位設定</h3>
@@ -7323,7 +7326,7 @@ window.addEventListener('pagehide', function() {
             <option value="30">30分</option>
             <option value="60">1時間</option>
           </select>
-          <button type="button" id="timeUnitSave" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">適用</button>
+          <button type="button" id="timeUnitSave" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">保存</button>
         </div>
       </div>
 
@@ -7367,7 +7370,7 @@ window.addEventListener('pagehide', function() {
           <label style="font-size:11px;color:var(--muted);">新しいパスワード
             <input type="password" id="branchPasswordNewInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
           </label>
-          <button type="button" id="branchPasswordSaveBtn" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">パスワードを変更</button>
+          <button type="button" id="branchPasswordSaveBtn" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">保存</button>
         </div>
       </div>
 
@@ -7385,7 +7388,8 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <div id="memberManageMount"></div>
       <div class="modal-actions" style="margin-top:8px;">
-        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('memberManageModal'))">閉じる</button>
+        <button type="button" class="sf-close-btn" onclick="attemptCloseListSettings(saveMemberManageChanges, () => closeOverlay(document.getElementById('memberManageModal')))">閉じる</button>
+        <button type="button" id="memberManageSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -7394,7 +7398,8 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <div id="bmCatManageMount"></div>
       <div class="modal-actions" style="margin-top:8px;">
-        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('bmCatManageModal'))">閉じる</button>
+        <button type="button" class="sf-close-btn" onclick="attemptCloseListSettings(saveBmCatManageChanges, () => closeOverlay(document.getElementById('bmCatManageModal')))">閉じる</button>
+        <button type="button" id="bmCatManageSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -7412,7 +7417,8 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <div id="taskPresetMount"></div>
       <div class="modal-actions" style="margin-top:8px;">
-        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('taskPresetModal'))">閉じる</button>
+        <button type="button" class="sf-close-btn" onclick="attemptCloseListSettings(saveTaskPresetChanges, () => closeOverlay(document.getElementById('taskPresetModal')))">閉じる</button>
+        <button type="button" id="taskPresetSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -7563,6 +7569,20 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
+  <!-- メンバー管理・ブックマーク項目管理・予定プルダウン管理・日常業務項目管理・販売実績表項目管理の
+       一覧編集画面共通の未保存警告（adminUnsavedModalと同じ構造・同じ「編集画面に戻る」のみで、
+       破棄して元に戻す機能は持たない。管理者ページとは別ドメインのため専用のモーダルにしている）。 -->
+  <div class="modal-overlay settings-modal" id="listSettingsUnsavedModal" role="dialog" aria-modal="true" style="z-index:2000;">
+    <div class="modal">
+      <h3 style="font-size:13px;margin-bottom:8px;">保存されていない変更があります</h3>
+      <p class="settings-note">「保存」を押さずに閉じると変更内容は失われます。</p>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" id="listSettingsUnsavedCancelBtn">編集画面に戻る</button>
+        <button type="button" id="listSettingsUnsavedSaveCloseBtn" class="primary">保存して閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay settings-modal" id="adminBranchModal" role="dialog" aria-modal="true">
     <div class="modal">
       <h3 style="font-size:12px;color:#888;margin-bottom:8px;">営業所・スプレッドシートID・パスワード</h3>
@@ -7575,6 +7595,7 @@ window.addEventListener('pagehide', function() {
       </div>
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" class="sf-close-btn" onclick="closeAdminBranchModal()">閉じる</button>
+        <button type="button" id="adminBranchSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -7590,7 +7611,7 @@ window.addEventListener('pagehide', function() {
         <label style="font-size:11px;color:var(--muted);">新しい管理者パスワード
           <input type="password" id="adminNewAdminPasswordInput" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;margin-top:2px;" autocomplete="off">
         </label>
-        <button type="button" id="adminAdminPasswordSaveBtn" style="padding:6px 12px;background:#475569;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">管理者パスワードを変更</button>
+        <button type="button" id="adminAdminPasswordSaveBtn" style="padding:6px 12px;background:#475569;color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;align-self:flex-start;">保存</button>
       </div>
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" class="sf-close-btn" onclick="closeAdminPasswordModal()">閉じる</button>
@@ -7608,7 +7629,8 @@ window.addEventListener('pagehide', function() {
       </div>
       <ul class="member-list" id="adminStaffIdList"></ul>
       <div class="modal-actions" style="margin-top:16px;">
-        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('adminStaffIdModal'))">閉じる</button>
+        <button type="button" class="sf-close-btn" onclick="closeAdminStaffIdModal()">閉じる</button>
+        <button type="button" id="adminStaffIdSaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -9354,7 +9376,7 @@ window.addEventListener('pagehide', function() {
       if (target < 0 || target >= state.members.length || isSystemMember(state.members[target])) return;
       [state.members[idx], state.members[target]] = [state.members[target], state.members[idx]];
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      markListSettingsDirty();
       renderMemberSelects();
       renderSettingsMembers();
       if (typeof renderViewTable === 'function') renderViewTable();
@@ -9463,7 +9485,7 @@ window.addEventListener('pagehide', function() {
           if (!confirm(`「${state.schedulePresets[i].name}」を削除しますか？`)) return;
           state.schedulePresets.splice(i, 1);
           saveState();
-          if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+          markListSettingsDirty();
           renderSettingsPresets();
           renderSchedulePresetList();
         });
@@ -9484,7 +9506,7 @@ window.addEventListener('pagehide', function() {
       if (i < 0 || i >= presets.length || target < 0 || target >= presets.length) return;
       [presets[i], presets[target]] = [presets[target], presets[i]];
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      markListSettingsDirty();
       renderSettingsPresets();
       renderSchedulePresetList();
     }
@@ -9632,7 +9654,7 @@ window.addEventListener('pagehide', function() {
           (state.bookmarks || []).forEach(b => { if (b.category === cur) b.category = trimmed; });
           state.bookmarkCategories[i] = trimmed;
           saveState();
-          if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+          markListSettingsDirty();
           renderSettingsBmCats();
           renderRoomList();
           renderMessages();
@@ -9646,7 +9668,7 @@ window.addEventListener('pagehide', function() {
           (state.bookmarks || []).forEach(b => { if (b.category === cat) b.category = ''; });
           state.bookmarkCategories.splice(i, 1);
           saveState();
-          if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+          markListSettingsDirty();
           renderSettingsBmCats();
           renderRoomList();
           renderMessages();
@@ -9714,6 +9736,56 @@ window.addEventListener('pagehide', function() {
       openOverlay(modal);
     }
 
+    // メンバー管理・ブックマーク項目管理・予定プルダウン管理・日常業務項目管理・販売実績表項目管理
+    // 共通の未保存フラグ。これらの画面の追加・削除・並べ替え・子編集モーダルの保存は、
+    // ここではスプレッドシートへ同期せずローカルにだけ反映し、この関数群でフラグを立てる。
+    // 実際の同期は各画面自身の「保存」ボタンでのみ行う（アプリ全体の「保存で確定する」という
+    // 基本ルールを、一覧管理系の画面にも統一するため）。
+    let listSettingsDirty = false;
+
+    function markListSettingsDirty() {
+      listSettingsDirty = true;
+    }
+
+    // 保存されていない変更がある場合に「編集画面に戻る」「保存して閉じる」を選ばせる共通ダイアログ
+    // （adminUnsavedModal/showAdminUnsavedDialogと同じ構造。破棄して元に戻す機能は持たない）。
+    function attemptCloseListSettings(saveAndCloseFn, closeFn) {
+      if (!listSettingsDirty) { closeFn(); return; }
+      const modal = document.getElementById('listSettingsUnsavedModal');
+      const cancelBtn = document.getElementById('listSettingsUnsavedCancelBtn');
+      const saveCloseBtn = document.getElementById('listSettingsUnsavedSaveCloseBtn');
+
+      const cleanup = () => {
+        closeOverlay(modal);
+        cancelBtn.removeEventListener('click', onCancel);
+        saveCloseBtn.removeEventListener('click', onSaveClose);
+      };
+      const onCancel = () => { cleanup(); };
+      const onSaveClose = () => { cleanup(); saveAndCloseFn(); closeFn(); };
+
+      cancelBtn.addEventListener('click', onCancel);
+      saveCloseBtn.addEventListener('click', onSaveClose);
+      openOverlay(modal);
+    }
+
+    // メンバー管理画面の「保存」ボタン。ローカルに溜まった変更をまとめてスプレッドシートへ同期する。
+    function saveMemberManageChanges() {
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      listSettingsDirty = false;
+    }
+
+    // ブックマーク項目管理画面の「保存」ボタン。
+    function saveBmCatManageChanges() {
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      listSettingsDirty = false;
+    }
+
+    // 予定プルダウン管理画面の「保存」ボタン。
+    function saveTaskPresetChanges() {
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      listSettingsDirty = false;
+    }
+
     // 営業所一覧の各行を保存する。未保存の編集を一括保存するために使う。
     function saveAllAdminBranchRows() {
       document.querySelectorAll('#adminBranchList [data-branchsave]').forEach(btn => btn.click());
@@ -9737,11 +9809,45 @@ window.addEventListener('pagehide', function() {
       });
     }
 
+    // 営業所一覧の各行を確定させたうえで、実際にスプレッドシートへ同期する。
+    function saveAdminBranchChanges() {
+      saveAllAdminBranchRows();
+      if (typeof syncAllBranchesToSheet === 'function') syncAllBranchesToSheet('スプレッドシートに保存しました');
+      adminDirty = false;
+    }
+
     function closeAdminBranchModal() {
       if (!adminDirty) { closeOverlay(document.getElementById('adminBranchModal')); return; }
       showAdminUnsavedDialog(() => {
-        saveAllAdminBranchRows();
+        saveAdminBranchChanges();
         if (!adminDirty) { closeOverlay(document.getElementById('adminBranchModal')); }
+      });
+    }
+
+    // スタッフID管理は表示中の営業所を切り替えながら編集できるため、どの営業所を
+    // 編集したかをここで覚えておき、「保存」時にそれぞれの営業所自身へ同期する
+    // （「保存」ボタンを押した時点で選択中の営業所だけを見てしまうと、営業所を
+    // 切り替えた後に別の営業所の編集が同期されずadminDirtyだけ消える不具合になるため）。
+    let adminStaffIdDirtyBranches = new Set();
+
+    function markAdminStaffIdDirty(branchName) {
+      adminStaffIdDirtyBranches.add(branchName);
+      adminDirty = true;
+    }
+
+    function saveAdminStaffIdChanges() {
+      adminStaffIdDirtyBranches.forEach(branchName => {
+        if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートに保存しました', branchName);
+      });
+      adminStaffIdDirtyBranches.clear();
+      adminDirty = false;
+    }
+
+    function closeAdminStaffIdModal() {
+      if (!adminDirty) { closeOverlay(document.getElementById('adminStaffIdModal')); return; }
+      showAdminUnsavedDialog(() => {
+        saveAdminStaffIdChanges();
+        if (!adminDirty) { closeOverlay(document.getElementById('adminStaffIdModal')); }
       });
     }
 
@@ -9980,10 +10086,11 @@ window.addEventListener('pagehide', function() {
           }
           members[i].staffCode = paddedCode;
           input.value = paddedCode;
-          // 編集対象は表示中の営業所（ログイン中の営業所と異なる場合があるため、
-          // その営業所自身のスプレッドシートへ即時反映する）
+          // 編集対象は表示中の営業所（ログイン中の営業所と異なる場合がある）。
+          // どの営業所を編集したかをmarkAdminStaffIdDirtyで覚えておき、
+          // 「保存」が押された時点でその営業所自身のスプレッドシートへ反映する。
           saveState();
-          if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートに保存しました', branchName);
+          markAdminStaffIdDirty(branchName);
         });
       });
     }
@@ -10069,9 +10176,7 @@ window.addEventListener('pagehide', function() {
           if (oldName !== trimmedName) saveSheetId(oldName, '');
           saveSheetId(trimmedName, newSheetId);
           saveState();
-          if (typeof syncAllBranchesToSheet === 'function') syncAllBranchesToSheet('スプレッドシートに保存しました');
           renderCurrentBranchLabel();
-          adminDirty = false;
           if (typeof updateTabSaveBtnVisibility === 'function') updateTabSaveBtnVisibility();
         });
       });
@@ -10086,7 +10191,7 @@ window.addEventListener('pagehide', function() {
           state.branches.splice(i, 1);
           if (state.currentBranch === b.name) state.currentBranch = state.branches[0].name;
           saveState();
-          if (typeof syncAllBranchesToSheet === 'function') syncAllBranchesToSheet('スプレッドシートから削除しました');
+          adminDirty = true;
           renderAdminBranchList();
           renderCurrentBranchLabel();
         });
@@ -10224,7 +10329,13 @@ window.addEventListener('pagehide', function() {
       state.salesItems = cloneJsonValue(salesItems);
       saveState();
       window._hasUnsyncedTabChanges = true;
+      markListSettingsDirty();
+    }
+
+    // 販売実績表項目管理画面の「保存」ボタン。
+    function saveSalesItemsChanges() {
       salesSaveToSheet();
+      listSettingsDirty = false;
     }
 
     function saveSalesRecords() {
@@ -11123,7 +11234,13 @@ window.addEventListener('pagehide', function() {
       ensureBranchBucket(state.currentBranch).dailyTaskItems = cloneJsonValue(dailyTaskItems);
       saveState();
       window._hasUnsyncedTabChanges = true;
+      markListSettingsDirty();
+    }
+
+    // 日常業務項目管理画面の「保存」ボタン。
+    function saveDailyItemsChanges() {
       dailySaveToSheet();
+      listSettingsDirty = false;
     }
 
     function saveDailyTaskRecords() {
@@ -11455,7 +11572,7 @@ window.addEventListener('pagehide', function() {
       const color = document.getElementById('memberAddColor').value || '';
       state.members.push({ id: uid(), name: trimmed, color, staffCode: paddedCode });
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      markListSettingsDirty();
       document.getElementById('memberAddColor').value = '';
       setMemberAddColorPreview('');
       closeMemberAddColorDropdown();
@@ -11511,7 +11628,7 @@ window.addEventListener('pagehide', function() {
       m.color = document.getElementById('memberEditColor').value || '';
       renameMemberInData(oldName, newName);
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      markListSettingsDirty();
       closeMemberModal();
       renderMemberSelects();
       renderDetail();
@@ -11536,7 +11653,7 @@ window.addEventListener('pagehide', function() {
         // 保存前マージで、他端末の古いデータにより削除したメンバーが復活しないようにする
         if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
         saveState();
-        if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+        markListSettingsDirty();
         renderMemberSelects();
         renderDetail();
         renderSettingsMembers();
@@ -13469,11 +13586,12 @@ window.addEventListener('pagehide', function() {
       if (state.schedulePresets.some(p => p.name === name)) { alert('同じ名前が既にあります。'); return; }
       state.schedulePresets.push({ name, duration });
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      markListSettingsDirty();
       input.value = '';
       renderSettingsPresets();
       renderSchedulePresetList();
     });
+    document.getElementById('taskPresetSaveBtn').addEventListener('click', saveTaskPresetChanges);
     document.getElementById('presetAddInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') e.preventDefault();
     });
@@ -13494,12 +13612,13 @@ window.addEventListener('pagehide', function() {
       if (state.bookmarkCategories.includes(name)) { alert('同じ名前が既にあります。'); return; }
       state.bookmarkCategories.push(name);
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      markListSettingsDirty();
       input.value = '';
       renderSettingsBmCats();
       renderRoomList();
       renderMessages();
     });
+    document.getElementById('bmCatManageSaveBtn').addEventListener('click', saveBmCatManageChanges);
     document.getElementById('bmCatAddInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') e.preventDefault();
     });
@@ -13562,7 +13681,7 @@ window.addEventListener('pagehide', function() {
       if (state.branches.some(b => b.branchId === branchId)) { alert('同じ営業所IDが既に使われています。'); return; }
       state.branches.push({ branchId, name, spreadsheetId: '', password: '1234', shiftSettingsPassword: '1234' });
       saveState();
-      if (typeof syncAllBranchesToSheet === 'function') syncAllBranchesToSheet('スプレッドシートに保存しました');
+      adminDirty = true;
       idInput.value = '';
       input.value = '';
       renderAdminBranchList();
@@ -13573,6 +13692,8 @@ window.addEventListener('pagehide', function() {
     document.getElementById('adminBranchAddIdInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') e.preventDefault();
     });
+    document.getElementById('adminBranchSaveBtn').addEventListener('click', saveAdminBranchChanges);
+    document.getElementById('adminStaffIdSaveBtn').addEventListener('click', saveAdminStaffIdChanges);
     document.getElementById('salesItemAddBtn').addEventListener('click', () => {
       const input = document.getElementById('salesItemAddInput');
       const name = (input.value || '').trim();
@@ -13589,8 +13710,9 @@ window.addEventListener('pagehide', function() {
       if (e.key === 'Enter') e.preventDefault();
     });
     document.getElementById('salesItemsModalClose').addEventListener('click', () => {
-      closeOverlay(document.getElementById('salesItemsModal'));
+      attemptCloseListSettings(saveSalesItemsChanges, () => closeOverlay(document.getElementById('salesItemsModal')));
     });
+    document.getElementById('salesItemsSaveBtn').addEventListener('click', saveSalesItemsChanges);
     document.getElementById('salesItemEditCancel').addEventListener('click', closeSalesItemEditModal);
     document.getElementById('salesItemEditSave').addEventListener('click', saveSalesItemEdit);
     document.getElementById('salesItemEditInput').addEventListener('keydown', e => {
@@ -13612,8 +13734,9 @@ window.addEventListener('pagehide', function() {
       if (e.key === 'Enter') e.preventDefault();
     });
     document.getElementById('dailyItemsModalClose').addEventListener('click', () => {
-      closeOverlay(document.getElementById('dailyItemsModal'));
+      attemptCloseListSettings(saveDailyItemsChanges, () => closeOverlay(document.getElementById('dailyItemsModal')));
     });
+    document.getElementById('dailyItemsSaveBtn').addEventListener('click', saveDailyItemsChanges);
     document.getElementById('dailyItemEditCancel').addEventListener('click', closeDailyItemEditModal);
     document.getElementById('dailyItemEditSave').addEventListener('click', saveDailyItemEdit);
     document.getElementById('dailyItemEditInput').addEventListener('keydown', e => {
@@ -13668,6 +13791,7 @@ window.addEventListener('pagehide', function() {
 
     document.getElementById('memberModalCancel').addEventListener('click', closeMemberModal);
     document.getElementById('memberModalSave').addEventListener('click', saveMemberEdit);
+    document.getElementById('memberManageSaveBtn').addEventListener('click', saveMemberManageChanges);
     document.getElementById('memberModal').addEventListener('click', e => {
       if (e.target.id === 'memberModal') closeMemberModal();
     });
@@ -13976,7 +14100,7 @@ window.addEventListener('pagehide', function() {
       }
       state.schedulePresets[i] = { name, duration, color };
       saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      markListSettingsDirty();
       closeOverlay(document.getElementById('presetEditModal'));
       editingPresetIndex = null;
       renderSettingsPresets();
@@ -14641,6 +14765,10 @@ let businessHours;
 let timeFrames;
 let timeFrameOrder;
 let calcConditions;
+// 時間枠の追加・削除・並べ替え・編集は、他の3パネル（休日集計条件・営業時間・締め切り）と違い
+// 入力欄の下書きではなく timeFrames/timeFrameOrder を直接書き換えるため、パネルを開いた時点の
+// スナップショットを持っておき、discardSettingsDrafts()（「保存せずに閉じる」）でそこへ戻す。
+let timeFrameCleanSnapshot = null;
 (function initShiftSettingsFromState() {
     const bucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(shiftViewBranch) : null;
     businessHours = (bucket && bucket.businessHours) ? cloneShiftSettingValue(bucket.businessHours) : { start: "09:00", end: "18:00" };
@@ -15713,6 +15841,9 @@ function openShiftConfigPanel(id){
     document.getElementById("deadlineTimeInput").value = shiftDeadline.time;
     renderMultiselectDropdowns();
     renderTimeFrameEditor();
+    if (id === 'panelTimeFrame') {
+        timeFrameCleanSnapshot = JSON.stringify({ timeFrames, timeFrameOrder });
+    }
     settingsDirty = false;
     openSfSubPanelFromCommonMenu(id);
 }
@@ -15902,6 +16033,13 @@ function discardSettingsDrafts(){
     document.getElementById("deadlineDayInput").value = shiftDeadline.day;
     document.getElementById("deadlineTimeInput").value = shiftDeadline.time;
 
+    if (timeFrameCleanSnapshot) {
+        const restored = JSON.parse(timeFrameCleanSnapshot);
+        timeFrames = restored.timeFrames;
+        timeFrameOrder = restored.timeFrameOrder;
+        persistShiftSettings();
+        timeFrameCleanSnapshot = null;
+    }
     renderTimeFrameEditor();
 
     settingsDirty = false;
@@ -15982,8 +16120,7 @@ function moveTimeFrameDown(index){ if(index===timeFrameOrder.length-1){ return; 
 function saveTimeFrameOrder(){
     persistShiftSettings();
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderMultiselectDropdowns();
-    window._hasUnsyncedTabChanges = true;
-    shiftSaveToSheet();
+    settingsDirty = true;
 }
 
 function saveFixedTimeFrameColor(code){
@@ -15991,9 +16128,7 @@ function saveFixedTimeFrameColor(code){
     timeFrames[code].color = selectedColorsTemp[code];
     persistShiftSettings();
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable();
-    settingsDirty = false;
-    window._hasUnsyncedTabChanges = true;
-    shiftSaveToSheet();
+    settingsDirty = true;
 }
 
 function updateTimeFrame(oldCode){
@@ -16016,7 +16151,6 @@ function updateTimeFrame(oldCode){
         if(calcConditions.paidLeaveSymbols.includes(oldCode)) calcConditions.paidLeaveSymbols = calcConditions.paidLeaveSymbols.map(c => c === oldCode ? newCode : c);
     }
     Object.keys(shifts).forEach(key=>{ if(shifts[key]===oldCode){ shifts[key]=newCode; } });
-    settingsDirty = false;
     saveTimeFrames();
 }
 
@@ -16027,7 +16161,6 @@ function addTimeFrame(){
     if(timeFrames[trimCode]){ alert("既に存在します"); return; }
     timeFrames[trimCode] = { start:"09:00", end:"18:00", "break":60, color:"#cccccc" };
     timeFrameOrder.push(trimCode);
-    settingsDirty = false;
     saveTimeFrames();
 }
 
@@ -16038,7 +16171,6 @@ function deleteTimeFrame(code){
     calcConditions.holidaySymbols = calcConditions.holidaySymbols.filter(item => item !== code);
     calcConditions.paidLeaveSymbols = calcConditions.paidLeaveSymbols.filter(item => item !== code);
     Object.keys(shifts).forEach(key=>{ if(shifts[key]===code){ shifts[key]=""; } });
-    settingsDirty = false;
     saveTimeFrames();
 }
 
@@ -16046,8 +16178,16 @@ function saveTimeFrames(){
     persistShiftSettings();
     localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable(); renderMultiselectDropdowns();
+    settingsDirty = true;
+}
+
+// 時間枠設定パネルの「保存」ボタン。行レベルの追加・削除・並べ替え・編集はここまでローカル
+// 確定のみで、実際のスプレッドシート同期はこの関数でまとめて行う。
+function saveTimeFramePanelChanges(){
     window._hasUnsyncedTabChanges = true;
     shiftSaveToSheet();
+    settingsDirty = false;
+    timeFrameCleanSnapshot = JSON.stringify({ timeFrames, timeFrameOrder });
 }
 
 function renderTimeframeList(){
