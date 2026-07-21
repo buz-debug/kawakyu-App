@@ -6394,22 +6394,6 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
-  <div class="modal-overlay" id="dailyItemEditModal" role="dialog" aria-modal="true">
-    <div class="modal">
-      <h2 style="font-size:14px;margin-bottom:14px;">項目の編集</h2>
-      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">項目名</label>
-      <input type="text" id="dailyItemEditInput" maxlength="30" style="width:100%;padding:8px 10px;border:1px solid #dce1e6;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;">
-      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">時間（表の並び順に使用、未設定可）</label>
-      <input type="time" id="dailyItemEditTimeInput" style="width:100%;padding:8px 10px;border:1px solid #dce1e6;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;">
-      <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">備考</label>
-      <textarea id="dailyItemEditNoteInput" maxlength="500" rows="4" style="width:100%;padding:8px 10px;border:1px solid #dce1e6;border-radius:4px;font-size:13px;margin-bottom:12px;box-sizing:border-box;resize:vertical;"></textarea>
-      <div class="modal-actions">
-        <button type="button" id="dailyItemEditCancel">キャンセル</button>
-        <button type="button" id="dailyItemEditSave" class="primary">保存</button>
-      </div>
-    </div>
-  </div>
-
   <!-- 日常業務：項目の備考ポップアップ（表示専用、編集は設定画面のみ） -->
   <div class="modal-overlay" id="dailyItemNoteModal" role="dialog" aria-modal="true">
     <div class="modal">
@@ -6552,19 +6536,6 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
-  <div class="modal-overlay" id="salesItemEditModal" role="dialog" aria-modal="true">
-    <div class="modal">
-      <h2 style="font-size:14px;margin-bottom:14px;">項目の編集</h2>
-      <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">項目名</label>
-      <input type="text" id="salesItemEditInput" maxlength="30" style="width:100%;padding:8px 10px;border:1px solid #dce1e6;border-radius:4px;font-size:13px;margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">単位（任意・例：L、kg）</label>
-      <input type="text" id="salesItemEditUnitInput" maxlength="10" style="width:100%;padding:8px 10px;border:1px solid #dce1e6;border-radius:4px;font-size:13px;margin-bottom:12px;">
-      <div class="modal-actions">
-        <button type="button" id="salesItemEditCancel">キャンセル</button>
-        <button type="button" id="salesItemEditSave" class="primary">保存</button>
-      </div>
-    </div>
-  </div>
 
   <div class="modal-overlay settings-modal" id="salesPdfModal" role="dialog" aria-modal="true">
     <div class="modal">
@@ -6649,51 +6620,6 @@ window.addEventListener('pagehide', function() {
   </div>
 
   <!-- プリセット編集モーダル -->
-  <div class="modal-overlay" id="presetEditModal" role="dialog" aria-modal="true">
-    <div class="modal" style="width:min(420px,92vw);">
-      <h2 style="font-size:14px;margin-bottom:16px;">予定項目を編集</h2>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-        <div>
-          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">項目名</label>
-          <input type="text" id="presetEditName" maxlength="30"
-            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">所要時間</label>
-          <select id="presetEditDuration" style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-            <option value="15">15分</option>
-            <option value="30">30分</option>
-            <option value="45">45分</option>
-            <option value="60">1時間</option>
-            <option value="75">1時間15分</option>
-            <option value="90">1時間30分</option>
-            <option value="105">1時間45分</option>
-            <option value="120">2時間</option>
-            <option value="135">2時間15分</option>
-            <option value="150">2時間30分</option>
-            <option value="165">2時間45分</option>
-            <option value="180">3時間</option>
-            <option value="210">3時間30分</option>
-            <option value="240">4時間</option>
-            <option value="270">4時間30分</option>
-            <option value="300">5時間</option>
-            <option value="330">5時間30分</option>
-            <option value="360">6時間</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;">バーの色</label>
-          <div id="presetColorPalette" style="display:grid;grid-template-columns:repeat(10,1fr);gap:5px;"></div>
-          <input type="hidden" id="presetEditColor" value="#4a7fb5">
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button type="button" id="presetEditCancel">キャンセル</button>
-        <button type="button" id="presetEditSave" class="primary">保存</button>
-      </div>
-    </div>
-  </div>
-
   <!-- タスク編集モーダル -->
   <div class="modal-overlay" id="taskEditModal" role="dialog" aria-modal="true">
     <div class="modal" style="width:min(400px,92vw);">
@@ -7218,20 +7144,6 @@ window.addEventListener('pagehide', function() {
       <div class="modal-actions">
         <button type="button" id="modalCancel">キャンセル</button>
         <button type="button" id="modalOk" class="primary">OK</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="memberModal" role="dialog" aria-modal="true">
-    <div class="modal">
-      <h2 id="memberModalTitle">メンバー編集</h2>
-      <input type="text" id="memberEditInput" maxlength="30" style="width:100%;padding:8px 10px;border:1px solid #dce1e6;border-radius:4px;font-size:13px;margin-bottom:12px;">
-      <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:6px;">アイコンの背景色</label>
-      <div id="memberEditColorPalette" style="display:grid;grid-template-columns:repeat(10,1fr);gap:5px;margin-bottom:16px;"></div>
-      <input type="hidden" id="memberEditColor" value="">
-      <div class="modal-actions">
-        <button type="button" id="memberModalCancel">キャンセル</button>
-        <button type="button" id="memberModalSave" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -8089,7 +8001,6 @@ window.addEventListener('pagehide', function() {
     let currentTab = 'chat';
     let isNoticeMode = false;
     let modalCallback = null;
-    let editingMemberId = null;
     // シフトタブの設定画面（.sf-sub-settings-modal が z-index:1100）より必ず手前に表示されるよう、
     // 共通モーダル（管理者ページ・設定画面など）の基準z-indexをそれより高くしておく。
     let overlayZIndex = 1500;
@@ -9343,20 +9254,26 @@ window.addEventListener('pagehide', function() {
         }
         const branch = (state.branches || []).find(b => b.name === state.currentBranch);
         const staffId = m.staffCode ? `${branch ? branch.branchId : '??'}-${m.staffCode}` : '';
+        const hasColor = !!m.color;
         return `<li>
           <span class="member-dot" style="background:${authorColor(m.name)}">${escapeHtml(m.name.charAt(0))}</span>
-          <span class="member-name">${escapeHtml(m.name)}${staffId ? `<span style="color:var(--muted);font-size:11px;margin-left:6px;">${escapeHtml(staffId)}</span>` : ''}</span>
+          <input type="text" data-member-name="${m.id}" value="${escapeHtml(m.name)}" maxlength="30" style="flex:1;min-width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          ${staffId ? `<span style="color:var(--muted);font-size:11px;white-space:nowrap;">${escapeHtml(staffId)}</span>` : ''}
+          <div class="member-color-picker-wrap" id="memberRowColorWrap_${m.id}">
+            <button type="button" class="member-color-btn${hasColor ? ' has-color' : ''}" style="${hasColor ? `background:${m.color};` : ''}" title="アイコンの背景色を選択" onclick="toggleInlineColorDropdown('memberRowColorWrap_${m.id}')">色</button>
+            <div id="memberRowColorPalette_${m.id}" class="member-color-dropdown"></div>
+          </div>
           <span class="member-actions">
             <button type="button" data-member-up="${m.id}" title="上へ">↑</button>
             <button type="button" data-member-down="${m.id}" title="下へ">↓</button>
-            <button type="button" data-member-edit="${m.id}">編集</button>
             <button type="button" data-member-del="${m.id}" class="del">削除</button>
           </span>
         </li>`;
       }).join('');
 
-      document.querySelectorAll('#settingsMemberList [data-member-edit]').forEach(btn => {
-        btn.addEventListener('click', () => openMemberEdit(btn.dataset.memberEdit));
+      document.querySelectorAll('#settingsMemberList [data-member-name]').forEach(input => {
+        input.addEventListener('change', () => updateMemberName(input.dataset.memberName, input.value));
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
       });
       document.querySelectorAll('#settingsMemberList [data-member-del]').forEach(btn => {
         btn.addEventListener('click', () => confirmDeleteMember(btn.dataset.memberDel));
@@ -9367,6 +9284,72 @@ window.addEventListener('pagehide', function() {
       document.querySelectorAll('#settingsMemberList [data-member-down]').forEach(btn => {
         btn.addEventListener('click', () => moveMember(btn.dataset.memberDown, 1));
       });
+      getMembers().forEach(m => {
+        if (isSystemMember(m)) return;
+        renderColorPalette(`memberRowColorPalette_${m.id}`, m.color || '', c => updateMemberColor(m.id, c), true);
+      });
+    }
+
+    // 行内カラーピッカー（ドロップダウン方式）の開閉共通処理。メンバー管理・予定プルダウン
+    // 管理など、一覧の各行に色選択ボタンを持つ画面で共通して使う。他の行の分は自動で閉じる。
+    function toggleInlineColorDropdown(wrapId) {
+      const wrap = document.getElementById(wrapId);
+      if (!wrap) return;
+      const dropdown = wrap.querySelector('.member-color-dropdown');
+      const willOpen = dropdown && !dropdown.classList.contains('open');
+      document.querySelectorAll('.member-color-dropdown.open').forEach(el => el.classList.remove('open'));
+      if (willOpen) dropdown.classList.add('open');
+    }
+    document.addEventListener('click', e => {
+      document.querySelectorAll('.member-color-picker-wrap').forEach(wrap => {
+        if (wrap.contains(e.target)) return;
+        const dropdown = wrap.querySelector('.member-color-dropdown');
+        if (dropdown) dropdown.classList.remove('open');
+      });
+    });
+
+    function updateMemberName(id, newNameRaw) {
+      const m = state.members.find(x => x.id === id);
+      if (!m) return;
+      const newName = (newNameRaw || '').trim();
+      if (!newName || newName === m.name) { renderSettingsMembers(); return; }
+      if (newName === ALL_MEMBER_NAME) {
+        alert('「全員」は予約名のため使用できません。');
+        renderSettingsMembers();
+        return;
+      }
+      if (memberNames().includes(newName)) {
+        alert('同じ名前のメンバーが既にいます。');
+        renderSettingsMembers();
+        return;
+      }
+      const oldName = m.name;
+      m.name = newName;
+      renameMemberInData(oldName, newName);
+      saveState();
+      markListSettingsDirty();
+      renderMemberSelects();
+      renderDetail();
+      renderSettingsMembers();
+      renderRoomList();
+      renderMessages();
+      updateMeUI();
+      notifyKasimeMembers();
+      if (typeof shiftRenameStaffInData === 'function') shiftRenameStaffInData(oldName, newName);
+    }
+
+    function updateMemberColor(id, color) {
+      const m = state.members.find(x => x.id === id);
+      if (!m) return;
+      m.color = color || '';
+      saveState();
+      markListSettingsDirty();
+      renderMemberSelects();
+      renderDetail();
+      renderSettingsMembers();
+      renderRoomList();
+      renderMessages();
+      updateMeUI();
     }
 
     function moveMember(id, dir) {
@@ -9447,11 +9430,20 @@ window.addEventListener('pagehide', function() {
         `<option value="${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</option>`;
     }
 
+    const PRESET_DURATION_OPTIONS = [15,30,45,60,75,90,105,120,135,150,165,180,210,240,270,300,330,360];
+    function presetDurationLabel(d) {
+      return d >= 60 ? `${Math.floor(d/60)}時間${d%60 ? d%60+'分' : ''}` : `${d}分`;
+    }
+    function presetDurationOptionsHtml(selected) {
+      return PRESET_DURATION_OPTIONS.map(d =>
+        `<option value="${d}"${d === selected ? ' selected' : ''}>${presetDurationLabel(d)}</option>`
+      ).join('');
+    }
+
     function renderSettingsPresets() {
       const list = document.getElementById('settingsPresetList');
       if (!list) return;
       const presets = state.schedulePresets || [];
-      const durationLabel = d => d >= 60 ? `${Math.floor(d/60)}時間${d%60 ? d%60+'分' : ''}` : `${d}分`;
       const fixedRowHtml = `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
         <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${ALL_DAY_BLOCK_PRESET_COLOR};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></span>
         <span style="flex:1;font-size:12px;">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</span>
@@ -9463,21 +9455,32 @@ window.addEventListener('pagehide', function() {
       }
       list.innerHTML = presets.map((p, i) => {
         const isFixed = FIXED_SCHEDULE_PRESET_NAMES.includes(p.name);
+        const color = p.color || '#4a7fb5';
         return `<li style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);">
-        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${p.color || '#4a7fb5'};flex-shrink:0;border:1px solid rgba(0,0,0,.1);"></span>
-        <span style="flex:1;font-size:12px;">${escapeHtml(p.name)}${isFixed ? '<span style="font-size:10px;color:var(--muted);margin-left:4px;" title="項目名は固定です">🔒</span>' : ''}</span>
-        <span style="font-size:11px;color:var(--muted);white-space:nowrap;">⏱ ${durationLabel(p.duration || 60)}</span>
+        <div class="member-color-picker-wrap" id="presetRowColorWrap_${i}">
+          <button type="button" class="member-color-btn has-color" style="width:22px;height:22px;padding:0;background:${color};" title="色を選択" onclick="toggleInlineColorDropdown('presetRowColorWrap_${i}')"></button>
+          <div id="presetRowColorPalette_${i}" class="member-color-dropdown"></div>
+        </div>
+        ${isFixed
+          ? `<span style="flex:1;font-size:12px;">${escapeHtml(p.name)}<span style="font-size:10px;color:var(--muted);margin-left:4px;" title="項目名は固定です">🔒</span></span>`
+          : `<input type="text" data-preset-name="${i}" value="${escapeHtml(p.name)}" maxlength="30" style="flex:1;min-width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">`}
+        <select data-preset-duration="${i}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          ${presetDurationOptionsHtml(p.duration || 60)}
+        </select>
         <span class="member-actions">
           <button type="button" data-preset-up="${i}" title="上へ">↑</button>
           <button type="button" data-preset-down="${i}" title="下へ">↓</button>
-          <button type="button" data-preset-edit="${i}">編集</button>
           ${isFixed ? '' : `<button type="button" data-preset-del="${i}" class="del">削除</button>`}
         </span>
       </li>`;
       }).join('') + fixedRowHtml;
 
-      list.querySelectorAll('[data-preset-edit]').forEach(btn => {
-        btn.addEventListener('click', () => openPresetEditModal(parseInt(btn.dataset.presetEdit)));
+      list.querySelectorAll('[data-preset-name]').forEach(input => {
+        input.addEventListener('change', () => updatePresetName(parseInt(input.dataset.presetName), input.value));
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+      });
+      list.querySelectorAll('[data-preset-duration]').forEach(sel => {
+        sel.addEventListener('change', () => updatePresetDuration(parseInt(sel.dataset.presetDuration), parseInt(sel.value)));
       });
       list.querySelectorAll('[data-preset-del]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -9496,6 +9499,51 @@ window.addEventListener('pagehide', function() {
       list.querySelectorAll('[data-preset-down]').forEach(btn => {
         btn.addEventListener('click', () => movePresetPosition(parseInt(btn.dataset.presetDown), 1));
       });
+      presets.forEach((p, i) => {
+        renderColorPalette(`presetRowColorPalette_${i}`, p.color || '#4a7fb5', c => updatePresetColor(i, c));
+      });
+    }
+
+    function updatePresetName(i, newNameRaw) {
+      const presets = state.schedulePresets;
+      if (!Array.isArray(presets) || !presets[i]) return;
+      const cur = presets[i];
+      if (FIXED_SCHEDULE_PRESET_NAMES.includes(cur.name)) { renderSettingsPresets(); return; }
+      const newName = (newNameRaw || '').trim();
+      if (!newName || newName === cur.name) { renderSettingsPresets(); return; }
+      if (presets.some((p, idx) => idx !== i && p.name === newName)) {
+        alert('同じ名前が既にあります。');
+        renderSettingsPresets();
+        return;
+      }
+      cur.name = newName;
+      saveState();
+      markListSettingsDirty();
+      renderSettingsPresets();
+      renderSchedulePresetList();
+      renderTaskCalendar();
+    }
+
+    function updatePresetDuration(i, duration) {
+      const presets = state.schedulePresets;
+      if (!Array.isArray(presets) || !presets[i]) return;
+      presets[i].duration = duration;
+      saveState();
+      markListSettingsDirty();
+      renderSettingsPresets();
+      renderSchedulePresetList();
+      renderTaskCalendar();
+    }
+
+    function updatePresetColor(i, color) {
+      const presets = state.schedulePresets;
+      if (!Array.isArray(presets) || !presets[i]) return;
+      presets[i].color = color || '#4a7fb5';
+      saveState();
+      markListSettingsDirty();
+      renderSettingsPresets();
+      renderSchedulePresetList();
+      renderTaskCalendar();
     }
 
     // メンバー管理の上下ボタンと同じUI・仕組み（隣接する項目と入れ替えるだけ）で並び順を変更する
@@ -11075,48 +11123,33 @@ window.addEventListener('pagehide', function() {
       renderSalesTable();
     }
 
-    let salesItemEditingId = null;
-
-    function openSalesItemEdit(id) {
+    function updateSalesItemField(id, field, rawValue) {
       const i = findSalesItemIndexById(id);
       if (i === -1) return;
-      salesItemEditingId = id;
-      document.getElementById('salesItemEditInput').value = salesItems[i].name;
-      document.getElementById('salesItemEditUnitInput').value = salesItems[i].unit || '';
-      openOverlay(document.getElementById('salesItemEditModal'));
-      setTimeout(() => document.getElementById('salesItemEditInput').focus(), 50);
-    }
-
-    function closeSalesItemEditModal() {
-      closeOverlay(document.getElementById('salesItemEditModal'));
-      salesItemEditingId = null;
-    }
-
-    function saveSalesItemEdit() {
-      if (salesItemEditingId === null) return;
-      const i = findSalesItemIndexById(salesItemEditingId);
-      if (i === -1) return;
-      const newName = document.getElementById('salesItemEditInput').value.trim();
-      if (!newName) { alert('項目名を入力してください。'); return; }
-      if (salesItems.some(item => item.id !== salesItemEditingId && item.name === newName)) {
-        alert('同じ名前の項目が既にあります。');
-        return;
-      }
-      const newUnit = document.getElementById('salesItemEditUnitInput').value.trim();
-      const oldName = salesItems[i].name;
-      salesItems[i].name = newName;
-      salesItems[i].unit = newUnit;
-      // 過去の入力データも新しい項目名に引き継ぐ
-      Object.keys(salesRecords).forEach(key => {
-        const rec = salesRecords[key];
-        if (rec && Object.prototype.hasOwnProperty.call(rec, oldName)) {
-          rec[newName] = rec[oldName];
-          delete rec[oldName];
+      const item = salesItems[i];
+      if (field === 'name') {
+        const newName = (rawValue || '').trim();
+        if (!newName) { alert('項目名を入力してください。'); renderSalesItemsList(); return; }
+        if (salesItems.some((it, idx) => idx !== i && it.name === newName)) {
+          alert('同じ名前の項目が既にあります。');
+          renderSalesItemsList();
+          return;
         }
-      });
-      saveSalesRecords();
+        const oldName = item.name;
+        item.name = newName;
+        // 過去の入力データも新しい項目名に引き継ぐ
+        Object.keys(salesRecords).forEach(key => {
+          const rec = salesRecords[key];
+          if (rec && Object.prototype.hasOwnProperty.call(rec, oldName)) {
+            rec[newName] = rec[oldName];
+            delete rec[oldName];
+          }
+        });
+        saveSalesRecords();
+      } else if (field === 'unit') {
+        item.unit = (rawValue || '').trim();
+      }
       saveSalesItems();
-      closeSalesItemEditModal();
       renderSalesItemsList();
       renderSalesTable();
     }
@@ -11129,16 +11162,16 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = salesItems.map((item, i) => `
-        <li style="display:flex;align-items:center;gap:8px;padding:6px 0;">
+        <li style="display:flex;align-items:center;gap:6px;padding:6px 0;flex-wrap:wrap;">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap;">ID:${escapeHtml(item.id)}</span>
-          <span style="flex:1;">${escapeHtml(salesItemDisplayLabel(item))}</span>
+          <input type="text" data-salesitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="flex:1;min-width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-salesitem-unit="${item.id}" value="${escapeHtml(item.unit || '')}" maxlength="10" placeholder="単位" style="width:64px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           <select data-salesitemmode="${item.id}" style="padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
             <option value="both" ${item.mode !== 'dailyOnly' ? 'selected' : ''}>日計＋累計</option>
             <option value="dailyOnly" ${item.mode === 'dailyOnly' ? 'selected' : ''}>日計のみ</option>
           </select>
           <button type="button" data-salesitemup="${item.id}" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
           <button type="button" data-salesitemdown="${item.id}" title="下へ" ${i === salesItems.length - 1 ? 'disabled' : ''}>↓</button>
-          <button type="button" data-salesitemedit="${item.id}">編集</button>
           <button type="button" data-salesitemdel="${item.id}" class="del">削除</button>
         </li>`).join('');
       list.querySelectorAll('[data-salesitemmode]').forEach(sel => {
@@ -11146,8 +11179,13 @@ window.addEventListener('pagehide', function() {
           onSalesItemModeChange(sel.dataset.salesitemmode, sel.value);
         });
       });
-      list.querySelectorAll('[data-salesitemedit]').forEach(btn => {
-        btn.addEventListener('click', () => openSalesItemEdit(btn.dataset.salesitemedit));
+      list.querySelectorAll('[data-salesitem-name]').forEach(input => {
+        input.addEventListener('change', () => updateSalesItemField(input.dataset.salesitemName, 'name', input.value));
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+      });
+      list.querySelectorAll('[data-salesitem-unit]').forEach(input => {
+        input.addEventListener('change', () => updateSalesItemField(input.dataset.salesitemUnit, 'unit', input.value));
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
       });
       list.querySelectorAll('[data-salesitemup]').forEach(btn => {
         btn.addEventListener('click', () => moveSalesItem(btn.dataset.salesitemup, -1));
@@ -11380,13 +11418,13 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = dailyTaskItems.map((item, i) => `
-        <li style="display:flex;align-items:center;gap:8px;padding:6px 0;">
+        <li style="display:flex;align-items:center;gap:6px;padding:6px 0;flex-wrap:wrap;">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap;">ID:${escapeHtml(item.id)}</span>
-          <span style="font-size:11px;color:var(--muted);white-space:nowrap;min-width:34px;">${item.time ? escapeHtml(item.time) : '--:--'}</span>
-          <span style="flex:1;">${escapeHtml(item.name)}</span>
+          <input type="time" data-dailyitem-time="${item.id}" value="${escapeHtml(item.time || '')}" style="width:96px;padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-dailyitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="flex:1;min-width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <input type="text" data-dailyitem-note="${item.id}" value="${escapeHtml(item.note || '')}" maxlength="500" placeholder="備考" style="flex:1;min-width:70px;padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
           <button type="button" data-dailyitemup="${item.id}" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
           <button type="button" data-dailyitemdown="${item.id}" title="下へ" ${i === dailyTaskItems.length - 1 ? 'disabled' : ''}>↓</button>
-          <button type="button" data-dailyitemedit="${item.id}">編集</button>
           <button type="button" data-dailyitemdel="${item.id}" class="del">削除</button>
         </li>`).join('');
       list.querySelectorAll('[data-dailyitemup]').forEach(btn => {
@@ -11395,8 +11433,16 @@ window.addEventListener('pagehide', function() {
       list.querySelectorAll('[data-dailyitemdown]').forEach(btn => {
         btn.addEventListener('click', () => moveDailyItem(btn.dataset.dailyitemdown, 1));
       });
-      list.querySelectorAll('[data-dailyitemedit]').forEach(btn => {
-        btn.addEventListener('click', () => openDailyItemEdit(btn.dataset.dailyitemedit));
+      list.querySelectorAll('[data-dailyitem-time]').forEach(input => {
+        input.addEventListener('change', () => updateDailyItemField(input.dataset.dailyitemTime, 'time', input.value));
+      });
+      list.querySelectorAll('[data-dailyitem-name]').forEach(input => {
+        input.addEventListener('change', () => updateDailyItemField(input.dataset.dailyitemName, 'name', input.value));
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+      });
+      list.querySelectorAll('[data-dailyitem-note]').forEach(input => {
+        input.addEventListener('change', () => updateDailyItemField(input.dataset.dailyitemNote, 'note', input.value));
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
       });
       list.querySelectorAll('[data-dailyitemdel]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -11414,6 +11460,29 @@ window.addEventListener('pagehide', function() {
       });
     }
 
+    function updateDailyItemField(id, field, rawValue) {
+      const i = findDailyItemIndexById(id);
+      if (i === -1) return;
+      const item = dailyTaskItems[i];
+      if (field === 'name') {
+        const newName = (rawValue || '').trim();
+        if (!newName) { alert('項目名を入力してください。'); renderDailyItemsList(); return; }
+        if (dailyTaskItems.some((it, idx) => idx !== i && it.name === newName)) {
+          alert('同じ名前の項目が既にあります。');
+          renderDailyItemsList();
+          return;
+        }
+        item.name = newName;
+      } else if (field === 'time') {
+        item.time = rawValue || '';
+      } else if (field === 'note') {
+        item.note = (rawValue || '').trim();
+      }
+      saveDailyTaskItems();
+      renderDailyItemsList();
+      renderDailyTable();
+    }
+
     function moveDailyItem(id, delta) {
       const i = findDailyItemIndexById(id);
       if (i === -1) return;
@@ -11425,49 +11494,12 @@ window.addEventListener('pagehide', function() {
       renderDailyTable();
     }
 
-    let dailyItemEditingId = null;
-
-    function openDailyItemEdit(id) {
-      const i = findDailyItemIndexById(id);
-      if (i === -1) return;
-      dailyItemEditingId = id;
-      document.getElementById('dailyItemEditInput').value = dailyTaskItems[i].name;
-      document.getElementById('dailyItemEditTimeInput').value = dailyTaskItems[i].time || '';
-      document.getElementById('dailyItemEditNoteInput').value = dailyTaskItems[i].note || '';
-      openOverlay(document.getElementById('dailyItemEditModal'));
-      setTimeout(() => document.getElementById('dailyItemEditInput').focus(), 50);
-    }
-
     function openDailyItemNotePopup(id) {
       const item = dailyTaskItems.find(it => it.id === id);
       if (!item) return;
       document.getElementById('dailyItemNoteTitle').textContent = item.name;
       document.getElementById('dailyItemNoteBody').textContent = item.note ? item.note : '備考はありません';
       openOverlay(document.getElementById('dailyItemNoteModal'));
-    }
-
-    function closeDailyItemEditModal() {
-      closeOverlay(document.getElementById('dailyItemEditModal'));
-      dailyItemEditingId = null;
-    }
-
-    function saveDailyItemEdit() {
-      if (dailyItemEditingId === null) return;
-      const i = findDailyItemIndexById(dailyItemEditingId);
-      if (i === -1) return;
-      const newName = document.getElementById('dailyItemEditInput').value.trim();
-      if (!newName) { alert('項目名を入力してください。'); return; }
-      if (dailyTaskItems.some(item => item.id !== dailyItemEditingId && item.name === newName)) {
-        alert('同じ名前の項目が既にあります。');
-        return;
-      }
-      dailyTaskItems[i].name = newName;
-      dailyTaskItems[i].time = document.getElementById('dailyItemEditTimeInput').value || '';
-      dailyTaskItems[i].note = document.getElementById('dailyItemEditNoteInput').value.trim();
-      saveDailyTaskItems();
-      closeDailyItemEditModal();
-      renderDailyItemsList();
-      renderDailyTable();
     }
 
     function openDailyItemsModal() {
@@ -11589,55 +11621,6 @@ window.addEventListener('pagehide', function() {
       if (typeof renderViewTable === 'function') renderViewTable();
       if (typeof renderEditTable === 'function') renderEditTable();
       return true;
-    }
-
-    function openMemberEdit(id) {
-      const m = state.members.find(x => x.id === id);
-      if (!m || isSystemMember(m)) return;
-      editingMemberId = id;
-      document.getElementById('memberModalTitle').textContent = 'メンバー編集';
-      document.getElementById('memberEditInput').value = m.name;
-      document.getElementById('memberEditColor').value = m.color || '';
-      renderColorPalette('memberEditColorPalette', m.color || '', c => {
-        document.getElementById('memberEditColor').value = c;
-      }, true);
-      openOverlay(document.getElementById('memberModal'));
-      setTimeout(() => document.getElementById('memberEditInput').focus(), 50);
-    }
-
-    function closeMemberModal() {
-      closeOverlay(document.getElementById('memberModal'));
-      editingMemberId = null;
-    }
-
-    function saveMemberEdit() {
-      const newName = document.getElementById('memberEditInput').value.trim();
-      if (!newName) return;
-      const m = state.members.find(x => x.id === editingMemberId);
-      if (!m) { closeMemberModal(); return; }
-      if (newName === ALL_MEMBER_NAME) {
-        alert('「全員」は予約名のため使用できません。');
-        return;
-      }
-      if (newName !== m.name && memberNames().includes(newName)) {
-        alert('同じ名前のメンバーが既にいます。');
-        return;
-      }
-      const oldName = m.name;
-      m.name = newName;
-      m.color = document.getElementById('memberEditColor').value || '';
-      renameMemberInData(oldName, newName);
-      saveState();
-      markListSettingsDirty();
-      closeMemberModal();
-      renderMemberSelects();
-      renderDetail();
-      renderSettingsMembers();
-      renderRoomList();
-      renderMessages();
-      updateMeUI();
-      notifyKasimeMembers();
-      if (typeof shiftRenameStaffInData === 'function') shiftRenameStaffInData(oldName, newName);
     }
 
     function confirmDeleteMember(id) {
@@ -13713,11 +13696,6 @@ window.addEventListener('pagehide', function() {
       attemptCloseListSettings(saveSalesItemsChanges, () => closeOverlay(document.getElementById('salesItemsModal')));
     });
     document.getElementById('salesItemsSaveBtn').addEventListener('click', saveSalesItemsChanges);
-    document.getElementById('salesItemEditCancel').addEventListener('click', closeSalesItemEditModal);
-    document.getElementById('salesItemEditSave').addEventListener('click', saveSalesItemEdit);
-    document.getElementById('salesItemEditInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); saveSalesItemEdit(); }
-    });
     document.getElementById('dailyItemAddBtn').addEventListener('click', () => {
       const input = document.getElementById('dailyItemAddInput');
       const name = (input.value || '').trim();
@@ -13737,11 +13715,6 @@ window.addEventListener('pagehide', function() {
       attemptCloseListSettings(saveDailyItemsChanges, () => closeOverlay(document.getElementById('dailyItemsModal')));
     });
     document.getElementById('dailyItemsSaveBtn').addEventListener('click', saveDailyItemsChanges);
-    document.getElementById('dailyItemEditCancel').addEventListener('click', closeDailyItemEditModal);
-    document.getElementById('dailyItemEditSave').addEventListener('click', saveDailyItemEdit);
-    document.getElementById('dailyItemEditInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); saveDailyItemEdit(); }
-    });
     document.getElementById('adminAdminPasswordSaveBtn').addEventListener('click', () => {
       const current = document.getElementById('adminCurrentAdminPasswordInput').value;
       const next = document.getElementById('adminNewAdminPasswordInput').value;
@@ -13789,15 +13762,7 @@ window.addEventListener('pagehide', function() {
       if (wrap && !wrap.contains(e.target)) closeMemberAddColorDropdown();
     });
 
-    document.getElementById('memberModalCancel').addEventListener('click', closeMemberModal);
-    document.getElementById('memberModalSave').addEventListener('click', saveMemberEdit);
     document.getElementById('memberManageSaveBtn').addEventListener('click', saveMemberManageChanges);
-    document.getElementById('memberModal').addEventListener('click', e => {
-      if (e.target.id === 'memberModal') closeMemberModal();
-    });
-    document.getElementById('memberEditInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') e.preventDefault();
-    });
 
     document.getElementById('btnAddSchedule').addEventListener('click', () => {
       document.getElementById('taskInput').value = '';
@@ -14064,58 +14029,6 @@ window.addEventListener('pagehide', function() {
         });
       });
     }
-
-    // ── プリセット編集モーダル ──
-    let editingPresetIndex = null;
-
-    function openPresetEditModal(i) {
-      const p = state.schedulePresets[i];
-      if (!p) return;
-      editingPresetIndex = i;
-      const isFixed = FIXED_SCHEDULE_PRESET_NAMES.includes(p.name);
-      const nameInput = document.getElementById('presetEditName');
-      nameInput.value = p.name;
-      nameInput.disabled = isFixed;
-      nameInput.title = isFixed ? 'この項目は名前を変更できません' : '';
-      document.getElementById('presetEditDuration').value = String(p.duration || 60);
-      document.getElementById('presetEditColor').value = p.color || '#4a7fb5';
-      renderColorPalette('presetColorPalette', p.color || '#4a7fb5', c => {
-        document.getElementById('presetEditColor').value = c;
-      });
-      openOverlay(document.getElementById('presetEditModal'));
-      setTimeout(() => document.getElementById(isFixed ? 'presetEditDuration' : 'presetEditName').focus(), 50);
-    }
-
-    document.getElementById('presetEditSave').addEventListener('click', () => {
-      const i = editingPresetIndex;
-      const cur = state.schedulePresets[i];
-      const isFixed = FIXED_SCHEDULE_PRESET_NAMES.includes(cur.name);
-      // 固定デフォルト項目は、入力欄が無効化されていても名前だけは必ず元のまま保つ（二重の安全策）
-      const name = isFixed ? cur.name : document.getElementById('presetEditName').value.trim();
-      const duration = parseInt(document.getElementById('presetEditDuration').value);
-      const color = document.getElementById('presetEditColor').value || '#4a7fb5';
-      if (!name) { alert('項目名を入力してください。'); return; }
-      if (!isFixed && name !== cur.name && state.schedulePresets.some(p => p.name === name)) {
-        alert('同じ名前が既にあります。'); return;
-      }
-      state.schedulePresets[i] = { name, duration, color };
-      saveState();
-      markListSettingsDirty();
-      closeOverlay(document.getElementById('presetEditModal'));
-      editingPresetIndex = null;
-      renderSettingsPresets();
-      renderSchedulePresetList();
-      renderTaskCalendar();
-    });
-
-    document.getElementById('presetEditCancel').addEventListener('click', () => {
-      closeOverlay(document.getElementById('presetEditModal'));
-      editingPresetIndex = null;
-    });
-
-    document.getElementById('presetEditModal').addEventListener('click', e => {
-      if (e.target.id === 'presetEditModal') { closeOverlay(document.getElementById('presetEditModal')); editingPresetIndex = null; }
-    });
 
     // ── タスク編集モーダル ──
     let editingTaskId = null;
