@@ -1635,10 +1635,10 @@
     }
 
     .member-actions button {
-      font-size: 10px;
-      padding: 3px 7px;
+      font-size: 11px;
+      padding: 5px 9px;
       border: 1px solid var(--border);
-      border-radius: 3px;
+      border-radius: 4px;
       background: var(--surface);
       cursor: pointer;
       color: var(--text);
@@ -1646,6 +1646,40 @@
 
     .member-actions button:hover { background: var(--bg-chat); }
     .member-actions button.del { color: var(--danger); border-color: #fcc; }
+
+    /* 設定メニューの見出し・ボタン（メイン画面のカード見出し／ボタン規格に合わせる） */
+    .settings-panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cw-green-dark);
+      margin-bottom: 8px;
+    }
+
+    .settings-menu-section + .settings-menu-section { margin-top: 14px; }
+
+    .settings-menu-heading {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--cw-green-dark);
+      padding-bottom: 4px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      letter-spacing: .5px;
+    }
+
+    .settings-menu-btn {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 13px;
+      background: var(--surface);
+      cursor: pointer;
+      text-align: left;
+    }
+    .settings-menu-btn:hover { background: var(--bg-chat); border-color: var(--cw-green); }
+    .settings-menu-btn + .settings-menu-btn { margin-top: 8px; }
 
     /* タスクの繰り返し設定：毎月の日付ボタン */
     .recur-day-selected { background: var(--cw-green) !important; color: #fff !important; border-color: var(--cw-green) !important; }
@@ -3013,6 +3047,14 @@
 #shiftPdfModal #shiftPdfMonthGrid button{
     font-weight:normal;
 }
+
+/* .sf-secondary-btn/.sf-danger-btn/.sf-order-btnは元々#shift-wrap配下専用だったが、
+   時間枠設定など一部の設定パネルは他タブからも開けるよう#shift-wrapの外に配置されて
+   いるため、そちらでも同じ色が効くよう無指定の共通ルールを先に定義しておく
+   （#shift-wrap側は下の規則で上書きされるだけなので、既存の見た目に影響はない）。 */
+.sf-secondary-btn{ background:#666; color:#fff; border:none; }
+.sf-danger-btn{ background:#e74c3c; color:#fff; border:none; }
+.sf-order-btn{ background:#2ecc71; color:#fff; border:none; }
 
 #shift-wrap .sf-secondary-btn{
     background:#666;
@@ -6374,7 +6416,7 @@ window.addEventListener('pagehide', function() {
   <!-- 日常業務：項目管理 -->
   <div class="modal-overlay settings-modal" id="dailyItemsModal" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3 style="font-size:12px;color:#888;margin-bottom:8px;">日常業務 項目管理</h3>
+      <h3 class="settings-panel-title">日常業務 項目管理</h3>
       <p class="settings-note">表の縦軸に表示する業務項目を追加・編集・削除します。</p>
       <ul class="member-list" id="dailyItemsList"></ul>
       <div class="member-add-form">
@@ -6403,7 +6445,7 @@ window.addEventListener('pagehide', function() {
        tab-panel の display:none に隠れてしまうため、他の設定系モーダルと同じ階層に配置する） ===== -->
   <div id="panelPassword" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelPassword')">
     <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">設定パスワード変更</h3>
+        <h3 class="settings-panel-title">設定パスワード変更</h3>
         <p class="settings-note">※設定画面を開く際に使用するパスワードです。変更したら「保存」を押してください</p>
         <div style="display: flex; flex-direction: column; gap: 10px; max-width: 320px;">
             <label style="font-size:11px;color:var(--muted);">現在のパスワード
@@ -6428,7 +6470,7 @@ window.addEventListener('pagehide', function() {
        panelPasswordと同様シフトタブの外に配置する） ===== -->
   <div id="panelTimeFrame" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelTimeFrame')">
     <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(820px, 95vw); max-width:820px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">時間枠設定</h3>
+        <h3 class="settings-panel-title">時間枠設定</h3>
         <p class="settings-note">※設定を変更したら「保存」を押してください</p>
         <div id="timeFrameArea" class="sf-scroll-container"></div>
         <div style="margin-top:10px;">
@@ -6443,7 +6485,7 @@ window.addEventListener('pagehide', function() {
 
   <div id="panelCalcConditions" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelCalcConditions')">
     <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px; min-height:520px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">休日集計条件設定</h3>
+        <h3 class="settings-panel-title">休日集計条件設定</h3>
         <p class="settings-note">※設定を変更したら「保存」を押してください</p>
         <div style="display: flex; flex-direction: column; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -6473,7 +6515,7 @@ window.addEventListener('pagehide', function() {
 
   <div id="panelBusinessHours" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelBusinessHours')">
     <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">営業時間設定</h3>
+        <h3 class="settings-panel-title">営業時間設定</h3>
         <p class="settings-note">※設定を変更したら「保存」を押してください</p>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <span>営業時間：</span>
@@ -6493,7 +6535,7 @@ window.addEventListener('pagehide', function() {
 
   <div id="panelDeadline" class="sf-modal sf-sub-settings-modal" onclick="closeSubPanel(event,'panelDeadline')">
     <div class="sf-popup-modal-content settings-modal-tone" onclick="event.stopPropagation()" style="width:min(440px, 92vw); max-width:440px;">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">希望休日締め切り設定</h3>
+        <h3 class="settings-panel-title">希望休日締め切り設定</h3>
         <p class="settings-note">※設定を変更したら「保存」を押してください</p>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <span>毎月</span>
@@ -6515,7 +6557,7 @@ window.addEventListener('pagehide', function() {
   <!-- 販売実績表：項目管理 -->
   <div class="modal-overlay settings-modal" id="salesItemsModal" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3 style="font-size:12px;color:#888;margin-bottom:8px;">販売実績表 項目管理</h3>
+      <h3 class="settings-panel-title">販売実績表 項目管理</h3>
       <p class="settings-note">表の横軸に表示する項目を追加・編集・削除します。</p>
       <ul class="member-list" id="salesItemsList"></ul>
       <div class="member-add-form">
@@ -7145,26 +7187,48 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <h2 id="settingsModalTitle">設定</h2>
 
-      <!-- 全タブ共通の設定メニュー（どのタブの「設定」ボタンから開いても内容は同じ） -->
-      <div id="commonSettingsMenu" style="display:none;flex-direction:column;gap:8px;">
-        <button type="button" onclick="openChatSettingsSubPanel('memberManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">メンバー管理</button>
-        <button type="button" onclick="openChatSettingsSubPanel('bmCatManageModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ブックマーク項目管理</button>
-        <button type="button" onclick="openChatSettingsSubPanel('taskPresetModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予定プルダウン管理</button>
-        <button type="button" onclick="openChatSettingsSubPanel('taskTimeModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">予約時間範囲指定</button>
-        <button type="button" onclick="openDailyItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">日常業務項目管理</button>
-        <button type="button" id="btnLoanerCarCountSettings" onclick="openLoanerCarCountModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">代車台数設定</button>
-        <button type="button" onclick="openSalesItemsModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">販売実績表 項目管理</button>
-        <button type="button" onclick="openShiftConfigPanel('panelTimeFrame')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">時間枠設定</button>
-        <button type="button" onclick="openShiftConfigPanel('panelCalcConditions')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">休日集計条件設定</button>
-        <button type="button" onclick="openShiftConfigPanel('panelBusinessHours')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">営業時間設定</button>
-        <button type="button" onclick="openShiftConfigPanel('panelDeadline')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">希望休日締め切り設定</button>
-        <button type="button" onclick="openSettingsCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
-        <button type="button" onclick="openPanelPasswordDialog()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">設定パスワード変更</button>
-        <button type="button" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">ログインパスワード変更</button>
+      <!-- 全タブ共通の設定メニュー（どのタブの「設定」ボタンから開いても内容は同じ）。
+           どのタブの設定かひと目で分かるよう、ジャンルごとに見出しを付けて分けている。 -->
+      <div id="commonSettingsMenu" style="display:none;flex-direction:column;">
+        <div class="settings-menu-section">
+          <div class="settings-menu-heading">共通</div>
+          <button type="button" class="settings-menu-btn" onclick="openChatSettingsSubPanel('memberManageModal')">メンバー管理</button>
+          <button type="button" class="settings-menu-btn" onclick="openSettingsCellSizeModal()">セル使用文字数の確認</button>
+          <button type="button" class="settings-menu-btn" onclick="openPanelPasswordDialog()">設定パスワード変更</button>
+          <button type="button" class="settings-menu-btn" onclick="openChatSettingsSubPanel('chatLoginPasswordModal')">ログインパスワード変更</button>
+        </div>
+        <div class="settings-menu-section">
+          <div class="settings-menu-heading">連絡ノート</div>
+          <button type="button" class="settings-menu-btn" onclick="openChatSettingsSubPanel('bmCatManageModal')">ブックマーク項目管理</button>
+        </div>
+        <div class="settings-menu-section">
+          <div class="settings-menu-heading">予定</div>
+          <button type="button" class="settings-menu-btn" onclick="openChatSettingsSubPanel('taskPresetModal')">予定プルダウン管理</button>
+          <button type="button" class="settings-menu-btn" onclick="openChatSettingsSubPanel('taskTimeModal')">予約時間範囲指定</button>
+        </div>
+        <div class="settings-menu-section">
+          <div class="settings-menu-heading">シフト</div>
+          <button type="button" class="settings-menu-btn" onclick="openShiftConfigPanel('panelTimeFrame')">時間枠設定</button>
+          <button type="button" class="settings-menu-btn" onclick="openShiftConfigPanel('panelCalcConditions')">休日集計条件設定</button>
+          <button type="button" class="settings-menu-btn" onclick="openShiftConfigPanel('panelBusinessHours')">営業時間設定</button>
+          <button type="button" class="settings-menu-btn" onclick="openShiftConfigPanel('panelDeadline')">希望休日締め切り設定</button>
+        </div>
+        <div class="settings-menu-section">
+          <div class="settings-menu-heading">販売実績表</div>
+          <button type="button" class="settings-menu-btn" onclick="openSalesItemsModal()">販売実績表 項目管理</button>
+        </div>
+        <div class="settings-menu-section">
+          <div class="settings-menu-heading">日常業務</div>
+          <button type="button" class="settings-menu-btn" onclick="openDailyItemsModal()">日常業務項目管理</button>
+        </div>
+        <div class="settings-menu-section">
+          <div class="settings-menu-heading">車検予約</div>
+          <button type="button" class="settings-menu-btn" id="btnLoanerCarCountSettings" onclick="openLoanerCarCountModal()">代車台数設定</button>
+        </div>
       </div>
 
       <div id="settingsMemberSection">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">メンバー管理</h3>
+        <h3 class="settings-panel-title">メンバー管理</h3>
         <p class="settings-note">「全員」は全メンバー宛の連絡用です。編集・削除はできません。スタッフIDは「営業所ID-スタッフコード」の形式です（同姓同名の区別用）。</p>
         <ul class="member-list" id="settingsMemberList"></ul>
         <div class="member-add-form" style="flex-wrap:wrap;">
@@ -7181,7 +7245,7 @@ window.addEventListener('pagehide', function() {
       </div>
 
       <div id="settingsTaskPresetSection">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">予定プルダウン管理</h3>
+        <h3 class="settings-panel-title">予定プルダウン管理</h3>
         <p class="settings-note">予定入力フォームのプルダウン候補を管理します。</p>
         <ul class="member-list" id="settingsPresetList"></ul>
         <div class="member-add-form" style="flex-wrap:wrap;gap:6px;">
@@ -7211,7 +7275,7 @@ window.addEventListener('pagehide', function() {
       </div>
 
       <div id="settingsTaskTimeSection">
-        <h3 style="font-size:12px;color:#888;margin-bottom:8px;">予約時間範囲指定</h3>
+        <h3 class="settings-panel-title">予約時間範囲指定</h3>
         <p class="settings-note">予定フォームの時間選択候補の範囲を設定します。</p>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
           <select id="schedTimeStart" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
@@ -7220,7 +7284,7 @@ window.addEventListener('pagehide', function() {
           <button type="button" id="schedTimeRangeSave" style="padding:6px 12px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">保存</button>
         </div>
 
-        <h3 style="font-size:12px;color:#888;margin:20px 0 8px;">時間単位設定</h3>
+        <h3 class="settings-panel-title" style="margin-top:20px;">時間単位設定</h3>
         <p class="settings-note">予定入力の時間プルダウンの刻み単位を設定します。</p>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
           <select id="timeUnitSelect" style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
@@ -7236,7 +7300,7 @@ window.addEventListener('pagehide', function() {
       </div>
 
       <div id="settingsChatSection">
-        <h3 style="font-size:12px;color:#888;margin:20px 0 8px;">ブックマーク項目管理</h3>
+        <h3 class="settings-panel-title" style="margin-top:20px;">ブックマーク項目管理</h3>
         <p class="settings-note">ブックマーク時に選択できるカテゴリを管理します。</p>
         <ul class="member-list" id="settingsBmCatList"></ul>
         <div class="member-add-form">
@@ -7266,7 +7330,7 @@ window.addEventListener('pagehide', function() {
       </div>
 
       <div id="settingsLoginPwdSection">
-        <h3 style="font-size:12px;color:#888;margin:20px 0 8px;">ログインパスワード変更</h3>
+        <h3 class="settings-panel-title" style="margin-top:20px;">ログインパスワード変更</h3>
         <p class="settings-note">※現在ログイン中の営業所のログインパスワードを変更します</p>
         <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
           <label style="font-size:11px;color:var(--muted);">現在のパスワード
@@ -7340,7 +7404,7 @@ window.addEventListener('pagehide', function() {
   <!-- 車検予約タブ：代車台数設定 -->
   <div class="modal-overlay settings-modal" id="loanerCarCountModal" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">代車台数設定</h3>
+      <h3 class="settings-panel-title">代車台数設定</h3>
       <p class="settings-note">この営業所が保有する代車の台数を設定します。入庫日〜納車日（納車日が未入力の場合は通検日まで）の期間で、「代車あり」の予約・「代車使用」の合計がこの台数を超える場合は保存できません。</p>
       <div style="display:flex;align-items:center;gap:8px;margin:14px 0;">
         <span id="loanerCarCountBranchLabel" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
@@ -7383,13 +7447,13 @@ window.addEventListener('pagehide', function() {
     <div class="modal">
       <h2>管理者ページ</h2>
 
-      <div id="adminSettingsMenu" style="display:flex;flex-direction:column;gap:8px;">
-        <button type="button" onclick="openChatSettingsSubPanel('adminBranchModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">営業所・スプレッドシートID・パスワード</button>
-        <button type="button" onclick="openChatSettingsSubPanel('adminPasswordModal')" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">管理者パスワード</button>
-        <button type="button" onclick="openAdminStaffIdModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スタッフID管理</button>
-        <button type="button" onclick="openGasModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">スプレッドシート連携（GAS）</button>
-        <button type="button" onclick="openAdminRetentionModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">データ保存期間の設定</button>
-        <button type="button" onclick="openAdminCellSizeModal()" style="padding:10px 14px;border:1px solid var(--border);border-radius:4px;font-size:13px;background:var(--surface);cursor:pointer;text-align:left;">セル使用文字数の確認</button>
+      <div id="adminSettingsMenu" style="display:flex;flex-direction:column;">
+        <button type="button" class="settings-menu-btn" onclick="openChatSettingsSubPanel('adminBranchModal')">営業所・スプレッドシートID・パスワード</button>
+        <button type="button" class="settings-menu-btn" onclick="openChatSettingsSubPanel('adminPasswordModal')">管理者パスワード</button>
+        <button type="button" class="settings-menu-btn" onclick="openAdminStaffIdModal()">スタッフID管理</button>
+        <button type="button" class="settings-menu-btn" onclick="openGasModal()">スプレッドシート連携（GAS）</button>
+        <button type="button" class="settings-menu-btn" onclick="openAdminRetentionModal()">データ保存期間の設定</button>
+        <button type="button" class="settings-menu-btn" onclick="openAdminCellSizeModal()">セル使用文字数の確認</button>
       </div>
 
       <div class="modal-actions" style="margin-top:16px;justify-content:space-between;">
@@ -7402,7 +7466,7 @@ window.addEventListener('pagehide', function() {
   <!-- スプレッドシート連携モーダル -->
   <div class="modal-overlay settings-modal" id="gasModal" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:460px;">
-      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">スプレッドシート連携（GAS）</h3>
+      <h3 class="settings-panel-title">スプレッドシート連携（GAS）</h3>
       <p class="settings-note" style="margin-bottom:12px;">GAS URLは全営業所・全端末で共通です。</p>
 
       <div>
@@ -7418,7 +7482,7 @@ window.addEventListener('pagehide', function() {
   <!-- データ保存期間の設定モーダル -->
   <div class="modal-overlay settings-modal" id="adminRetentionModal" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:460px;">
-      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">データ保存期間の設定</h3>
+      <h3 class="settings-panel-title">データ保存期間の設定</h3>
       <p class="settings-note" style="margin-bottom:12px;">タブごとに保存期間（◯ヶ月）を設定します。設定した期間より古いデータは、アプリを開いた際に自動的に削除されます。空欄のまま保存すると、そのタブは削除の対象になりません。<br>※連絡ノートでブックマークされたメッセージは、保存期間に関わらず削除されません（ブックマークを外すと、期間に応じて削除対象になります）。</p>
       <div id="adminRetentionList" style="display:flex;flex-direction:column;gap:10px;"></div>
       <div class="modal-actions" style="margin-top:16px;">
@@ -7431,7 +7495,7 @@ window.addEventListener('pagehide', function() {
   <!-- セル使用文字数の確認モーダル -->
   <div class="modal-overlay settings-modal" id="adminCellSizeModal" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:480px;">
-      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">セル使用文字数の確認</h3>
+      <h3 class="settings-panel-title">セル使用文字数の確認</h3>
       <p class="settings-note" style="margin-bottom:12px;">スプレッドシートは1セルあたり最大50,000文字までです。データ種類ごとの現在の文字数を営業所別に確認できます。</p>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
@@ -7449,7 +7513,7 @@ window.addEventListener('pagehide', function() {
   <!-- セル使用文字数の確認モーダル（設定メニュー版） -->
   <div class="modal-overlay settings-modal" id="settingsCellSizeModal" role="dialog" aria-modal="true">
     <div class="modal" style="max-width:480px;">
-      <h3 style="font-size:13px;font-weight:700;margin-bottom:4px;">セル使用文字数の確認</h3>
+      <h3 class="settings-panel-title">セル使用文字数の確認</h3>
       <p class="settings-note" style="margin-bottom:12px;">スプレッドシートは1セルあたり最大50,000文字までです。データ種類ごとの現在の文字数を確認できます。</p>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：<span id="settingsCellSizeBranchLabel" style="font-weight:700;color:var(--text);"></span></span>
@@ -7490,7 +7554,7 @@ window.addEventListener('pagehide', function() {
 
   <div class="modal-overlay settings-modal" id="adminBranchModal" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3 style="font-size:12px;color:#888;margin-bottom:8px;">営業所・スプレッドシートID・パスワード</h3>
+      <h3 class="settings-panel-title">営業所・スプレッドシートID・パスワード</h3>
       <p class="settings-note">各営業所の名前と、GAS移行後に使用するスプレッドシートIDを管理します。編集したら各行の「保存」を押してください。</p>
       <ul class="member-list" id="adminBranchList"></ul>
       <div class="member-add-form">
@@ -7507,7 +7571,7 @@ window.addEventListener('pagehide', function() {
 
   <div class="modal-overlay settings-modal" id="adminPasswordModal" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3 style="font-size:12px;color:#888;margin-bottom:8px;">管理者パスワード</h3>
+      <h3 class="settings-panel-title">管理者パスワード</h3>
       <p class="settings-note">この管理者ページを開く際に使うパスワードです。</p>
       <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
         <label style="font-size:11px;color:var(--muted);">現在の管理者パスワード
@@ -7526,7 +7590,7 @@ window.addEventListener('pagehide', function() {
 
   <div class="modal-overlay settings-modal" id="adminStaffIdModal" role="dialog" aria-modal="true">
     <div class="modal">
-      <h3 style="font-size:12px;color:#888;margin-bottom:8px;">スタッフID管理</h3>
+      <h3 class="settings-panel-title">スタッフID管理</h3>
       <p class="settings-note">営業所を選ぶと、その営業所のスタッフID（営業所ID-スタッフコード）を確認・編集できます。</p>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
