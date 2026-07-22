@@ -10502,9 +10502,13 @@ window.addEventListener('pagehide', function() {
       markListSettingsDirty();
     }
 
-    // 販売実績表項目管理画面の「保存」ボタン。
+    // 販売実績表項目管理画面の「保存」ボタン。本社の内容を他の全営業所にも自動反映する。
     function saveSalesItemsChanges() {
-      salesSaveToSheet();
+      salesSaveToSheet().then(() => {
+        if (state.currentBranch === '本社' && typeof propagateSalesItemsToOtherBranches === 'function') {
+          propagateSalesItemsToOtherBranches();
+        }
+      });
       listSettingsDirty = false;
     }
 
@@ -11324,6 +11328,7 @@ window.addEventListener('pagehide', function() {
           if (i === -1) return;
           if (!confirm(`「${salesItems[i].name}」を削除しますか？`)) return;
           salesItems.splice(i, 1);
+          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
           saveSalesItems();
           renderSalesItemsList();
           renderSalesTable();
@@ -17703,6 +17708,36 @@ function syncAllBranchesToSheet(successMsg) {
   }
   Promise.all(targets.map(b => syncToSheet(b.name, [STORAGE_KEY_1]).catch(err => { console.error('sync failed for', b.name, err); return null; })))
     .then(() => { appToast(successMsg || 'スプレッドシートに保存しました'); });
+}
+
+// 販売実績表の項目設定（本社限定で編集）を、本社の内容で他の全営業所のスプレッドシートにも
+// 直接反映する。syncToSheet/mergeRemoteStateArraysBeforeSaveは使わない
+// （IDベースの追加専用マージのため、本社側で削除した項目が他営業所の残存データから
+//   復活してしまう。ここでは対象フィールドだけを問答無用で上書きする）。
+async function propagateSalesItemsToOtherBranches() {
+  if (!Array.isArray(state.branches) || !getGasUrl()) return;
+  const payloadItems = cloneJsonValue(state.salesItems || []);
+  const targets = state.branches.filter(b => b.name !== state.currentBranch && getSpreadsheetId(b.name));
+  const results = await Promise.all(targets.map(async b => {
+    const spreadsheetId = getSpreadsheetId(b.name);
+    try {
+      const loaded = await gasRequest('load', spreadsheetId);
+      let remoteObj = {};
+      const raw = loaded && loaded.data && loaded.data[STORAGE_KEY_1];
+      if (raw) { try { remoteObj = JSON.parse(raw); } catch (e) { remoteObj = {}; } }
+      remoteObj.salesItems = payloadItems;
+      remoteObj.salesItemsMigrated = true;
+      await gasRequest('save', spreadsheetId, { [STORAGE_KEY_1]: JSON.stringify(remoteObj) });
+      return { branch: b.name, ok: true };
+    } catch (err) {
+      console.error('salesItems propagation failed for', b.name, err);
+      return { branch: b.name, ok: false };
+    }
+  }));
+  const failed = results.filter(r => !r.ok);
+  if (failed.length) {
+    appToast(`一部の営業所（${failed.map(f => f.branch).join('・')}）への反映に失敗しました`);
+  }
 }
 
 // GAS設定済みの場合のみ保存ボタンを表示
