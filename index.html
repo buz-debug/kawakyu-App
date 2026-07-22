@@ -7202,9 +7202,9 @@ window.addEventListener('pagehide', function() {
           <button type="button" class="settings-menu-btn" onclick="openShiftConfigPanel('panelBusinessHours')">営業時間設定</button>
           <button type="button" class="settings-menu-btn" onclick="openShiftConfigPanel('panelDeadline')">希望休日締め切り設定</button>
         </div>
-        <div class="settings-menu-section">
+        <div class="settings-menu-section" id="salesSettingsMenuSection">
           <div class="settings-menu-heading">販売実績表</div>
-          <button type="button" class="settings-menu-btn" onclick="openSalesItemsModal()">販売実績表 項目管理</button>
+          <button type="button" class="settings-menu-btn" id="btnSalesItemsSettings" onclick="openSalesItemsModal()">販売実績表 項目管理</button>
         </div>
         <div class="settings-menu-section">
           <div class="settings-menu-heading">日常業務</div>
@@ -9728,6 +9728,9 @@ window.addEventListener('pagehide', function() {
         return;
       }
       renderSettingsMembers();
+      // 「販売実績表 項目管理」は本社ログイン時のみ表示する（販売実績表タブ自身の「設定」ボタンと同じ制限）
+      const salesSettingsSection = document.getElementById('salesSettingsMenuSection');
+      if (salesSettingsSection) salesSettingsSection.style.display = (state.currentBranch === '本社') ? '' : 'none';
       const branchNameEl = document.getElementById('settingsCurrentBranchName');
       if (branchNameEl) branchNameEl.textContent = state.currentBranch || '';
       const prefixEl = document.getElementById('memberAddBranchIdPrefix');
@@ -11330,7 +11333,12 @@ window.addEventListener('pagehide', function() {
 
     // 全タブ共通の設定メニュー（commonSettingsMenu）の「販売実績表 項目管理」から開く。
     // 設定メニュー自体が既にパスワードで保護されているため、ここでは再度聞かない。
+    // 「販売実績表 項目管理」は本社ログイン時のみ操作できる（メニュー側でも非表示にしているが、念のためここでも防ぐ）。
     function openSalesItemsModal() {
+      if (state.currentBranch !== '本社') {
+        alert('この設定は本社ログイン時のみ操作できます。');
+        return;
+      }
       renderSalesItemsList();
       openOverlay(document.getElementById('salesItemsModal'));
     }
