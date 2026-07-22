@@ -1818,6 +1818,67 @@
       overflow-y: auto;
     }
 
+    /* アプリ内ヘルプ（操作ガイド）：タブごとにアコーディオン形式で開閉する */
+    .help-modal .modal {
+      width: min(680px, 94vw);
+      max-height: 88vh;
+      overflow-y: auto;
+    }
+    .help-section {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .help-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cw-green-dark);
+    }
+    .help-section-arrow {
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--muted);
+      transition: transform .15s ease;
+    }
+    .help-section.open .help-section-arrow { transform: rotate(90deg); }
+    .help-section-body {
+      display: none;
+      padding: 2px 14px 14px;
+      font-size: 12.5px;
+      line-height: 1.8;
+      color: var(--text);
+    }
+    .help-section.open .help-section-body { display: block; }
+    .help-section-body h4 {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 12px 0 4px;
+    }
+    .help-section-body h4:first-child { margin-top: 8px; }
+    .help-section-body ul {
+      margin: 0 0 8px 18px;
+      padding: 0;
+    }
+    .help-section-body li { margin-bottom: 3px; }
+    .help-section-body p { margin: 0 0 8px; }
+    .help-section-body .help-note {
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--cw-sidebar-hover, #f3f6f9);
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin: 6px 0 10px;
+    }
+
     .settings-modal .settings-note,
     .settings-note {
       font-size: 11px;
@@ -4630,6 +4691,7 @@
         <button type="button" id="btnHeaderDownloadPrint" class="tab-row-btn" style="background:#555;color:#fff;border:none;display:none;" onclick="openHeaderDownloadPrint()">ダウンロード/印刷</button>
         <button type="button" class="sales-settings-btn tab-row-btn" id="btnHeaderSettings" onclick="openSettingsGated()">設定</button>
         <button type="button" class="shift-settings-btn sales-settings-btn tab-row-btn" id="btnShiftSettings" onclick="openSettingsGated()" style="display:none;">設定</button>
+        <button type="button" id="btnHelp" class="tab-row-btn" style="border:1px solid var(--border);background:var(--surface);color:inherit;" onclick="openHelpModal()">ヘルプ</button>
         <span id="currentBranchLabel" style="font-size:13px;font-weight:700;color:var(--text);"></span>
         <button type="button" id="btnLogout" class="tab-row-btn" style="border:1px solid var(--border);background:var(--surface);color:inherit;">ログアウト</button>
       </div>
@@ -7253,6 +7315,175 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
+  <!-- アプリ内ヘルプ（操作ガイド）：タブごとにアコーディオン形式でまとめている -->
+  <div class="modal-overlay help-modal" id="helpModal" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h3 class="settings-panel-title">ヘルプ（操作ガイド）</h3>
+      <p class="settings-note">知りたいタブの見出しをタップすると、説明が開きます。</p>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>連絡ノート</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <h4>メッセージを書く</h4>
+          <ul>
+            <li>「連絡事項を書く」ボタンから、全体連絡へメッセージを投稿できます。</li>
+            <li>投稿したメッセージには「返信」「編集」「ブックマーク」「削除」ができます。</li>
+          </ul>
+          <h4>ブックマーク</h4>
+          <ul>
+            <li>大事なメッセージはブックマークしておくと、左側の「重要」「確認待ち」などのカテゴリから後で見返せます。</li>
+            <li>ブックマークのカテゴリ名は、設定メニューの「ブックマーク項目管理」で追加・編集できます。</li>
+          </ul>
+          <p class="help-note">営業所を分ける前に投稿された古いメッセージは、当時存在していた営業所にのみ表示されます。</p>
+        </div>
+      </div>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>予定</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <h4>予定の追加・編集</h4>
+          <ul>
+            <li>カレンダーの日付をクリックして、「予定を追加する」から予定を登録します。</li>
+            <li>予定の種類（オイル交換・タイヤ履き替え等）は、設定メニューの「予定プルダウン管理」で候補を追加・並べ替えできます。事前点検・オイル交換など一部の固定項目は削除できません。</li>
+          </ul>
+          <h4>タスク</h4>
+          <ul>
+            <li>予定タブの「タスク」欄では、担当者・期限付きのやることリストを管理できます。完了したタスクにはチェックを入れます。</li>
+          </ul>
+          <h4>終日予定入力不可</h4>
+          <ul>
+            <li>設定メニューから、特定の日付・曜日を「終日予定入力不可」に指定できます。指定した日はカレンダーに薄い文字で「終日予定入力不可」と表示され、その日には新しい予定を追加できなくなります。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>仮締め</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <h4>現金の入力</h4>
+          <ul>
+            <li>ドロワー現金・金庫の枚数（または金額）を入力すると、現金合計・差額が自動で計算されます。</li>
+            <li>担当者名・時刻・備考を入力し、「保存」を押すと記録として残ります。</li>
+          </ul>
+          <h4>履歴の確認</h4>
+          <ul>
+            <li>左側の「仮締め履歴」から、過去の記録を月ごとに「前月」「次月」で切り替えて確認できます。</li>
+            <li>本社アカウントでログインしている場合のみ、営業所を切り替えて他営業所の記録を閲覧できます（閲覧のみ、編集はできません）。</li>
+          </ul>
+          <p class="help-note">保存を押すまでの入力中の内容は「下書き」として端末に一時保存されますが、これは他の端末とは共有されません。</p>
+        </div>
+      </div>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>シフト</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <h4>シフトの作成・閲覧</h4>
+          <ul>
+            <li>「シフト作成」はパスワード保護されています（設定メニューの「設定パスワード変更」で変更可能）。</li>
+            <li>本社アカウントでログインしている場合のみ、営業所を切り替えて他営業所のシフトを閲覧できます（閲覧のみ）。</li>
+          </ul>
+          <h4>設定メニューから調整できる項目</h4>
+          <ul>
+            <li>時間枠設定（A・B・Cなどの勤務時間帯と色）</li>
+            <li>休日集計条件設定、営業時間設定</li>
+            <li>希望休日締め切り設定（毎月何日の何時までに提出するか）</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>販売実績表</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <h4>実績の入力</h4>
+          <ul>
+            <li>日ごとに、各商品・項目の実績を入力します。日計・累計を自動で集計します。</li>
+          </ul>
+          <h4>項目の管理（本社限定）</h4>
+          <ul>
+            <li>販売実績表に表示する項目（商品名など）は、本社アカウントでログインしている場合のみ設定メニューの「販売実績表 項目管理」から追加・編集・削除できます。</li>
+            <li>本社で項目を保存すると、内容が自動的に他の全営業所にも反映されます（各営業所側での操作は不要です）。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>日常業務</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <ul>
+            <li>毎日決まった時間に行う業務項目をチェックリストとして管理できます。</li>
+            <li>項目の追加・並べ替え・削除は、設定メニューの「日常業務項目管理」から行います。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>車検予約</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <h4>予約の追加・編集</h4>
+          <ul>
+            <li>「予約を追加する」から、お客様名・車種・通検日・入庫日・代車の有無などを入力します。</li>
+            <li>カレンダー表示のほか、「リスト表示」で一覧、「月別集計」で件数の集計、「キャンセル一覧」でキャンセル済みの予約を確認できます。</li>
+            <li>本社アカウントでログインしている場合のみ、営業所を切り替えて他営業所の予約を閲覧できます（閲覧のみ）。</li>
+          </ul>
+          <h4>代車台数設定</h4>
+          <ul>
+            <li>設定メニューから、自社が保有する代車の台数を設定できます。入庫日〜納車日の期間で代車が必要な予約の合計がこの台数を超える場合、保存時に警告が出ます。</li>
+          </ul>
+          <h4>車検予定入力不可設定</h4>
+          <ul>
+            <li>設定メニューから、特定の日付・曜日を通検日として予約できない日に指定できます。指定した日はカレンダーに薄い文字で「終日予定入力不可」と表示されます。</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section" data-help-section>
+        <div class="help-section-header" onclick="toggleHelpSection(this)">
+          <span>設定メニュー</span>
+          <span class="help-section-arrow">▶</span>
+        </div>
+        <div class="help-section-body">
+          <p>画面右上の「設定」ボタンから開けます。ジャンルごとに項目がまとまっています。</p>
+          <h4>共通</h4>
+          <ul>
+            <li>メンバー管理：スタッフの登録・編集・削除。スタッフIDは「営業所ID-スタッフコード」の形式です。</li>
+            <li>セル使用文字数の確認：保存データの容量を確認できます（通常は気にする必要はありません）。</li>
+            <li>設定パスワード変更／ログインパスワード変更：それぞれ別のパスワードです。ログインパスワードは営業所ごとのログイン時に使うもの、設定パスワードは各種設定画面を開く際に使うものです。</li>
+          </ul>
+          <h4>それぞれのタブに対応する項目</h4>
+          <ul>
+            <li>ブックマーク項目管理、予定プルダウン管理、予約時間範囲指定、シフトの各設定、販売実績表項目管理（本社限定）、日常業務項目管理、代車台数設定、車検予定入力不可設定など、それぞれのタブの説明をご覧ください。</li>
+          </ul>
+          <p class="help-note">設定メニューの内容は、常にログイン中の営業所にのみ反映されます（販売実績表項目管理を除く）。他営業所の設定を変えてしまうことはありません。</p>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:8px;">
+        <button type="button" id="helpModalClose" onclick="closeOverlay(document.getElementById('helpModal'))">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay settings-modal" id="settingsModal" role="dialog" aria-modal="true">
     <div class="modal">
       <h2 id="settingsModalTitle">設定</h2>
@@ -7858,6 +8089,15 @@ window.addEventListener('pagehide', function() {
 
     function closeOverlay(el) {
       el.classList.remove('open');
+    }
+
+    // アプリ内ヘルプ（操作ガイド）
+    function openHelpModal() {
+      openOverlay(document.getElementById('helpModal'));
+    }
+    function toggleHelpSection(headerEl) {
+      const section = headerEl.closest('.help-section');
+      if (section) section.classList.toggle('open');
     }
 
     function isSystemMember(m) {
@@ -10308,7 +10548,13 @@ window.addEventListener('pagehide', function() {
         : (typeof kasimeLocalMonthKeys === 'function'
           ? kasimeLocalMonthKeys(branchName).map(mk => kasimeMonthlyKeyName(branchName, mk)).sort()
           : []);
-      const keys = staticKeys.concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys);
+      // 月別キーが1つでも見えている（＝この営業所は既に移行済み）なら、旧形式の単一キーは
+      // 常に空/無意味なので一覧に出さない（行を手動削除した場合も、そのキー自体は
+      // getSyncKeysの固定リストに含まれているため、この除外をしないと0文字のまま出続けてしまう）。
+      const legacyKeysToHide = new Set();
+      if (shakenMonthlyDisplayKeys.length) legacyKeysToHide.add(`shakenReservations_${branchName}`);
+      if (kasimeMonthlyDisplayKeys.length) legacyKeysToHide.add(`仮締め記録_${branchName}`);
+      const keys = staticKeys.filter(k => !legacyKeysToHide.has(k)).concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys);
       const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
       const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
 
