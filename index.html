@@ -8127,6 +8127,56 @@ window.addEventListener('pagehide', function() {
       return merged;
     }
 
+    // 車検予約：件数が増え続けるとスプレッドシートの1セル上限（5万文字）に達するため、
+    // 他の専用セルと違い1つのセルにはせず、通検日（inspectionDate）の年月（YYYY-MM）ごとに
+    // 専用セル（shakenReservations_${branchName}_${YYYY-MM}）へ分割して保存する。
+    // アプリ内部（state.branchData[branch].shakenReservations）は従来どおり1つのフラット配列の
+    // ままとし、分割・結合は保存/読込の境界だけで行う。loadState()（下のoverlayPerBranchDedicatedKeys
+    // 経由）より前に定義する必要があるため、ここ（ensureBranchBucket付近）に置く。
+    function shakenMonthKeyOf(reservation) {
+      const d = reservation && reservation.inspectionDate;
+      return (typeof d === 'string' && d.length >= 7) ? d.slice(0, 7) : null;
+    }
+    function shakenMonthlyKeyName(branchName, monthKey) {
+      return `shakenReservations_${branchName}_${monthKey}`;
+    }
+    function shakenLegacyKeyName(branchName) {
+      return `shakenReservations_${branchName}`; // 旧形式（月別分割前の単一セル）
+    }
+    // ローカルストレージに存在する、この営業所の月別キー一覧（YYYY-MM部分）を返す
+    function shakenLocalMonthKeys(branchName) {
+      const prefix = `shakenReservations_${branchName}_`;
+      const months = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) months.push(k.slice(prefix.length));
+      }
+      return months;
+    }
+    function groupShakenReservationsByMonth(reservations) {
+      const groups = {};
+      (reservations || []).forEach(r => {
+        const mk = shakenMonthKeyOf(r) || 'unknown'; // inspectionDateが無い異常データも失わないための保険
+        (groups[mk] || (groups[mk] = [])).push(r);
+      });
+      return groups;
+    }
+    // 現在のフラット配列を月別ローカルキーへ書き出す。既存のローカル月キー・extraMonthKeys
+    // （リモートにだけ存在した月など）も対象に含めて和集合を取り、対象外になった月は
+    // 空配列で上書きする（そうしないと、予約の通検日を編集して月をまたいだ際、
+    // 元の月のセルに古いデータが残り続けてしまう）。
+    function persistShakenReservationsByMonth(branchName, reservations, extraMonthKeys) {
+      const groups = groupShakenReservationsByMonth(reservations);
+      const monthSet = new Set([
+        ...Object.keys(groups),
+        ...shakenLocalMonthKeys(branchName),
+        ...(extraMonthKeys || []),
+      ]);
+      monthSet.forEach(mk => {
+        localStorage.setItem(shakenMonthlyKeyName(branchName, mk), JSON.stringify(groups[mk] || []));
+      });
+    }
+
     // schedules・sidebarTasks・shakenReservationsは営業所共通設定セルには保存せず、
     // それぞれの専用セル（schedules_営業所名 等）だけを正として扱う（二重保存を避けるため）。
     // 読み込んだbranchDataに、ローカルにある専用セルの内容を上書きで反映する
@@ -8135,6 +8185,7 @@ window.addEventListener('pagehide', function() {
       const result = branchData || {};
       (branchNames || []).forEach(branchName => {
         Object.keys(STATE_BRANCH_KEYS_DEDICATED).forEach(field => {
+          if (field === 'shakenReservations') return; // 下で専用処理（月別分割のため）
           const raw = localStorage.getItem(STATE_BRANCH_KEYS_DEDICATED[field] + branchName);
           if (raw === null) return;
           try {
@@ -8142,6 +8193,38 @@ window.addEventListener('pagehide', function() {
             result[branchName][field] = JSON.parse(raw);
           } catch (e) {}
         });
+
+        // 車検予約：月別キーを連結して1つのフラット配列に復元する。
+        // 月別キーが1つも無く旧形式（単一キー）にだけデータが残っている場合は、
+        // ここで初回移行（分割）を行う（2回目以降は月別キーが既にあるため走らない＝冪等）。
+        if (typeof shakenLocalMonthKeys !== 'function') return;
+        const monthKeys = shakenLocalMonthKeys(branchName);
+        let combined = [];
+        let sawAny = false;
+        monthKeys.forEach(mk => {
+          const raw = localStorage.getItem(shakenMonthlyKeyName(branchName, mk));
+          if (raw === null) return;
+          sawAny = true;
+          try {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) combined = combined.concat(arr);
+          } catch (e) {}
+        });
+        const legacyRaw = localStorage.getItem(shakenLegacyKeyName(branchName));
+        if (!sawAny && legacyRaw) {
+          try {
+            const legacyArr = JSON.parse(legacyRaw);
+            if (Array.isArray(legacyArr) && legacyArr.length) {
+              persistShakenReservationsByMonth(branchName, legacyArr);
+              localStorage.setItem(shakenLegacyKeyName(branchName), '[]');
+              combined = legacyArr;
+            }
+          } catch (e) {}
+        }
+        if (sawAny || legacyRaw !== null) {
+          if (!result[branchName]) result[branchName] = {};
+          result[branchName].shakenReservations = combined;
+        }
       });
       return result;
     }
@@ -9718,9 +9801,12 @@ window.addEventListener('pagehide', function() {
     }
 
     function openSettings() {
-      // 仮締め・シフト・車検予約タブで営業所セレクターを使って他営業所を閲覧中は、設定メニューを
-      // 開けないようにする。設定メニューの内容は常にログイン中の営業所にのみ反映されるべきで、
-      // 閲覧中営業所のデータを誤って読み書きしてしまうことがあってはならないため。
+      // 仮締め・シフト・車検予約・販売実績表タブで営業所セレクターを使って他営業所を閲覧中は、
+      // 設定メニューを開けないようにする。設定メニューの内容は常にログイン中の営業所にのみ
+      // 反映されるべきで、閲覧中営業所のデータを誤って読み書きしてしまうことがあってはならないため
+      // （販売実績表項目管理は本社ログイン時のみ・内容自体は全営業所共通の仕様だが、それとは別に
+      // 「販売実績表タブで他営業所を閲覧中」という状態そのものは、他の設定項目を誤操作するリスクが
+      // あるため同様にブロックする）。
       // どのタブを今表示しているかに関わらずチェックする（切替後に別タブへ移動していても、
       // 閲覧営業所の切替自体は保持されたままのため、currentTabでは絞り込まない）。
       if (typeof kasimeViewBranch !== 'undefined' && kasimeViewBranch !== state.currentBranch) {
@@ -9732,6 +9818,10 @@ window.addEventListener('pagehide', function() {
         return;
       }
       if (typeof shakenViewBranch !== 'undefined' && shakenViewBranch !== state.currentBranch) {
+        alert('他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。');
+        return;
+      }
+      if (typeof salesViewBranch !== 'undefined' && salesViewBranch !== state.currentBranch) {
         alert('他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。');
         return;
       }
@@ -10122,7 +10212,16 @@ window.addEventListener('pagehide', function() {
       const list = document.getElementById(listElId);
       const statusEl = document.getElementById(statusElId);
       if (!list || !branchName) return;
-      const keys = (typeof getSyncKeys === 'function') ? getSyncKeys(branchName) : [];
+      const staticKeys = (typeof getSyncKeys === 'function') ? getSyncKeys(branchName) : [];
+      // 車検予約は月別に分割されたキーを使うため、存在する月だけ動的に追加する
+      // （ローカル参照時はshakenLocalMonthKeys、「最新を取得」時はdataOverrideのキーから拾う）。
+      const shakenPrefix = `shakenReservations_${branchName}_`;
+      const shakenMonthlyDisplayKeys = dataOverride
+        ? Object.keys(dataOverride).filter(k => k.indexOf(shakenPrefix) === 0).sort()
+        : (typeof shakenLocalMonthKeys === 'function'
+          ? shakenLocalMonthKeys(branchName).map(mk => shakenMonthlyKeyName(branchName, mk)).sort()
+          : []);
+      const keys = staticKeys.concat(shakenMonthlyDisplayKeys);
       const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
       const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
 
@@ -16947,7 +17046,10 @@ function getSyncKeysForTab(tabBtnId, branchName) {
     case 'sidebarTask':
       return [`sidebarTasks_${branchName}`];
     case 'shaken':
-      return [`shakenReservations_${branchName}`];
+      // 月別に分割されたキー全て（＋旧単一キー。移行済みなら空のまま送るだけで無害）を対象にする。
+      return shakenLocalMonthKeys(branchName)
+        .map(mk => shakenMonthlyKeyName(branchName, mk))
+        .concat([shakenLegacyKeyName(branchName)]);
     case 'state':
       return [STORAGE_KEY_1, 'kawakyu-chatwork-messages-v1'];
     default:
@@ -17327,19 +17429,36 @@ async function mergeRemoteSidebarTasksBeforeSave(branchName, spreadsheetId) {
   }
 }
 
-// 車検予約タブも同様に独立管理。
+// 車検予約タブも同様に独立管理。月別分割の共通ヘルパー（shakenMonthKeyOf等）は
+// loadState()より前に定義する必要があるため、このファイル前方（ensureBranchBucket付近）に置いている。
 async function mergeRemoteShakenBeforeSave(branchName, spreadsheetId) {
   if (!spreadsheetId || typeof ensureBranchBucket !== 'function') return;
   try {
     const result = await gasRequest('load', spreadsheetId);
     if (!result || !result.ok || !result.data) return;
-    const raw = result.data[`shakenReservations_${branchName}`];
-    if (!raw) return;
-    const remoteReservations = JSON.parse(raw);
+    const prefix = `shakenReservations_${branchName}_`;
+    const legacyKey = shakenLegacyKeyName(branchName);
+    let remoteReservations = [];
+    const remoteMonthKeys = [];
+    Object.keys(result.data).forEach(k => {
+      if (k.indexOf(prefix) !== 0) return;
+      remoteMonthKeys.push(k.slice(prefix.length));
+      try {
+        const arr = JSON.parse(result.data[k]);
+        if (Array.isArray(arr)) remoteReservations = remoteReservations.concat(arr);
+      } catch (e) {}
+    });
+    if (result.data[legacyKey]) {
+      try {
+        const legacyArr = JSON.parse(result.data[legacyKey]);
+        if (Array.isArray(legacyArr)) remoteReservations = remoteReservations.concat(legacyArr);
+      } catch (e) {}
+    }
     const bucket = ensureBranchBucket(branchName);
     bucket.shakenReservations = mergeArrayById(bucket.shakenReservations, remoteReservations);
     saveState();
-    localStorage.setItem(`shakenReservations_${branchName}`, JSON.stringify(bucket.shakenReservations));
+    persistShakenReservationsByMonth(branchName, bucket.shakenReservations, remoteMonthKeys);
+    localStorage.setItem(legacyKey, '[]'); // 旧セルは以後空として扱う（移行済みマーク）
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
   }
@@ -17556,10 +17675,14 @@ async function doSyncFromSheet(branchName) {
   // ここでは取りこぼさないよう明示的に許可し、ダウンロードできるようにする
   // （loadState()側の旧形式フォールバックで正しく復元される）。
   const legacyStateKey = 'kawakyu-chatwork-v5';
+  // 車検予約は月別に分割されたキー（shakenReservations_営業所名_YYYY-MM）を使うため、
+  // 静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
+  const shakenMonthlyPrefix = `shakenReservations_${branchName}_`;
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     const isLegacyStateKey = (k === legacyStateKey);
-    if ((!keys.includes(k) && !isLegacyStateKey) || v === undefined || v === null || v === '') return;
+    const isShakenMonthlyKey = k.indexOf(shakenMonthlyPrefix) === 0;
+    if ((!keys.includes(k) && !isLegacyStateKey && !isShakenMonthlyKey) || v === undefined || v === null || v === '') return;
     let valueToStore = v;
     if (k === STORAGE_KEY_1 || isLegacyStateKey) {
       // currentBranchは「この端末が今ログインしている営業所」を表すローカルな値。
@@ -17697,10 +17820,11 @@ function sidebarTaskSaveToSheet(successMsg) {
   if (branchName) localStorage.setItem(`sidebarTasks_${branchName}`, JSON.stringify(state.sidebarTasks || []));
   return _tabSaveToSheet('sidebarTask', successMsg);
 }
-// 車検予約タブも同様に独立した保存キーを使う。
+// 車検予約タブも同様に独立した保存キーを使うが、月別に分割して保存する
+// （persistShakenReservationsByMonth、mergeRemoteShakenBeforeSave付近を参照）。
 function shakenSaveToSheet(successMsg) {
   const branchName = shakenViewBranch || ((typeof state !== 'undefined') ? state.currentBranch : null);
-  if (branchName) localStorage.setItem(`shakenReservations_${branchName}`, JSON.stringify(shakenBucket().shakenReservations || []));
+  if (branchName) persistShakenReservationsByMonth(branchName, shakenBucket().shakenReservations || []);
   return _tabSaveToSheet('shaken', successMsg, branchName);
 }
 
