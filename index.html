@@ -1430,6 +1430,7 @@
       grid-template-columns: repeat(7, minmax(0, 1fr));
     }
     .shaken-date-cell {
+      position: relative;
       background: var(--surface);
       border-right: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
@@ -1439,6 +1440,23 @@
       box-sizing: border-box;
     }
     .shaken-date-cell:hover { background: var(--bg-chat); }
+
+    /* 車検予定入力不可：塗りつぶさず、薄く大きめの透かし文字だけを重ねる */
+    .shaken-allday-watermark {
+      position: absolute;
+      inset: 20px 2px 2px 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(107, 114, 128, .4);
+      line-height: 1.3;
+      pointer-events: none;
+      word-break: break-all;
+      z-index: 0;
+    }
     .shaken-date-num {
       font-size: 12px;
       font-weight: 700;
@@ -7039,6 +7057,18 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
+  <!-- ===== 車検予約：終日予定入力不可の警告モーダル ===== -->
+  <div id="shakenBlockedWarningModal" class="sf-modal sf-unsaved-warning-modal">
+    <div class="sf-unsaved-warning-box">
+      <div class="sf-unsaved-warning-icon">⚠️</div>
+      <div class="sf-unsaved-warning-title">この日は車検予約を追加できません！</div>
+      <div class="sf-unsaved-warning-text">通検日が「終日予定入力不可」に設定されている日です。<br>別の日付を選択してください。</div>
+      <div style="display:flex; justify-content:center; margin-top:18px;">
+        <button onclick="closeShakenBlockedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 編集モーダル -->
   <div class="edit-modal-overlay" id="editModal" role="dialog" aria-modal="true">
     <div class="edit-modal">
@@ -7171,6 +7201,7 @@ window.addEventListener('pagehide', function() {
         <div class="settings-menu-section">
           <div class="settings-menu-heading">車検予約</div>
           <button type="button" class="settings-menu-btn" id="btnLoanerCarCountSettings" onclick="openLoanerCarCountModal()">代車台数設定</button>
+          <button type="button" class="settings-menu-btn" id="btnShakenBlockDaySettings" onclick="openShakenBlockDayModal()">車検予定入力不可設定</button>
         </div>
       </div>
 
@@ -7362,6 +7393,29 @@ window.addEventListener('pagehide', function() {
       <div class="modal-actions" style="margin-top:8px;">
         <button type="button" onclick="closeOverlay(document.getElementById('loanerCarCountModal'))">キャンセル</button>
         <button type="button" class="primary" onclick="saveLoanerCarCount()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 車検予約タブ：終日予定入力不可設定 -->
+  <div class="modal-overlay settings-modal" id="shakenBlockDayModal" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h3 class="settings-panel-title">車検予定入力不可設定</h3>
+      <p class="settings-note">指定した日付・曜日は、通検日として車検予約を追加できなくなります。カレンダーには「終日予定入力不可」と薄く表示されます。</p>
+
+      <p class="settings-note" style="margin-top:12px;margin-bottom:6px;font-weight:600;color:var(--text);">毎週ブロックする曜日</p>
+      <div id="shakenBlockWeekdayCheckboxes" style="display:flex;gap:8px;margin-bottom:14px;"></div>
+
+      <p class="settings-note" style="margin-bottom:6px;font-weight:600;color:var(--text);">個別に指定する日</p>
+      <ul class="member-list" id="shakenBlockDateList"></ul>
+      <div class="member-add-form">
+        <input type="date" id="shakenBlockDateAddInput">
+        <button type="button" id="shakenBlockDateAddBtn">追加</button>
+      </div>
+
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" class="sf-close-btn" onclick="attemptCloseListSettings(saveShakenBlockDayChanges, () => closeOverlay(document.getElementById('shakenBlockDayModal')))">閉じる</button>
+        <button type="button" id="shakenBlockDaySaveBtn" class="primary">保存</button>
       </div>
     </div>
   </div>
@@ -7863,6 +7917,10 @@ window.addEventListener('pagehide', function() {
         dailyTaskItems: [],
         // 車検予約タブ：この営業所が保有する代車の台数（0は未設定＝台数チェックをしない）。
         loanerCarCount: 0,
+        // 車検予約タブ：「終日予定入力不可」設定（通検日がこれに該当すると予約を追加できない）。
+        // 単日の一覧と、毎週ブロックする曜日（0=日〜6=土）を別々に持つ。
+        shakenBlockDates: [],
+        shakenBlockWeekdays: [],
       };
     }
 
@@ -7900,6 +7958,7 @@ window.addEventListener('pagehide', function() {
       'businessHours', 'timeFrames', 'timeFrameOrder', 'calcConditions', 'shiftDeadline',
       'lastRead', 'timeUnit', 'scheduleTimeStart', 'scheduleTimeEnd',
       'bookmarkCategories', 'schedulePresets', 'loanerCarCount',
+      'shakenBlockDates', 'shakenBlockWeekdays',
     ];
     let stateSettingsBaseline = null;
     function buildStateSettingsSnapshot() {
@@ -9424,6 +9483,19 @@ window.addEventListener('pagehide', function() {
 
     function closeScheduleBlockedWarning() {
       const modal = document.getElementById('scheduleBlockedWarningModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function showShakenBlockedWarning() {
+      const modal = document.getElementById('shakenBlockedWarningModal');
+      if (!modal) return;
+      overlayZIndex += 1;
+      modal.style.zIndex = overlayZIndex;
+      modal.style.display = 'flex';
+    }
+
+    function closeShakenBlockedWarning() {
+      const modal = document.getElementById('shakenBlockedWarningModal');
       if (modal) modal.style.display = 'none';
     }
 
@@ -12122,6 +12194,15 @@ window.addEventListener('pagehide', function() {
       return (typeof ensureBranchBucket === 'function') ? ensureBranchBucket(shakenViewBranch) : { shakenReservations: [] };
     }
 
+    // 「車検予定入力不可設定」で指定した単日・毎週の曜日のいずれかに該当するかを判定する。
+    function isShakenDateBlocked(dateISO, branchName) {
+      const bucket = ensureBranchBucket(branchName || shakenViewBranch || state.currentBranch);
+      if ((bucket.shakenBlockDates || []).includes(dateISO)) return true;
+      const [y, m, d] = dateISO.split('-').map(Number);
+      const dow = new Date(y, m - 1, d).getDay();
+      return (bucket.shakenBlockWeekdays || []).includes(dow);
+    }
+
     async function switchShakenViewBranch(name, silent) {
       if (!name || name === shakenViewBranch) return;
       shakenViewBranch = name;
@@ -12298,6 +12379,91 @@ window.addEventListener('pagehide', function() {
       closeOverlay(document.getElementById('loanerCarCountModal'));
     }
 
+    // ── 車検予約タブ：終日予定入力不可設定 ──
+    function shakenBlockDayBranch() {
+      return (typeof shakenViewBranch !== 'undefined' && shakenViewBranch) ? shakenViewBranch : state.currentBranch;
+    }
+
+    function openShakenBlockDayModal() {
+      renderShakenBlockWeekdayCheckboxes();
+      renderShakenBlockDateList();
+      openOverlay(document.getElementById('shakenBlockDayModal'));
+    }
+
+    function renderShakenBlockWeekdayCheckboxes() {
+      const container = document.getElementById('shakenBlockWeekdayCheckboxes');
+      if (!container) return;
+      const bucket = ensureBranchBucket(shakenBlockDayBranch());
+      const selected = bucket.shakenBlockWeekdays || [];
+      container.innerHTML = TASK_WEEKDAY_LABELS.map((label, i) => `
+        <label style="display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);cursor:pointer;">
+          <input type="checkbox" data-shaken-block-weekday="${i}" ${selected.includes(i) ? 'checked' : ''} style="accent-color:var(--cw-green);">
+          <span>${label}</span>
+        </label>`).join('');
+      container.querySelectorAll('[data-shaken-block-weekday]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const i = parseInt(cb.dataset.shakenBlockWeekday);
+          const bucket2 = ensureBranchBucket(shakenBlockDayBranch());
+          const set = new Set(bucket2.shakenBlockWeekdays || []);
+          if (cb.checked) set.add(i); else set.delete(i);
+          bucket2.shakenBlockWeekdays = Array.from(set).sort();
+          saveState();
+          markListSettingsDirty();
+          if (typeof renderShakenView === 'function') renderShakenView();
+        });
+      });
+    }
+
+    function renderShakenBlockDateList() {
+      const list = document.getElementById('shakenBlockDateList');
+      if (!list) return;
+      const bucket = ensureBranchBucket(shakenBlockDayBranch());
+      const dates = bucket.shakenBlockDates || [];
+      if (!dates.length) {
+        list.innerHTML = '<li style="font-size:12px;color:var(--muted);padding:6px 0;">日付が登録されていません</li>';
+        return;
+      }
+      list.innerHTML = dates.map((d, i) => `
+        <li class="settings-row-grid" style="grid-template-columns:1fr 122px;">
+          <input type="date" data-shaken-block-date="${i}" value="${d}" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <span class="member-actions"><button type="button" data-shaken-block-date-del="${i}" class="del">削除</button></span>
+        </li>`).join('');
+      list.querySelectorAll('[data-shaken-block-date]').forEach(input => {
+        input.addEventListener('change', () => updateShakenBlockDate(parseInt(input.dataset.shakenBlockDate), input.value));
+      });
+      list.querySelectorAll('[data-shaken-block-date-del]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = parseInt(btn.dataset.shakenBlockDateDel);
+          const bucket2 = ensureBranchBucket(shakenBlockDayBranch());
+          bucket2.shakenBlockDates.splice(i, 1);
+          saveState();
+          markListSettingsDirty();
+          renderShakenBlockDateList();
+          if (typeof renderShakenView === 'function') renderShakenView();
+        });
+      });
+    }
+
+    function updateShakenBlockDate(i, newDate) {
+      const bucket = ensureBranchBucket(shakenBlockDayBranch());
+      if (!newDate) { renderShakenBlockDateList(); return; }
+      if (bucket.shakenBlockDates.some((d, idx) => idx !== i && d === newDate)) {
+        alert('同じ日付が既にあります。');
+        renderShakenBlockDateList();
+        return;
+      }
+      bucket.shakenBlockDates[i] = newDate;
+      saveState();
+      markListSettingsDirty();
+      renderShakenBlockDateList();
+      if (typeof renderShakenView === 'function') renderShakenView();
+    }
+
+    function saveShakenBlockDayChanges() {
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet('車検予定入力不可設定を保存しました');
+      listSettingsDirty = false;
+    }
+
     function buildShakenCalendarWeeks(year, month) {
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -12421,7 +12587,8 @@ window.addEventListener('pagehide', function() {
           const dow = date.getDay();
           const isHoliday = typeof isJapanHoliday === 'function' && isJapanHoliday(date);
           const cls = ['shaken-date-cell', !current ? 'other-month' : '', isToday ? 'today' : '', dow === 0 ? 'sun' : '', dow === 6 ? 'sat' : '', isHoliday ? 'holiday' : ''].filter(Boolean).join(' ');
-          return `<div class="${cls}" data-date="${iso}" style="min-height:${cellMinHeight}px;"><span class="shaken-date-num">${date.getDate()}</span></div>`;
+          const watermark = isShakenDateBlocked(iso, shakenViewBranch) ? `<div class="shaken-allday-watermark">終日予定入力不可</div>` : '';
+          return `<div class="${cls}" data-date="${iso}" style="min-height:${cellMinHeight}px;"><span class="shaken-date-num">${date.getDate()}</span>${watermark}</div>`;
         }).join('');
 
         const barsHtml = placements.map(({ r, rowIndex }) => {
@@ -12731,6 +12898,10 @@ window.addEventListener('pagehide', function() {
         alert('顧客名・車種・通検日・入庫日・入庫時間・予約内容は必須です。');
         return;
       }
+      if (isShakenDateBlocked(inspectionDate, shakenViewBranch)) {
+        showShakenBlockedWarning();
+        return;
+      }
       if (reservationType !== 'loaner-use' && loanerVal === '') {
         alert('代車の有無を選択してください。');
         return;
@@ -12968,6 +13139,10 @@ window.addEventListener('pagehide', function() {
 
       if (!customer || !carModel || !inspectionDate || !checkinDate || !checkinTime || reservationType === '') {
         alert('顧客名・車種・通検日・入庫日・入庫時間・予約内容は必須です。');
+        return;
+      }
+      if (isShakenDateBlocked(inspectionDate, shakenViewBranch)) {
+        showShakenBlockedWarning();
         return;
       }
       if (reservationType !== 'loaner-use' && loanerVal === '') {
@@ -13802,6 +13977,23 @@ window.addEventListener('pagehide', function() {
     });
 
     document.getElementById('memberManageSaveBtn').addEventListener('click', saveMemberManageChanges);
+
+    document.getElementById('shakenBlockDaySaveBtn').addEventListener('click', saveShakenBlockDayChanges);
+    document.getElementById('shakenBlockDateAddBtn').addEventListener('click', () => {
+      const input = document.getElementById('shakenBlockDateAddInput');
+      const val = input.value;
+      if (!val) return;
+      const bucket = ensureBranchBucket(shakenBlockDayBranch());
+      if (!bucket.shakenBlockDates) bucket.shakenBlockDates = [];
+      if (bucket.shakenBlockDates.includes(val)) { alert('同じ日付が既にあります。'); return; }
+      bucket.shakenBlockDates.push(val);
+      bucket.shakenBlockDates.sort();
+      saveState();
+      markListSettingsDirty();
+      input.value = '';
+      renderShakenBlockDateList();
+      if (typeof renderShakenView === 'function') renderShakenView();
+    });
 
     document.getElementById('btnAddSchedule').addEventListener('click', () => {
       document.getElementById('taskInput').value = '';
