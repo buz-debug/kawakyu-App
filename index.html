@@ -4966,14 +4966,94 @@ function kasimeKey(base) { return `${base}_${kasimeViewBranch}`; }
     });
 })();
 
+// 仮締め記録：件数が増え続けるとスプレッドシートの1セル上限（5万文字）に達するため、
+// 車検予約と同様に、記録日（date, YYYY-MM-DD）の年月（YYYY-MM）ごとに専用セル
+// （仮締め記録_${branchName}_${YYYY-MM}）へ分割して保存する。アプリ内部のrecords変数は
+// 従来どおり1つのフラット配列のままとし、分割・結合は保存/読込の境界だけで行う。
+// このスクリプトはstate/loadState()より前に実行されるため、これらのヘルパーは
+// localStorageとJSONのみに依存する自己完結にしている（ensureBranchBucket等は使わない）。
+function kasimeMonthKeyOf(record) {
+    const d = record && record.date;
+    return (typeof d === 'string' && d.length >= 7) ? d.slice(0, 7) : null;
+}
+function kasimeMonthlyKeyName(branchName, monthKey) {
+    return `仮締め記録_${branchName}_${monthKey}`;
+}
+function kasimeLegacyKeyName(branchName) {
+    return `仮締め記録_${branchName}`; // 旧形式（月別分割前の単一セル）
+}
+function kasimeLocalMonthKeys(branchName) {
+    const prefix = `仮締め記録_${branchName}_`;
+    const months = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) months.push(k.slice(prefix.length));
+    }
+    return months;
+}
+function groupKasimeRecordsByMonth(recordsArr) {
+    const groups = {};
+    (recordsArr || []).forEach(r => {
+        const mk = kasimeMonthKeyOf(r) || 'unknown'; // dateが無い異常データも失わないための保険
+        (groups[mk] || (groups[mk] = [])).push(r);
+    });
+    return groups;
+}
+// 現在のフラット配列を月別ローカルキーへ書き出す。既存のローカル月キー・extraMonthKeys
+// （リモートにだけ存在した月など）も対象に含めて和集合を取り、対象外になった月は
+// 空配列で上書きする（記録日を編集して月をまたいだ際、元の月のセルに古いデータが
+// 残り続けないようにするため）。
+function persistKasimeRecordsByMonth(branchName, recordsArr, extraMonthKeys) {
+    const groups = groupKasimeRecordsByMonth(recordsArr);
+    const monthSet = new Set([
+        ...Object.keys(groups),
+        ...kasimeLocalMonthKeys(branchName),
+        ...(extraMonthKeys || []),
+    ]);
+    monthSet.forEach(mk => {
+        localStorage.setItem(kasimeMonthlyKeyName(branchName, mk), JSON.stringify(groups[mk] || []));
+    });
+}
+// ローカルの月別キーを連結して1つのフラット配列に復元する。月別キーが1つも無く
+// 旧形式（単一キー）にだけデータが残っている場合は、ここで初回移行（分割）を行う
+// （2回目以降は月別キーが既にあるため走らない＝冪等）。
+function loadKasimeRecordsFromLocal(branchName) {
+    const monthKeys = kasimeLocalMonthKeys(branchName);
+    let combined = [];
+    let sawAny = false;
+    monthKeys.forEach(mk => {
+        const raw = localStorage.getItem(kasimeMonthlyKeyName(branchName, mk));
+        if (raw === null) return;
+        sawAny = true;
+        try {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) combined = combined.concat(arr);
+        } catch (e) {}
+    });
+    if (!sawAny) {
+        const legacyRaw = localStorage.getItem(kasimeLegacyKeyName(branchName));
+        if (legacyRaw) {
+            try {
+                const legacyArr = JSON.parse(legacyRaw);
+                if (Array.isArray(legacyArr) && legacyArr.length) {
+                    persistKasimeRecordsByMonth(branchName, legacyArr);
+                    localStorage.setItem(kasimeLegacyKeyName(branchName), '[]');
+                    combined = legacyArr;
+                }
+            } catch (e) {}
+        }
+    }
+    return combined;
+}
+
 let records = [];
-try { records = JSON.parse(localStorage.getItem(kasimeKey('仮締め記録')) || '[]'); } catch(e){}
+try { records = loadKasimeRecordsFromLocal(kasimeViewBranch); } catch(e){}
 
 // 本社ログイン時のみ：閲覧する営業所を切り替える
 function switchKasimeViewBranch(name, silent) {
     if (!name || name === kasimeViewBranch) { return; }
     kasimeViewBranch = name;
-    try { records = JSON.parse(localStorage.getItem(kasimeKey('仮締め記録')) || '[]'); } catch(e) { records = []; }
+    try { records = loadKasimeRecordsFromLocal(kasimeViewBranch); } catch(e) { records = []; }
     if (typeof initCounters === 'function') initCounters();
     if (typeof buildInputForm === 'function') buildInputForm();
     if (typeof renderList === 'function') renderList();
@@ -5004,7 +5084,7 @@ let historyMoreExpanded = false;
 let currentDetailId = null;
 function persist() {
   window._hasUnsyncedTabChanges = true;
-  try { localStorage.setItem(kasimeKey('仮締め記録'), JSON.stringify(records)); } catch(e){}
+  try { persistKasimeRecordsByMonth(kasimeViewBranch, records); } catch(e){}
 }
 function persistDraft() {
   const draft = {
@@ -5624,6 +5704,7 @@ function deleteCurrentRecord() {
   }
   if (!confirm('この記録を削除しますか？\nこの操作は取り消せません。')) return;
   records = records.filter(r => r.id !== currentDetailId);
+  if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([currentDetailId]);
   persist();
   closeDetail();
   renderList();
@@ -10213,15 +10294,21 @@ window.addEventListener('pagehide', function() {
       const statusEl = document.getElementById(statusElId);
       if (!list || !branchName) return;
       const staticKeys = (typeof getSyncKeys === 'function') ? getSyncKeys(branchName) : [];
-      // 車検予約は月別に分割されたキーを使うため、存在する月だけ動的に追加する
-      // （ローカル参照時はshakenLocalMonthKeys、「最新を取得」時はdataOverrideのキーから拾う）。
+      // 車検予約・仮締め記録は月別に分割されたキーを使うため、存在する月だけ動的に追加する
+      // （ローカル参照時はxxxLocalMonthKeys、「最新を取得」時はdataOverrideのキーから拾う）。
       const shakenPrefix = `shakenReservations_${branchName}_`;
       const shakenMonthlyDisplayKeys = dataOverride
         ? Object.keys(dataOverride).filter(k => k.indexOf(shakenPrefix) === 0).sort()
         : (typeof shakenLocalMonthKeys === 'function'
           ? shakenLocalMonthKeys(branchName).map(mk => shakenMonthlyKeyName(branchName, mk)).sort()
           : []);
-      const keys = staticKeys.concat(shakenMonthlyDisplayKeys);
+      const kasimePrefix = `仮締め記録_${branchName}_`;
+      const kasimeMonthlyDisplayKeys = dataOverride
+        ? Object.keys(dataOverride).filter(k => k.indexOf(kasimePrefix) === 0).sort()
+        : (typeof kasimeLocalMonthKeys === 'function'
+          ? kasimeLocalMonthKeys(branchName).map(mk => kasimeMonthlyKeyName(branchName, mk)).sort()
+          : []);
+      const keys = staticKeys.concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys);
       const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
       const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
 
@@ -14714,12 +14801,15 @@ window.addEventListener('pagehide', function() {
         }
       }
 
-      // 仮締め（複数端末同時編集がほぼ無いため、3-wayマージの対象外＝そのまま削除してよい）
+      // 仮締め（mergeRemoteKasimeBeforeSaveがmergeArrayByIdでマージするため、
+      // 他の配列項目と同様にmarkIdsAsDeletedで削除済みidを記録し、復活を防ぐ）
       if (limits.kasime > 0 && typeof records !== 'undefined') {
         const cutoffISO = monthsAgoCutoffISO(limits.kasime);
-        const before = records.length;
-        records = records.filter(r => !r.date || r.date >= cutoffISO);
-        if (records.length !== before) {
+        const oldIds = records.filter(r => r.date && r.date < cutoffISO).map(r => r.id);
+        if (oldIds.length) {
+          if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(oldIds);
+          const oldIdSet = new Set(oldIds);
+          records = records.filter(r => !oldIdSet.has(r.id));
           if (typeof persist === 'function') persist();
           if (typeof kasimeSaveToSheet === 'function') kasimeSaveToSheet();
           if (typeof renderList === 'function') renderList();
@@ -17040,7 +17130,11 @@ function getSyncKeysForTab(tabBtnId, branchName) {
       // 項目設定は「営業所共通設定」セルにまとめて保存する。
       return [STORAGE_KEY_1, `dailyTaskRecords_${branchName}`];
     case 'kasime':
-      return [`仮締め記録_${branchName}`, `仮締め入力下書き_${branchName}`];
+      // 仮締め記録は月別に分割されたキー全て（＋旧単一キー。移行済みなら空のまま送るだけで無害）を対象にする。
+      // 入力下書きは1台の端末が今まさに入力中の一時データのため、分割せずそのまま。
+      return kasimeLocalMonthKeys(branchName)
+        .map(mk => kasimeMonthlyKeyName(branchName, mk))
+        .concat([kasimeLegacyKeyName(branchName), `仮締め入力下書き_${branchName}`]);
     case 'schedule':
       return [`schedules_${branchName}`];
     case 'sidebarTask':
@@ -17467,16 +17561,34 @@ async function mergeRemoteShakenBeforeSave(branchName, spreadsheetId) {
 // 仮締め記録も、id付きで追記されていくだけの配列のため他と同様にマージする
 // （「仮締め入力下書き」は、1台の端末が今まさに入力中の一時データであり、複数端末の下書きを
 // フィールド単位で混ぜ合わせても意味のある現金精算にならないため、意図的にマージ対象外とする）。
+// 車検予約と同様、月別に分割されたキー全て＋旧単一キーを結合してマージし、結果を月別
+// ローカルキーへ再分割する。
 async function mergeRemoteKasimeBeforeSave(branchName, spreadsheetId) {
   if (!spreadsheetId || typeof records === 'undefined' || typeof kasimeKey !== 'function') return;
   try {
     const result = await gasRequest('load', spreadsheetId);
     if (!result || !result.ok || !result.data) return;
-    const raw = result.data[`仮締め記録_${branchName}`];
-    if (!raw) return;
-    const remoteRecords = JSON.parse(raw);
+    const prefix = `仮締め記録_${branchName}_`;
+    const legacyKey = kasimeLegacyKeyName(branchName);
+    let remoteRecords = [];
+    const remoteMonthKeys = [];
+    Object.keys(result.data).forEach(k => {
+      if (k.indexOf(prefix) !== 0) return;
+      remoteMonthKeys.push(k.slice(prefix.length));
+      try {
+        const arr = JSON.parse(result.data[k]);
+        if (Array.isArray(arr)) remoteRecords = remoteRecords.concat(arr);
+      } catch (e) {}
+    });
+    if (result.data[legacyKey]) {
+      try {
+        const legacyArr = JSON.parse(result.data[legacyKey]);
+        if (Array.isArray(legacyArr)) remoteRecords = remoteRecords.concat(legacyArr);
+      } catch (e) {}
+    }
     records = mergeArrayById(records, remoteRecords);
-    localStorage.setItem(`仮締め記録_${branchName}`, JSON.stringify(records));
+    persistKasimeRecordsByMonth(branchName, records, remoteMonthKeys);
+    localStorage.setItem(legacyKey, '[]'); // 旧セルは以後空として扱う（移行済みマーク）
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
   }
@@ -17675,14 +17787,16 @@ async function doSyncFromSheet(branchName) {
   // ここでは取りこぼさないよう明示的に許可し、ダウンロードできるようにする
   // （loadState()側の旧形式フォールバックで正しく復元される）。
   const legacyStateKey = 'kawakyu-chatwork-v5';
-  // 車検予約は月別に分割されたキー（shakenReservations_営業所名_YYYY-MM）を使うため、
-  // 静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
+  // 車検予約・仮締め記録は月別に分割されたキー（例: shakenReservations_営業所名_YYYY-MM）を
+  // 使うため、静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
   const shakenMonthlyPrefix = `shakenReservations_${branchName}_`;
+  const kasimeMonthlyPrefix = `仮締め記録_${branchName}_`;
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     const isLegacyStateKey = (k === legacyStateKey);
     const isShakenMonthlyKey = k.indexOf(shakenMonthlyPrefix) === 0;
-    if ((!keys.includes(k) && !isLegacyStateKey && !isShakenMonthlyKey) || v === undefined || v === null || v === '') return;
+    const isKasimeMonthlyKey = k.indexOf(kasimeMonthlyPrefix) === 0;
+    if ((!keys.includes(k) && !isLegacyStateKey && !isShakenMonthlyKey && !isKasimeMonthlyKey) || v === undefined || v === null || v === '') return;
     let valueToStore = v;
     if (k === STORAGE_KEY_1 || isLegacyStateKey) {
       // currentBranchは「この端末が今ログインしている営業所」を表すローカルな値。
