@@ -27,12 +27,26 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── ボタン押下アニメーション（全ボタン共通） ── */
+    /* ── ボタンの立体感・押下アニメーション（全ボタン共通） ──
+       通常時はうっすらとした影を付けてボタンだと認識しやすくし、
+       押下時は影を消して沈み込んだように見せる。 */
     button {
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
       transition: transform 0.08s ease, box-shadow 0.08s ease;
     }
     button:active {
       transform: scale(0.93);
+      box-shadow: none;
+    }
+    /* タブ・アイコンのみの装飾ボタンなど、元々枠や背景を持たない「フラット」なボタンは、
+       影だけが不自然に浮いて見えてしまうため対象外にする。 */
+    .tab,
+    .room-item,
+    .bm-category-toggle,
+    .bm-del,
+    .composer-close,
+    #btnOpenAdminPage,
+    [data-attachdel] {
       box-shadow: none;
     }
 
@@ -1386,29 +1400,27 @@
       color: #666;
     }
 
-    /* 終日予定入力不可：セルの縦幅いっぱいに表示するバー */
+    /* 終日予定入力不可：塗りつぶさず、薄く大きめの透かし文字だけを表示する（車検予約タブと同じ見た目） */
     .task-cal-allday-bar {
       position: absolute;
-      left: 4px;
-      right: 4px;
-      top: 24px;
-      bottom: 4px;
-      border-radius: 3px;
-      color: #fff;
-      font-size: 10px;
-      font-weight: 700;
+      left: 2px;
+      right: 2px;
+      top: 20px;
+      bottom: 2px;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(107, 114, 128, .4);
       line-height: 1.3;
-      padding: 2px;
       cursor: pointer;
       overflow: hidden;
       word-break: break-all;
       transition: opacity .1s;
     }
-    .task-cal-allday-bar:hover { opacity: .85; }
+    .task-cal-allday-bar:hover { opacity: .7; }
 
     /* ===== 車検予約カレンダー ===== */
     /* 日付セル同士の余白を無くし、罫線だけで区切られた1枚のシートに見えるようにする。
@@ -7061,7 +7073,7 @@ window.addEventListener('pagehide', function() {
   <div id="shakenBlockedWarningModal" class="sf-modal sf-unsaved-warning-modal">
     <div class="sf-unsaved-warning-box">
       <div class="sf-unsaved-warning-icon">⚠️</div>
-      <div class="sf-unsaved-warning-title">この日は車検予約を追加できません！</div>
+      <div class="sf-unsaved-warning-title">この日は予約を追加できません！</div>
       <div class="sf-unsaved-warning-text">通検日が「終日予定入力不可」に設定されている日です。<br>別の日付を選択してください。</div>
       <div style="display:flex; justify-content:center; margin-top:18px;">
         <button onclick="closeShakenBlockedWarning()" style="background:#4a90e2; padding:10px 18px; font-size:14px;">閉じる</button>
@@ -9264,7 +9276,7 @@ window.addEventListener('pagehide', function() {
           .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
         const blockEntry = daySchedules.find(s => s.text === ALL_DAY_BLOCK_PRESET_NAME);
         const chips = blockEntry
-          ? `<div class="task-cal-allday-bar" data-sid="${blockEntry.id}" title="${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}" style="background:${ALL_DAY_BLOCK_PRESET_COLOR};">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</div>`
+          ? `<div class="task-cal-allday-bar" data-sid="${blockEntry.id}" title="${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}">${escapeHtml(ALL_DAY_BLOCK_PRESET_NAME)}</div>`
           : daySchedules.map(s => {
           const parts = [];
           if (s.time) parts.push(s.time);
