@@ -17820,6 +17820,46 @@ async function doSyncFromSheet(branchName) {
   // 営業所共通設定セルには保存しない方針にしたため、ここで別セルへ反映する処理は不要になった。
   // 次回loadState()実行時にoverlayPerBranchDedicatedKeys()がこれらの専用キーを直接読み込む。
 
+  // 車検予約・仮締め記録：今回ダウンロードした旧形式の単一キーにまだ内容が残っていた場合、
+  // この営業所のスプレッドシート側がまだ月別分割へ移行していないということなので、
+  // 次に誰かが実際にデータを保存するまで待たず、この場で月別データを作成してすぐに
+  // スプレッドシート側へアップロードし、移行を完了させる。
+  // （旧セルが既に空、またはそもそも存在しない場合は、上のループが書いた/書かなかった
+  //   ローカルの内容がそのまま正となるため、ここでは何もしない＝すべて冪等。）
+  const shakenLegacyRaw = (result.data || {})[shakenLegacyKeyName(branchName)];
+  const needsShakenRemoteMigration = !!shakenLegacyRaw && shakenLegacyRaw !== '[]';
+  if (needsShakenRemoteMigration) {
+    try {
+      const legacyArr = JSON.parse(shakenLegacyRaw);
+      if (Array.isArray(legacyArr) && legacyArr.length) persistShakenReservationsByMonth(branchName, legacyArr);
+    } catch (e) {}
+    localStorage.setItem(shakenLegacyKeyName(branchName), '[]');
+  }
+  const kasimeLegacyRaw = (result.data || {})[kasimeLegacyKeyName(branchName)];
+  const needsKasimeRemoteMigration = !!kasimeLegacyRaw && kasimeLegacyRaw !== '[]';
+  if (needsKasimeRemoteMigration) {
+    try {
+      const legacyArr = JSON.parse(kasimeLegacyRaw);
+      if (Array.isArray(legacyArr) && legacyArr.length) persistKasimeRecordsByMonth(branchName, legacyArr);
+    } catch (e) {}
+    localStorage.setItem(kasimeLegacyKeyName(branchName), '[]');
+  }
+  if ((needsShakenRemoteMigration || needsKasimeRemoteMigration) && getGasUrl() && spreadsheetId) {
+    try {
+      const migrateKeys = [];
+      if (needsShakenRemoteMigration) {
+        migrateKeys.push(...shakenLocalMonthKeys(branchName).map(mk => shakenMonthlyKeyName(branchName, mk)), shakenLegacyKeyName(branchName));
+      }
+      if (needsKasimeRemoteMigration) {
+        migrateKeys.push(...kasimeLocalMonthKeys(branchName).map(mk => kasimeMonthlyKeyName(branchName, mk)), kasimeLegacyKeyName(branchName));
+      }
+      await syncToSheet(branchName, migrateKeys);
+    } catch (e) {
+      // アップロードに失敗しても、ローカルの分割・旧セルの空化は既に済んでいるため実害は無く、
+      // 次回の同期時に旧セルへまた古い内容が残っていれば再度この移行処理が試行される。
+    }
+  }
+
   return { ok: true, count };
 }
 
