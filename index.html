@@ -9718,12 +9718,20 @@ window.addEventListener('pagehide', function() {
     }
 
     function openSettings() {
-      // 仮締め・シフトタブで営業所セレクターを使って他営業所を閲覧中は、その営業所の設定を開けないようにする
-      if (currentTab === 'kasime' && typeof kasimeViewBranch !== 'undefined' && kasimeViewBranch !== state.currentBranch) {
+      // 仮締め・シフト・車検予約タブで営業所セレクターを使って他営業所を閲覧中は、設定メニューを
+      // 開けないようにする。設定メニューの内容は常にログイン中の営業所にのみ反映されるべきで、
+      // 閲覧中営業所のデータを誤って読み書きしてしまうことがあってはならないため。
+      // どのタブを今表示しているかに関わらずチェックする（切替後に別タブへ移動していても、
+      // 閲覧営業所の切替自体は保持されたままのため、currentTabでは絞り込まない）。
+      if (typeof kasimeViewBranch !== 'undefined' && kasimeViewBranch !== state.currentBranch) {
         alert('他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。');
         return;
       }
-      if (currentTab === 'shift' && typeof shiftViewBranch !== 'undefined' && shiftViewBranch !== state.currentBranch) {
+      if (typeof shiftViewBranch !== 'undefined' && shiftViewBranch !== state.currentBranch) {
+        alert('他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。');
+        return;
+      }
+      if (typeof shakenViewBranch !== 'undefined' && shakenViewBranch !== state.currentBranch) {
         alert('他営業所を表示中は設定を開けません。ログイン中の営業所に切り替えてから操作してください。');
         return;
       }
@@ -12383,8 +12391,10 @@ window.addEventListener('pagehide', function() {
       document.getElementById('loanerCarLimitAlertOk').focus();
     }
 
+    // 設定メニューはログイン中の営業所にのみ反映されるべきため、こちらも
+    // 車検予約タブの閲覧営業所切替には依存させず、常にログイン中の営業所を使う。
     function openLoanerCarCountModal() {
-      const branch = (typeof shakenViewBranch !== 'undefined' && shakenViewBranch) ? shakenViewBranch : state.currentBranch;
+      const branch = state.currentBranch;
       const bucket = ensureBranchBucket(branch);
       const label = document.getElementById('loanerCarCountBranchLabel');
       if (label) label.textContent = branch + '：';
@@ -12394,7 +12404,7 @@ window.addEventListener('pagehide', function() {
     }
 
     function saveLoanerCarCount() {
-      const branch = (typeof shakenViewBranch !== 'undefined' && shakenViewBranch) ? shakenViewBranch : state.currentBranch;
+      const branch = state.currentBranch;
       const raw = document.getElementById('loanerCarCountInput').value;
       const val = Math.max(0, parseInt(raw, 10) || 0);
       const bucket = ensureBranchBucket(branch);
@@ -12405,8 +12415,10 @@ window.addEventListener('pagehide', function() {
     }
 
     // ── 車検予約タブ：終日予定入力不可設定 ──
+    // 設定メニューはログイン中の営業所にのみ反映されるべきため、車検予約タブ自体の
+    // 閲覧営業所切替（shakenViewBranch）には依存させず、常にログイン中の営業所を使う。
     function shakenBlockDayBranch() {
-      return (typeof shakenViewBranch !== 'undefined' && shakenViewBranch) ? shakenViewBranch : state.currentBranch;
+      return state.currentBranch;
     }
 
     function openShakenBlockDayModal() {
