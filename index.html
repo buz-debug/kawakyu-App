@@ -17339,12 +17339,16 @@ function getSpreadsheetId(branchName) {
 }
 
 // 同期対象のlocalStorageキー一覧（営業所名で動的生成）
+// 「仮締め入力下書き_営業所名」はここに含めない（この端末が今まさに入力中の一時データであり、
+// スプレッドシート経由で他端末と共有・復元すべきものではないため。含めてしまうと、
+// ある端末で入力途中のまま離脱した古い下書きが、後から別の端末・別のスタッフのログイン時に
+// 毎回ダウンロードされて自動的に画面へ復元され、何も操作していないのに「保存されていません」
+// という警告が出てしまう不具合になる）。
 function getSyncKeys(branchName) {
   return [
     STORAGE_KEY_1,
     'kawakyu-chatwork-messages-v1',
     `仮締め記録_${branchName}`,
-    `仮締め入力下書き_${branchName}`,
     `salesRecords_${branchName}`,
     `dailyTaskRecords_${branchName}`,
     `shifts_${branchName}`,
@@ -17377,10 +17381,11 @@ function getSyncKeysForTab(tabBtnId, branchName) {
       return [STORAGE_KEY_1, `dailyTaskRecords_${branchName}`];
     case 'kasime':
       // 仮締め記録は月別に分割されたキー全て（＋旧単一キー。移行済みなら空のまま送るだけで無害）を対象にする。
-      // 入力下書きは1台の端末が今まさに入力中の一時データのため、分割せずそのまま。
+      // 入力下書き（仮締め入力下書き_営業所名）は1台の端末が今まさに入力中の一時データのため、
+      // スプレッドシートへは一切アップロードしない（他端末と共有・復元すべきものではないため）。
       return kasimeLocalMonthKeys(branchName)
         .map(mk => kasimeMonthlyKeyName(branchName, mk))
-        .concat([kasimeLegacyKeyName(branchName), `仮締め入力下書き_${branchName}`]);
+        .concat([kasimeLegacyKeyName(branchName)]);
     case 'schedule':
       return [`schedules_${branchName}`];
     case 'sidebarTask':
