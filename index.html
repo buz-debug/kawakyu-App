@@ -4391,27 +4391,27 @@
 日常業務
 ====================== */
 #dailyTable {
-    border-collapse: collapse;
+    /* border-collapse:collapseは、position:stickyのセル（この表は見出し行・時間列・項目列の
+       3種類がstickyになっている）と組み合わせると、Chromeでもスクロール時にセルの重なり順が
+       崩れ、下のデータ行が見出し行の上に透けて見えてしまうことがある（ズレて見える／
+       日付行が動いて見える不具合の原因）。border-collapse:separate + border-spacing:0に
+       することで、セルの描画がstickyの重なり順を正しく守るようになる。 */
+    border-collapse: separate;
+    border-spacing: 0;
     width: 100%;
     table-layout: fixed;
     font-size: 10px;
 }
+/* separateモードでは罫線が重ならないため、全辺に付けると隣接セルと二重線になってしまう。
+   右・下だけに付け、外周の左端・上端は.daily-table-wrapper自身のborderで囲む
+   （元々wrapper側に1px borderが指定済みのため、そのまま利用できる）。 */
 #dailyTable th, #dailyTable td {
-    border: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     padding: 0;
     height: 22px;
     text-align: center;
     box-sizing: border-box;
-}
-/* stickyヘッダーとborder-collapseの組み合わせでは、見出し行と最初のデータ行の間の
-   罫線が正しく描画されないことがあるため、border-collapseの影響を受けない
-   box-shadowで、見出しセルの上端・最初のデータ行のセルの上端を確実に描画する
-   （他の罫線とは重ならず同じ見た目になる）。 */
-#dailyTable th {
-    box-shadow: inset 0 1px 0 0 var(--border);
-}
-#dailyTable tr.daily-first-row > td {
-    box-shadow: inset 0 1px 0 0 var(--border);
 }
 #dailyTable th {
     background: #fcfcfc;
