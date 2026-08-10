@@ -6448,7 +6448,7 @@ window.addEventListener('pagehide', function() {
           </div>
           <button type="button" id="btnAddShaken" class="toolbar-ctrl"
             style="margin-left:auto;flex-shrink:0;white-space:nowrap;background:var(--cw-green);color:#fff;border:none;font-weight:600;cursor:pointer;">
-            ＋ 予約を追加する
+            予約を追加する
           </button>
           <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
           <button type="button" id="btnShakenSummary" class="sales-nav-btn">月別集計</button>
@@ -6946,58 +6946,54 @@ window.addEventListener('pagehide', function() {
 
   <!-- 車検予約 追加モーダル -->
   <div class="modal-overlay" id="addShakenModal" role="dialog" aria-modal="true">
-    <div class="modal" style="width:min(460px,92vw);">
+    <div class="modal" style="width:min(680px,94vw);max-height:90vh;overflow-y:auto;">
       <h2 style="font-size:14px;margin-bottom:16px;">予約を追加する</h2>
       <form id="shakenFormNew">
-        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-bottom:16px;">
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">顧客名</label>
             <input type="text" id="shakenNewCustomer" placeholder="顧客名を入力" maxlength="50" required
-              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車種</label>
             <input type="text" id="shakenNewCarModel" placeholder="車種を入力" maxlength="50" required
-              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">車番（任意）</label>
             <input type="text" id="shakenNewPlate" placeholder="車番を入力" maxlength="30"
-              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;">
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">通検日</label>
             <input type="date" id="shakenNewInspectionDate" required
-              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
           </div>
-          <div style="display:flex;gap:8px;">
-            <div style="flex:1;">
-              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫日</label>
-              <input type="date" id="shakenNewCheckinDate" required
-                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-            </div>
-            <div style="flex:1;">
-              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫時間</label>
-              <input type="time" id="shakenNewCheckinTime" required
-                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-            </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫日</label>
+            <input type="date" id="shakenNewCheckinDate" required
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
           </div>
-          <div style="display:flex;gap:8px;">
-            <div style="flex:1;">
-              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車日（任意）</label>
-              <input type="date" id="shakenNewDeliveryDate"
-                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-            </div>
-            <div style="flex:1;">
-              <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車時間（任意）</label>
-              <input type="time" id="shakenNewDeliveryTime"
-                style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;">
-            </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">入庫時間</label>
+            <input type="time" id="shakenNewCheckinTime" required
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車日（任意）</label>
+            <input type="date" id="shakenNewDeliveryDate"
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">納車時間（任意）</label>
+            <input type="time" id="shakenNewDeliveryTime"
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;box-sizing:border-box;">
           </div>
           <div>
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">予約内容</label>
             <select id="shakenNewReservationType" required
-              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);box-sizing:border-box;">
               <option value="" selected disabled>選択してください</option>
               <option value="shaken">車検</option>
               <option value="general">一般整備</option>
@@ -7011,16 +7007,16 @@ window.addEventListener('pagehide', function() {
                  requiredフィールドがブラウザによってはフォーム送信をブロックしてしまうことがあるため。
                  必須チェックはJS側（submitハンドラ内）で行う。 -->
             <select id="shakenNewLoaner"
-              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);">
+              style="width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;outline:none;background:var(--surface);color:var(--text);box-sizing:border-box;">
               <option value="" selected disabled>選択してください</option>
               <option value="1">あり</option>
               <option value="0">なし</option>
             </select>
           </div>
-          <div>
+          <div style="grid-column:1 / -1;">
             <label style="font-size:11px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">備考（任意）</label>
-            <textarea id="shakenNewNote" placeholder="備考を入力" maxlength="500" rows="3"
-              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;"></textarea>
+            <textarea id="shakenNewNote" placeholder="備考を入力" maxlength="500" rows="2"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;outline:none;font-family:inherit;resize:vertical;line-height:1.5;box-sizing:border-box;"></textarea>
           </div>
         </div>
         <div class="modal-actions">
@@ -7145,7 +7141,7 @@ window.addEventListener('pagehide', function() {
       <div class="day-detail-list" id="shakenDayDetailList"></div>
       <p class="settings-note" style="margin-top:4px;margin-bottom:12px;">項目をクリックすると内容を編集できます</p>
       <div class="modal-actions">
-        <button type="button" id="shakenDayDetailAdd" style="margin-right:auto;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;">＋ 予約を追加する</button>
+        <button type="button" id="shakenDayDetailAdd" style="margin-right:auto;padding:7px 14px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;">予約を追加する</button>
         <button type="button" id="shakenDayDetailClose">閉じる</button>
       </div>
     </div>
