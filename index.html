@@ -1438,6 +1438,15 @@
        予定バーはその上に重ねる別レイヤー（絶対配置）として描画し、複数日をまとめて
        1つの要素として描くことで、セルの罫線の上に覆いかぶさり「セルの枠を
        突き破って隣のセルまで伸びている」ように見える。 */
+    /* 1カラム化以降、横長の画面では日付セルが横に間延びして見えるため、
+       カレンダー本体の横幅に上限を設けて中央寄せする（画面が狭い場合はそれより
+       広がらないだけで、従来通り画面幅いっぱいまで縮む）。 */
+    #shakenCalView .task-cal-daynames,
+    #shakenCalWeeks {
+      max-width: 1100px;
+      margin-left: auto;
+      margin-right: auto;
+    }
     #shakenCalWeeks {
       border: 1px solid var(--border);
       border-radius: 6px;
