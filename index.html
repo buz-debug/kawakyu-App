@@ -15013,6 +15013,34 @@ window.addEventListener('pagehide', function() {
       return `${m[1]}-${String(m[2]).padStart(2, '0')}-${String(m[3]).padStart(2, '0')}`;
     }
 
+    // 削除したid（メッセージ・予定・仮締め記録・車検予約など）を記録しておき、保存前マージの際に
+    // サーバー側にまだ残っている古い内容で復活させないようにする仕組み。詳しい経緯は後方の
+    // mergeArrayById直前のコメントを参照。
+    //
+    // 【重要】この定義は、このすぐ下のapplyDataRetentionCleanup()（ログイン直後に自動実行される
+    // データ保存期間クリーンアップ）より必ず先に読み込まれている必要があるため、本来の定義場所
+    // （元はmergeArrayByIdの直前、後方のscriptブロック）から、あえてここへ移動してある。
+    // このHTMLは3つの<script>ブロックに分かれており、ブロックは読み込まれた順にしか実行されない
+    // （後方のブロックの関数は、前方のブロックの実行中はまだ存在しない）。そのため、後方のブロックで
+    // 定義されたmarkIdsAsDeletedを前方のブロックのapplyDataRetentionCleanup()から呼んでも、
+    // 「まだ存在しない関数」として静かに呼び出しがスキップされてしまい、削除したはずのid（特に
+    // データ保存期間の自動削除で消したid）がrecentlyDeletedIdsに記録されないまま保存前マージが
+    // 走ってしまい、サーバー側に残っていた削除済みデータが復活してしまう不具合があった。
+    // let/constではなく必ずvarを使うこと（varはブロックをまたいでwindowへ共有されるが、
+    // let/constは宣言されたscriptブロック内でしか参照できないため）。
+    var RECENTLY_DELETED_IDS_KEY = 'kawakyu_recently_deleted_ids';
+    var recentlyDeletedIds = new Set();
+    (function loadRecentlyDeletedIds() {
+      try {
+        const raw = localStorage.getItem(RECENTLY_DELETED_IDS_KEY);
+        if (raw) { JSON.parse(raw).forEach(id => recentlyDeletedIds.add(id)); }
+      } catch (e) {}
+    })();
+    function markIdsAsDeleted(ids) {
+      (ids || []).forEach(id => { if (id) recentlyDeletedIds.add(id); });
+      try { localStorage.setItem(RECENTLY_DELETED_IDS_KEY, JSON.stringify(Array.from(recentlyDeletedIds))); } catch (e) {}
+    }
+
     function applyDataRetentionCleanup() {
       if (typeof state === 'undefined' || !state.dataRetentionMonths) return;
       const limits = state.dataRetentionMonths;
@@ -15071,6 +15099,17 @@ window.addEventListener('pagehide', function() {
 
       // 仮締め（mergeRemoteKasimeBeforeSaveがmergeArrayByIdでマージするため、
       // 他の配列項目と同様にmarkIdsAsDeletedで削除済みidを記録し、復活を防ぐ）
+      //
+      // 【重要】ここではpersist()を使わず、直接persistKasimeRecordsByMonthでローカル保存する。
+      // persist()は「window._hasUnsyncedTabChanges = true」という、仮締め・シフト・日常業務・
+      // 販売実績表タブ共通の「未保存警告」フラグを立てる副作用を持つ。このフラグは本来ユーザーが
+      // 実際に入力した内容を保護するためのものだが、この保存期間クリーンアップはログイン直後に
+      // 自動で走る裏方処理であり、その時点ではまだユーザーは何も操作していない。
+      // persist()を呼んでしまうと、この裏方保存が（非同期のため）完了するまでの間、あるいは
+      // 何らかの理由で保存に失敗した場合はそれ以降ずっと、ユーザーが仮締め・シフト・日常業務・
+      // 販売実績表のいずれのタブを開いただけ・何も操作していなくても「保存されていません」という
+      // 警告が誤って出てしまう不具合になっていた（フラグが4タブ共通のため、原因は仮締めの
+      // クリーンアップでも、警告は他のタブでも出てしまう）。
       if (limits.kasime > 0 && typeof records !== 'undefined') {
         const cutoffISO = monthsAgoCutoffISO(limits.kasime);
         const oldIds = records.filter(r => r.date && r.date < cutoffISO).map(r => r.id);
@@ -15078,7 +15117,7 @@ window.addEventListener('pagehide', function() {
           if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted(oldIds);
           const oldIdSet = new Set(oldIds);
           records = records.filter(r => !oldIdSet.has(r.id));
-          if (typeof persist === 'function') persist();
+          if (typeof persistKasimeRecordsByMonth === 'function') persistKasimeRecordsByMonth(kasimeViewBranch, records);
           if (typeof kasimeSaveToSheet === 'function') kasimeSaveToSheet();
           if (typeof renderList === 'function') renderList();
         }
@@ -17550,29 +17589,10 @@ let _sheetDownloadInProgress = false;
 // 保存の直前に必ずサーバーの最新内容を取得し、id単位で「どちらかに存在するものは残す」形でローカルへ
 // マージしてから保存することで、他端末の追加分を消さないようにする。
 //
-// ただしこの「どちらかに存在するものは残す」だけの単純なマージだと、削除がまったく効かなくなってしまう
-// （消した直後の保存で、まだ消える前のサーバー内容を読み込んでしまい、消したはずの項目を復活させてしまう）。
-// そのため、削除操作を行った項目のIDを記録しておき、マージ時にそのIDだけはサーバー側の内容があっても
-// 復活させないようにする。
+// （RECENTLY_DELETED_IDS_KEY・recentlyDeletedIds・markIdsAsDeleted本体は、データ保存期間の自動削除
+// 　（applyDataRetentionCleanup、この下のscriptブロック）より前に読み込まれている必要があるため、
+// 　このscriptブロックより前方に移動した。定義はそちらを参照）
 //
-// このIDリストは「保存成功時点でクリア」する方式を最初は試したが、それでもなお復活する不具合が残った。
-// Googleスプレッドシート側の書き込み直後の読み込みが、必ずしも最新内容を返すとは限らない（反映に
-// わずかなラグがあり得る）ため、1回保存が成功しただけでは「サーバーに確実に反映された」とは言い切れない。
-// そのため、削除IDは端末・タブを閉じるまで（＝ページを離れるまで）ずっと保持し続け、
-// localStorageにも保存してページ再読み込みをまたいでも消えないようにする。
-const RECENTLY_DELETED_IDS_KEY = 'kawakyu_recently_deleted_ids';
-let recentlyDeletedIds = new Set();
-(function loadRecentlyDeletedIds() {
-  try {
-    const raw = localStorage.getItem(RECENTLY_DELETED_IDS_KEY);
-    if (raw) { JSON.parse(raw).forEach(id => recentlyDeletedIds.add(id)); }
-  } catch (e) {}
-})();
-function markIdsAsDeleted(ids) {
-  (ids || []).forEach(id => { if (id) recentlyDeletedIds.add(id); });
-  try { localStorage.setItem(RECENTLY_DELETED_IDS_KEY, JSON.stringify(Array.from(recentlyDeletedIds))); } catch (e) {}
-}
-
 // id付きの配列同士を「どちらかに存在するものは残す」形でマージする共通処理。
 // ただし、この端末で削除済み（recentlyDeletedIds）のidだけは、リモートに残っていても復活させない。
 function mergeArrayById(localArr, remoteArr) {
