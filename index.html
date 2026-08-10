@@ -17843,7 +17843,17 @@ async function mergeRemoteShakenBeforeSave(branchName, spreadsheetId) {
     }
     const bucket = ensureBranchBucket(branchName);
     bucket.shakenReservations = mergeArrayById(bucket.shakenReservations, remoteReservations);
-    saveState();
+    // 【重要】ここでsaveState()は呼ばない。shakenReservationsは専用セル（月別キー）にのみ保存する
+    // 「dedicated」フィールドのため（buildStateCellPayloadで除外される）、saveState()を呼んでも
+    // このマージ結果自体は営業所共通設定セル（STORAGE_KEY_1）へは反映されない＝呼ぶ意味が無い。
+    // それどころか、saveState()はその時点のstate全体（dataRetentionMonthsなど無関係な設定も含む）を
+    // まるごとSTORAGE_KEY_1へ書き込んでしまう。ログイン直後、この関数はswitchShakenViewBranch経由で
+    // attemptLogin()から同期的に呼ばれるが、それとほぼ同時にattemptStartupSheetLoad()が
+    // サーバーから正しい最新設定をダウンロードしてSTORAGE_KEY_1へ書き込み、直後にリロードする
+    // という処理も並行して走っている。この2つが競合すると、まれにこちらのsaveState()の書き込みが
+    // 後勝ちしてしまい、ダウンロードしたばかりの正しいdataRetentionMonths等を、まだ何も
+    // ダウンロードしていない時点の空の値で上書きしてしまう不具合があった（ログイン直後だけ、
+    // データ保存期間の設定が空扱いになる不具合の原因）。
     persistShakenReservationsByMonth(branchName, bucket.shakenReservations, remoteMonthKeys);
     localStorage.setItem(legacyKey, '[]'); // 旧セルは以後空として扱う（移行済みマーク）
   } catch (e) {
