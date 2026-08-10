@@ -60,6 +60,15 @@
       flex-direction: column;
     }
 
+    /* input・select・textarea・buttonはブラウザの既定仕様上、親要素のfont-familyを
+       自動では受け継がない（OS・ブラウザ側の「フォーム部品用フォント」が使われてしまう）。
+       そのため、シフトビューの入力欄など一部の記号だけPCによってフォントが違って見える
+       不具合があった。ここで明示的にinheritさせることで、アプリ全体で確実に同じフォントに
+       統一する（今後追加される入力欄・ボタンにも自動的に適用される）。 */
+    input, select, textarea, button {
+      font-family: inherit;
+    }
+
     /* チャットエリア（サイドバー＋メイン）を横並びにするラッパー */
     .app-row {
       display: flex;
@@ -3365,6 +3374,12 @@
     text-overflow:ellipsis;
 }
 
+/* メイン画面（閲覧用）のシフト記号を、シフト作成フォーム（#editTable .sf-shift-input）と
+   同じ太さで表示する */
+.sf-shift-view-cell {
+    font-weight: bold;
+}
+
 #editTable td {
     padding:0;
     height: 30px;
@@ -3458,6 +3473,7 @@
     white-space:nowrap;
     overflow:hidden;
 }
+
 
 .sf-timeframe-item-row{
     display:contents;
@@ -4505,9 +4521,10 @@
   align-self: start;
   white-space: normal;
   overflow: visible;
-  font-size: 9.5px;
-  line-height: 1.1;
-  padding: 2px 5px;
+  /* 文字が小さく見にくいとのフィードバックのため、元の9.5px/11pxから引き上げた */
+  font-size: 12px;
+  line-height: 1.2;
+  padding: 3px 6px;
   gap: 0;
   height: auto;
   box-sizing: border-box;
@@ -4518,7 +4535,7 @@
   word-break: break-word;
 }
 #timeframeList.sf-timeframe-grid .sf-timeframe-item strong {
-  font-size: 11px;
+  font-size: 14px;
 }
 
 /* シフトタブのPDF印刷：タブ切替・スマホ表示・設定・印刷ボタン自体は印刷しない */
@@ -16016,7 +16033,7 @@ function renderViewTable(){
             dailyTotals[d] += calculateWorkMinutes(value);
             const bg = timeFrames[value]?.color || "";
             // 【指示通り修正】メイン画面のビューは「記号のみ」表示
-            row += `<td style="background:${bg}">${value}</td>`;
+            row += `<td class="sf-shift-view-cell" style="background:${bg}">${value}</td>`;
         }
         const stats = getStaffStats(staff, year, month, days);
         row += `<td class="sf-total-hours">${stats.hoursStr}</td><td class="sf-subtotal-col">${stats.attendance}</td><td class="sf-subtotal-col">${stats.holiday}</td><td class="sf-subtotal-col">${stats.paidLeave}</td></tr>`;
