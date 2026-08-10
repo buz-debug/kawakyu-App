@@ -4392,7 +4392,7 @@
 ====================== */
 #dailyTable {
     border-collapse: collapse;
-    width: max-content;
+    width: 100%;
     table-layout: fixed;
     font-size: 10px;
 }
@@ -4460,8 +4460,13 @@
 #dailyTable th.daily-item-col {
     z-index: 4;
 }
+/* 幅は固定値ではなく、renderDailyTable()内のJS（table-layout:fixedはmin-widthを
+   正しく尊重しないため、実測して計算する必要がある）が算出した値を--daily-day-wへ
+   設定する。画面が広いときは各セルが伸びてスクロール領域いっぱいまで埋まり、
+   画面が狭いときは30pxを下回らず、今まで通り横スクロールになる。
+   （JSが未実行の初期状態でも崩れないよう、フォールバック値として30pxを指定） */
 #dailyTable .daily-day-col {
-    width: 30px;
+    width: var(--daily-day-w, 30px);
 }
 #dailyTable .daily-clickable-cell {
     cursor: pointer;
@@ -11902,7 +11907,26 @@ window.addEventListener('pagehide', function() {
       });
 
       table.innerHTML = headerRow + bodyHtml;
+      syncDailyDayColWidth(table, days);
       syncStickyBorderBarWidth(table, '.daily-table-wrapper', '--daily-table-w');
+    }
+
+    // 担当者入力セル（日にちの列）の横幅を、画面の実際の余白に合わせて計算する。
+    // table-layout:fixedはmin-widthを正しく尊重せず、幅を指定していない列を
+    // 実際の内容に関わらず縮めてしまうことがあるため、CSSだけでは「画面が広い時は
+    // 伸ばし、狭い時は30pxを下回らせない」という挙動を安定して実現できない。
+    // ここで実測してから--daily-day-wへ反映することで、両方を確実に満たす。
+    const DAILY_DAY_COL_MIN_W = 30;
+    function syncDailyDayColWidth(table, days) {
+      const wrapper = document.querySelector('.daily-table-wrapper');
+      const timeCol = table.querySelector('.daily-time-col');
+      const itemCol = table.querySelector('.daily-item-col');
+      if (!wrapper || !timeCol || !itemCol || !days) return;
+      // 一旦フォールバック幅（30px）で計算した場合の合計と、実際に使える幅を比較する
+      const fixedW = timeCol.getBoundingClientRect().width + itemCol.getBoundingClientRect().width;
+      const availableW = wrapper.clientWidth - fixedW;
+      const perDayW = Math.max(DAILY_DAY_COL_MIN_W, Math.floor(availableW / days));
+      wrapper.style.setProperty('--daily-day-w', perDayW + 'px');
     }
 
     function findDailyItemIndexById(id) {
