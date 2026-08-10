@@ -4283,47 +4283,36 @@
     font-weight: 600;
 }
 
-#salesTable {
-    border-collapse: collapse;
+/* 見出し行（項目名＋日計/累計の2段）は、以前はposition:stickyでテーブル内に留めていたが、
+   日常業務タブと同じ「Chromeのposition:sticky自体がトラックパッドの高速スクロール中に
+   位置計算を一瞬取りこぼす」不具合が販売実績表でも再現したため、同じ対策を適用する。
+   見出し専用の別テーブル（#salesTableHead、スクロールしない）を上に固定表示し、
+   データ行はその下の.sales-table-wrapper（縦スクロールのみ）に入れる。横スクロールだけは
+   JS（renderSalesTable/renderSalesDayViewTable内）で.sales-table-wrapperのscrollLeftを
+   .sales-table-head-wrapperへ同期させる。 */
+#salesTableHead, #salesTable {
+    border-collapse: separate;
+    border-spacing: 0;
     width: max-content;
     table-layout: fixed;
     font-size: 11px;
 }
-#salesTable th, #salesTable td {
-    border: 1px solid var(--border);
+/* 全辺に罫線を付けると隣接セルと二重線になるため右・下だけに付け、外周の左端・上端は
+   .sales-table-outer自身のborderで囲む */
+#salesTableHead th, #salesTable td {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     padding: 0;
     height: 22px;
     text-align: center;
     box-sizing: border-box;
 }
-/* stickyヘッダーとborder-collapseの組み合わせは、見出し行の上端の罫線が
-   正しく描画されないブラウザの既知の不具合があるため、box-shadowでの補強に加えて、
-   テーブルの罫線の仕組みに依存しない専用の帯（.sales-table-wrapperの::before）で
-   スクロール時も含めて上端の罫線を確実に表示する（下記.sales-table-wrapper::before参照）。 */
-#salesTable th {
-    box-shadow: inset 0 1px 0 0 var(--border);
-}
-#salesTable tr.sales-first-row > td {
-    box-shadow: inset 0 1px 0 0 var(--border);
-}
-#salesTable th {
+#salesTableHead th {
     background: #fcfcfc;
-    position: sticky;
-    top: 0;
-    z-index: 2;
     padding: 3px 6px;
     height: auto;
 }
-/* 見出しは項目名（1行目）と日計/累計（2行目）の2段になっており、どちらもtop:0のままだと
-   スクロール時に1行目（項目名）が2行目の後ろに隠れて消えて見えてしまう。1行目の実際の高さを
-   JS（syncStickyBorderBarWidth内）で--sales-header1-hに設定し、2行目をその分だけ
-   下にずらして重ねることで、スクロール中も2段とも正しく表示され続けるようにする。 */
-#salesTable .sales-header-item {
-    top: 0;
-}
-#salesTable .sales-header-sub {
-    top: var(--sales-header1-h, 25px);
-}
+#salesTableHead .sales-day-col,
 #salesTable .sales-day-col {
     position: sticky;
     left: 0;
@@ -4333,17 +4322,12 @@
     width: 68px;
     padding: 0 4px;
 }
-/* 「日付」列は見出しセル・各行のセルの両方が.sales-day-col（sticky）で、同じz-indexのままだと
-   スクロール時にDOM順で後ろにある行セルが見出しセルの前面に重なって表示されてしまう
-   （見出しの背面に隠れず、逆に見出しの上をすり抜けて見える）。見出しセルのz-indexを
-   行セルより明確に高くし、常に見出しが手前に表示されるようにする。 */
-#salesTable th.sales-day-col {
-    z-index: 3;
-}
+#salesTableHead .sales-daily-col,
 #salesTable .sales-daily-col {
     background: #eef6ff;
     width: 58px;
 }
+#salesTableHead .sales-cumulative-col,
 #salesTable .sales-cumulative-col {
     background: #eafaf0;
     width: 50px;
@@ -4368,23 +4352,12 @@
     font-weight: 600;
     color: #0f766e;
 }
-/* テーブル自体の罫線（border-collapse）に頼らず、専用の帯を見出し行の上端に重ねて表示する。
-   スクロールしても見出しと同じ高さ（top:0）に留まり続けるため、常に上端の罫線が見える。
-   横幅はJS（ResizeObserverでテーブル本体の実際の幅を反映）で --sales-table-w に設定する
-   （項目数が多く横スクロールが発生する場合でも、帯が右端まで確実に届くようにするため）。 */
-.sales-table-wrapper {
-    position: relative;
-}
-.sales-table-wrapper::before {
-    content: '';
-    position: sticky;
-    top: 0;
-    left: 0;
-    display: block;
-    height: 1px;
-    width: var(--sales-table-w, 100%);
-    background: var(--border);
-    z-index: 4;
+/* 見出し用テーブルは常に画面上に固定表示され、縦スクロールのbody側と横スクロール位置だけ
+   JSで同期する。overflow:hiddenでユーザーによる直接のスクロール操作（スクロールバー等）を
+   防ぎ、scrollLeftの変更はJS経由のみで行う。 */
+.sales-table-head-wrapper {
+    overflow: hidden;
+    flex-shrink: 0;
 }
 
 /* ======================
@@ -4556,13 +4529,13 @@
     display: inline !important;
     margin-left: 6px;
   }
-  .sales-tab-wrap, .sales-table-wrapper {
+  .sales-tab-wrap, .sales-table-wrapper, .sales-table-outer, .sales-table-head-wrapper {
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
     border: none !important;
   }
-  #salesTable {
+  #salesTableHead, #salesTable {
     width: 100% !important;
     font-size: 11px !important;
   }
@@ -6381,8 +6354,13 @@ window.addEventListener('pagehide', function() {
           </div>
         </div>
         <div id="salesDayViewLabel" style="display:none;text-align:center;font-weight:bold;font-size:15px;padding:5px 0 10px;"></div>
-        <div class="sales-table-wrapper" style="flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:6px;">
-          <table id="salesTable"></table>
+        <div class="sales-table-outer" style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+          <div class="sales-table-head-wrapper">
+            <table id="salesTableHead"></table>
+          </div>
+          <div class="sales-table-wrapper" style="flex:1;min-height:0;overflow:auto;">
+            <table id="salesTable"></table>
+          </div>
         </div>
         <div id="salesChartView" style="display:none;flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:14px;flex-direction:column;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
@@ -11132,7 +11110,7 @@ window.addEventListener('pagehide', function() {
       salesChartItemId = id;
       salesChartMode = 'rolling12';
       salesChartYear = salesCurrentDate.getFullYear();
-      document.querySelector('.sales-table-wrapper').style.display = 'none';
+      document.querySelector('.sales-table-outer').style.display = 'none';
       document.getElementById('salesChartView').style.display = 'flex';
       renderSalesChart();
     }
@@ -11140,7 +11118,10 @@ window.addEventListener('pagehide', function() {
     function exitSalesChartView() {
       salesChartItemId = null;
       document.getElementById('salesChartView').style.display = 'none';
-      document.querySelector('.sales-table-wrapper').style.display = '';
+      // .sales-table-outerは元々インラインstyleでdisplay:flexを指定しているため、
+      // 空文字に戻すとdisplay指定ごと消えてdiv既定のblockになりflexレイアウトが崩れる。
+      // 明示的に'flex'を指定して元の状態へ戻す。
+      document.querySelector('.sales-table-outer').style.display = 'flex';
     }
 
     function setSalesChartMode(mode) {
@@ -11445,10 +11426,41 @@ window.addEventListener('pagehide', function() {
       }
     }
 
+    // table-layout:fixedは本来「最初の行のセル幅」から列幅を決めるが、この決め方は
+    // colspanセルが絡むと実際にはブラウザごとに解釈がぶれやすく、見出し用テーブル
+    // （#salesTableHead、1行目が項目名でcolspanにより日計/累計をまたぐ）と本体テーブル
+    // （#salesTable、データ行のみ）とで、同じCSS幅を指定していても実際に計算される
+    // テーブル全体の幅が一致しないことがある（横スクロール量が本体側でしか発生せず、
+    // 見出し側の横スクロール同期が効かなくなる不具合の原因）。<colgroup>で列幅を
+    // 明示的に固定することで、行の内容やcolspanに関係なく2つのテーブルの列幅を
+    // 確実に一致させる。
+    const SALES_DAY_COL_W = 68;
+    const SALES_DAILY_COL_W = 58;
+    const SALES_CUMULATIVE_COL_W = 50;
+    // colgroupで列幅を固定しても、テーブル自身の width:max-content（CSS）は列幅の合計を
+    // 無視して内容量から自前の希望幅を計算してしまい、結局2テーブルの実際の幅がずれる
+    // （本体側だけ横に伸びてしまう）ことが実機検証で判明した。列幅の合計を計算し、
+    // 見出し用・本体テーブル両方にwidthとして明示的に指定することで確実に一致させる。
+    function buildSalesColgroup() {
+      let totalWidth = SALES_DAY_COL_W;
+      let html = `<colgroup><col style="width:${SALES_DAY_COL_W}px">`;
+      salesItems.forEach(item => {
+        html += `<col style="width:${SALES_DAILY_COL_W}px">`;
+        totalWidth += SALES_DAILY_COL_W;
+        if (item.mode !== 'dailyOnly') {
+          html += `<col style="width:${SALES_CUMULATIVE_COL_W}px">`;
+          totalWidth += SALES_CUMULATIVE_COL_W;
+        }
+      });
+      html += `</colgroup>`;
+      return { html, totalWidth };
+    }
+
     function renderSalesTable() {
       const table = document.getElementById('salesTable');
+      const headTable = document.getElementById('salesTableHead');
       const label = document.getElementById('salesMonthLabel');
-      if (!table) return;
+      if (!table || !headTable) return;
       const year = salesCurrentDate.getFullYear();
       const month = salesCurrentDate.getMonth();
       if (label) label.textContent = `${year}年 ${month + 1}月`;
@@ -11510,24 +11522,29 @@ window.addEventListener('pagehide', function() {
       }
 
       if (!salesItems.length) {
-        table.innerHTML = `<tr><th class="sales-day-col">日付</th><th>項目がありません</th></tr>` +
-          Array.from({ length: days }, (_, i) => {
-            const d = i + 1;
-            const date = new Date(year, month, d);
-            return `<tr><td class="sales-day-col" style="cursor:pointer;" onclick="enterSalesDayView(${d})">${d}（${weekNames[date.getDay()]}）</td><td></td></tr>`;
-          }).join('');
-        syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
+        headTable.innerHTML = `<tr><th class="sales-day-col">日付</th><th>項目がありません</th></tr>`;
+        table.innerHTML = Array.from({ length: days }, (_, i) => {
+          const d = i + 1;
+          const date = new Date(year, month, d);
+          return `<tr><td class="sales-day-col" style="cursor:pointer;" onclick="enterSalesDayView(${d})">${d}（${weekNames[date.getDay()]}）</td><td></td></tr>`;
+        }).join('');
+        bindSalesHeadScrollSync();
         return;
       }
 
-      table.innerHTML = headerRow1 + headerRow2 + bodyHtml;
-      syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
-      syncSalesHeaderStack(table);
+      const colgroup = buildSalesColgroup();
+      headTable.innerHTML = colgroup.html + headerRow1 + headerRow2;
+      table.innerHTML = colgroup.html + bodyHtml;
+      headTable.style.width = colgroup.totalWidth + 'px';
+      table.style.width = colgroup.totalWidth + 'px';
+      bindSalesHeadScrollSync();
     }
 
     // 指定した日の、全営業所の実績一覧を表示する（縦軸=営業所、横軸=項目）
     function renderSalesDayViewTable(year, month, day) {
       const table = document.getElementById('salesTable');
+      const headTable = document.getElementById('salesTableHead');
+      if (!table || !headTable) return;
       const branches = state.branches || [];
       const recordKey = `${year}-${month + 1}-${day}`;
 
@@ -11569,15 +11586,18 @@ window.addEventListener('pagehide', function() {
       });
 
       if (!salesItems.length) {
-        table.innerHTML = `<tr><th class="sales-day-col">営業所</th><th>項目がありません</th></tr>` +
-          branches.map(b => `<tr><td class="sales-day-col">${escapeHtml(b.name)}</td><td></td></tr>`).join('');
-        syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
+        headTable.innerHTML = `<tr><th class="sales-day-col">営業所</th><th>項目がありません</th></tr>`;
+        table.innerHTML = branches.map(b => `<tr><td class="sales-day-col">${escapeHtml(b.name)}</td><td></td></tr>`).join('');
+        bindSalesHeadScrollSync();
         return;
       }
 
-      table.innerHTML = headerRow1 + headerRow2 + bodyHtml;
-      syncStickyBorderBarWidth(table, '.sales-table-wrapper', '--sales-table-w');
-      syncSalesHeaderStack(table);
+      const colgroup = buildSalesColgroup();
+      headTable.innerHTML = colgroup.html + headerRow1 + headerRow2;
+      table.innerHTML = colgroup.html + bodyHtml;
+      headTable.style.width = colgroup.totalWidth + 'px';
+      table.style.width = colgroup.totalWidth + 'px';
+      bindSalesHeadScrollSync();
     }
 
     // 並び替え・編集・削除はすべて項目IDで対象を特定する（並び順を変えても単位等が確実に追従する）
@@ -17178,25 +17198,21 @@ function isMobileDevice(){
     return uaIsPhone || screenIsPhoneWidth;
 }
 
-// 販売実績表・日常業務：見出し行の上端に重ねて表示する罫線の帯（.sales-table-wrapper::before /
-// .daily-table-wrapper::before）の横幅を、テーブル本体の実際の幅（項目数に応じて変わる）に
-// 追従させる。項目数が多く横スクロールが発生する場合でも、帯が右端まで確実に届くようにするため、
-// 各テーブルのrender関数（table.innerHTMLを書き換えた直後）から呼ぶ。
-function syncStickyBorderBarWidth(table, wrapperSelector, varName) {
-  if (!table) return;
-  const wrapper = document.querySelector(wrapperSelector);
-  if (!wrapper) return;
-  wrapper.style.setProperty(varName, table.scrollWidth + 'px');
-}
-
-// 販売実績表：見出しの1段目（項目名）の実際の高さを測り、2段目（日計/累計）のsticky top位置に
-// 反映する。両方ともtop:0のままだと、スクロール時に1段目が2段目の後ろに隠れて消えてしまうため。
-function syncSalesHeaderStack(table) {
-  if (!table) return;
-  const item = table.querySelector('.sales-header-item');
-  const wrapper = document.querySelector('.sales-table-wrapper');
-  if (!item || !wrapper) return;
-  wrapper.style.setProperty('--sales-header1-h', item.getBoundingClientRect().height + 'px');
+// 販売実績表：見出し用テーブル（#salesTableHead）は縦スクロールしない別テーブルのため、
+// 横スクロール位置だけ本体テーブル側（.sales-table-wrapper）に追従させる（一度だけ登録）。
+// 日常業務タブと同じ対策（詳細はrenderDailyTable内のコメント参照）。
+function bindSalesHeadScrollSync() {
+  const bodyWrapper = document.querySelector('.sales-table-wrapper');
+  const headWrapper = document.querySelector('.sales-table-head-wrapper');
+  if (!bodyWrapper || !headWrapper) return;
+  if (!bodyWrapper.dataset.salesScrollSyncBound) {
+    bodyWrapper.dataset.salesScrollSyncBound = '1';
+    bodyWrapper.addEventListener('scroll', () => {
+      headWrapper.scrollLeft = bodyWrapper.scrollLeft;
+    });
+  }
+  // 再描画直後、それまでの横スクロール位置を見出し側にも即座に反映する
+  headWrapper.scrollLeft = bodyWrapper.scrollLeft;
 }
 
 renderViewTable();
