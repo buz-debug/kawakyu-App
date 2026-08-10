@@ -5028,6 +5028,28 @@ function kasimeKey(base) { return `${base}_${kasimeViewBranch}`; }
     });
 })();
 
+// 過去のバグにより、「仮締め入力下書き（1台の端末が今まさに入力中の一時データのはずのもの）」が
+// 誤ってスプレッドシート経由で全端末へ同期されてしまっていた。そのため、他端末・他スタッフが
+// 昔入力しかけて放置した古い下書きが、何も操作していないのに「仮締めが保存されていません！」
+// という警告を引き起こす不具合になっていた。この同期自体は既に廃止したが、既にこの端末の
+// localStorageへ落ちてしまっている古い下書きは、単に同期を止めただけでは消えずに残り続ける
+// （「キャッシュをクリア」しても、ローカルストレージまでは消えない操作だと再現し続ける）。
+// そのため、初回だけ強制的にこの端末の下書きを一括削除し、以後は同期しないため再発しない。
+(function purgeStaleKasimeDraftOnce() {
+    const FLAG_KEY = 'kawakyu_kasime_stale_draft_purged_v1';
+    try {
+        if (localStorage.getItem(FLAG_KEY) === '1') return;
+        const prefix = '仮締め入力下書き_';
+        const toRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.indexOf(prefix) === 0) toRemove.push(k);
+        }
+        toRemove.forEach(k => localStorage.removeItem(k));
+        localStorage.setItem(FLAG_KEY, '1');
+    } catch (e) {}
+})();
+
 // 仮締め記録：件数が増え続けるとスプレッドシートの1セル上限（5万文字）に達するため、
 // 車検予約と同様に、記録日（date, YYYY-MM-DD）の年月（YYYY-MM）ごとに専用セル
 // （仮締め記録_${branchName}_${YYYY-MM}）へ分割して保存する。アプリ内部のrecords変数は
