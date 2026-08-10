@@ -4421,6 +4421,11 @@
     padding: 2px 4px;
     height: auto;
     font-size: 10px;
+    /* トラックパッドの細かいスクロール量では、stickyセルがGPUの合成レイヤーに
+       昇格されていないとスクロール毎フレーム再描画が走り、一瞬ズレて見える
+       チラつき（ティアリング）が起きることがある。will-change:transformで
+       専用レイヤーに昇格させ、再描画ではなくレイヤーの移動だけで済むようにする。 */
+    will-change: transform;
 }
 #dailyTable .daily-time-col {
     position: sticky;
@@ -4433,6 +4438,7 @@
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
+    will-change: transform;
 }
 #dailyTable .daily-item-col {
     position: sticky;
@@ -4449,6 +4455,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     border-right: 2px solid var(--text);
+    will-change: transform;
 }
 /* 「時間」「項目」列は見出しセル・各行のセルの両方が同じクラス（sticky）で、同じz-indexのままだと
    スクロール時にDOM順で後ろにある行セルが見出しセルの前面に重なって表示されてしまう
@@ -4494,6 +4501,7 @@
 .daily-table-wrapper::before {
     content: '';
     position: sticky;
+    will-change: transform;
     top: 0;
     left: 0;
     display: block;
