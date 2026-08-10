@@ -5543,36 +5543,6 @@ function cancelInput() {
   showToast('入力をリセットしました');
 }
 
-function appendRecordRows(container, recs, lastDateHolder) {
-  recs.forEach(r => {
-    if (r.date !== lastDateHolder.val) {
-      lastDateHolder.val = r.date;
-      const gLabel = document.createElement('div');
-      gLabel.className = 'record-group-title';
-      const d = new Date(r.date);
-      const days = ['日','月','火','水','木','金','土'];
-      gLabel.textContent = (d.getMonth()+1) + '月' + d.getDate() + '日（' + days[d.getDay()] + '）';
-      container.appendChild(gLabel);
-    }
-
-    const item = document.createElement('div');
-    item.className = 'record-item';
-    const diffClass = r.diff === 0 ? 'diff-zero' : r.diff > 0 ? 'diff-pos' : 'diff-neg';
-    const d = new Date(r.date);
-    item.innerHTML = `
-      <div class="record-date-badge">${(d.getMonth()+1)}/${d.getDate()}</div>
-      <div class="record-info">
-        <div class="record-person">${r.person}</div>
-      </div>
-      <div class="record-diff-wrap">
-        <div class="record-diff ${diffClass}">${fmtDiff(r.diff)}</div>
-      </div>
-    `;
-    item.onclick = () => openDetail(r);
-    container.appendChild(item);
-  });
-}
-
 function renderList() {
   const y = viewMonth.getFullYear();
   const m = viewMonth.getMonth();
@@ -5796,56 +5766,6 @@ function deleteCurrentRecord() {
 }
 
 /* ===== SETTINGS ===== */
-
-/* ===== NAVIGATION ===== (2カラム版: 画面切り替えなし) */
-function goToInput() {
-  // 2カラムレイアウトでは入力フォームは常時表示
-  initCounters();
-  buildInputForm();
-}
-function goHome() {
-  // 2カラムレイアウトでは履歴は左カラムに常時表示
-  renderList();
-}
-
-
-/* ===== CSV MODAL ===== */
-function openCsvModal() {
-  // 記録から年月の一覧を取得（重複なし・新しい順）
-  const monthSet = {};
-  records.forEach(r => {
-    const d = new Date(r.date);
-    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    if (!monthSet[key]) monthSet[key] = { year: d.getFullYear(), month: d.getMonth()+1, count: 0 };
-    monthSet[key].count++;
-  });
-
-  const months = Object.keys(monthSet).sort((a,b) => b.localeCompare(a));
-  const listEl = document.getElementById('csvMonthList');
-
-  if (months.length === 0) {
-    listEl.innerHTML = '<div class="csv-empty">ダウンロードできるデータがありません</div>';
-  } else {
-    listEl.innerHTML = '';
-    months.forEach(key => {
-      const info = monthSet[key];
-      const item = document.createElement('div');
-      item.className = 'csv-month-item';
-      item.innerHTML = `
-        <div class="csv-month-info">
-          <div class="csv-month-label">${info.year}年${info.month}月</div>
-          <div class="csv-month-count">${info.count}件のデータ</div>
-        </div>
-        <button class="csv-dl-btn" onclick="downloadPDF(${info.year}, ${info.month})">
-          ダウンロード
-        </button>
-      `;
-      listEl.appendChild(item);
-    });
-  }
-
-  document.getElementById('csvModal').classList.add('open');
-}
 
 function closeCsvModal() {
   document.getElementById('csvModal').classList.remove('open');
@@ -8378,7 +8298,9 @@ window.addEventListener('pagehide', function() {
         bucket.schedulePresets = bucket.schedulePresets.filter(p => p.name !== 'タイヤ組み替え');
         if (bucket.schedulePresets.length !== before) changed = true;
       });
-      if (changed) saveState();
+      // ログイン前でのsaveState()は避ける（詳しい経緯は下のlegacyMessagesMigrated側の
+      // 同様のコメントを参照）。
+      if (changed && localStorage.getItem('kawakyu_logged_in') === '1') saveState();
     })();
 
     // 予定プルダウンの固定デフォルト項目を、既存データの全営業所に不足分だけ補う
@@ -8397,7 +8319,7 @@ window.addEventListener('pagehide', function() {
           }
         });
       });
-      if (changed) saveState();
+      if (changed && localStorage.getItem('kawakyu_logged_in') === '1') saveState();
     })();
 
     // 営業所ごとの分離前からあるメッセージは、その時点で存在した営業所だけに見せる（一度だけ実行）
@@ -8407,7 +8329,13 @@ window.addEventListener('pagehide', function() {
         if (!m.senderBranch) { m.legacyBranches = branchNamesAtMigration.slice(); }
       });
       state.legacyMessagesMigrated = true;
-      saveState();
+      // 【重要】ここはページ読み込みのたびに毎回実行される、ログイン前から動くコードのため、
+      // まだログインしていない（＝サーバーから最新設定を一度もダウンロードしていない）段階で
+      // saveState()を呼ぶと、まだ空の初期状態（dataRetentionMonths等）をlocalStorageへ
+      // 書き込んでしまう。ログイン前はメモリ上のフラグ更新だけに留め、実際の永続化は
+      // 直後のattemptLogin()自身のsaveState()、またはログイン後のサーバー同期に任せる
+      // （フラグ・移行結果はメモリ上のstateに残るため、ログイン時のsaveState()で正しく含まれる）。
+      if (localStorage.getItem('kawakyu_logged_in') === '1') saveState();
     }
 
     // ここまでで初期化・移行処理は完了。この時点の設定値を「前回サーバーとやり取りした時点」の
@@ -8711,12 +8639,6 @@ window.addEventListener('pagehide', function() {
       return editableMembers().map(m => m.name);
     }
 
-    function memberNamesForTo() {
-      const all = getMembers().filter(isSystemMember);
-      const rest = editableMembers();
-      return [...all, ...rest].map(m => m.name);
-    }
-
     function renameMemberInData(oldName, newName) {
       state.messages.forEach(m => {
         if (m.from === oldName) m.from = newName;
@@ -8796,15 +8718,6 @@ window.addEventListener('pagehide', function() {
       return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${p(d.getHours())}:${p(d.getMinutes())}`;
     }
 
-    function formatDateLabel(ts) {
-      const d = new Date(ts);
-      const today = new Date();
-      if (d.toDateString() === today.toDateString()) return '今日';
-      const y = new Date(today); y.setDate(y.getDate() - 1);
-      if (d.toDateString() === y.toDateString()) return '昨日';
-      return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
-    }
-
     function roomMessages(roomId) {
       return state.messages.filter(m => (m.room || m.channel) === roomId && isMessageVisibleToCurrentBranch(m));
     }
@@ -8822,16 +8735,6 @@ window.addEventListener('pagehide', function() {
         return m.legacyBranches.includes(myBranch);
       }
       return true;
-    }
-
-    function lastMessage(roomId) {
-      const msgs = roomMessages(roomId);
-      return msgs.length ? msgs[msgs.length - 1] : null;
-    }
-
-    function unreadCount(roomId) {
-      const last = state.lastRead[roomId] || 0;
-      return roomMessages(roomId).filter(m => m.ts > last).length;
     }
 
     function markRoomRead(roomId) {
@@ -9091,11 +8994,6 @@ window.addEventListener('pagehide', function() {
       return names[0] || '';
     }
 
-    function defaultToSelection() {
-      // デフォルトは全員
-      return ALL_MEMBER_NAME;
-    }
-
     // 「営業所」選択欄：他営業所にもメンションして送れるようにする。デフォルトはログイン中の営業所。
     function renderComposerBranchSelect() {
       const sel = document.getElementById('composerBranchSelect');
@@ -9145,12 +9043,6 @@ window.addEventListener('pagehide', function() {
       isNoticeMode = false;
       document.getElementById('btnNotice').style.outline = '';
       setComposerOpen(false);
-    }
-
-    function formatRouteTag(to) {
-      if (!to) return '';
-      const toLabel = to === ALL_MEMBER_NAME ? `${to}（全員宛）` : to;
-      return `誰へ: ${toLabel}`;
     }
 
     function renderMessages() {
@@ -9616,8 +9508,6 @@ window.addEventListener('pagehide', function() {
         });
       });
     }
-
-    function renderSidebarTasks() { render4ColTasks(); }
 
     function renderTasks() {
       const list = document.getElementById('taskList');
@@ -10927,7 +10817,11 @@ window.addEventListener('pagehide', function() {
         }
       }
       state.salesItemsMigrated = true;
-      saveState();
+      // ログイン前（サーバーから最新設定をまだダウンロードしていない段階）でのsaveState()は、
+      // 空の初期状態を書き込んでしまうリスクがあるため避ける（詳しい経緯はlegacyMessagesMigrated
+      // 側の同様のコメントを参照）。移行結果はメモリ上のstateに残るため、ログイン時に
+      // 正しく永続化される。
+      if (localStorage.getItem('kawakyu_logged_in') === '1') saveState();
     })();
 
     function loadSalesData() {
@@ -11854,7 +11748,10 @@ window.addEventListener('pagehide', function() {
         try { bucket.dailyTaskItems = JSON.parse(legacyRaw); } catch (e) {}
       });
       state.dailyTaskItemsMigrated = true;
-      saveState();
+      // ログイン前でのsaveState()は避ける（詳しい経緯はlegacyMessagesMigrated側の
+      // 同様のコメントを参照）。移行結果はメモリ上のstateに残るため、ログイン時に
+      // 正しく永続化される。
+      if (localStorage.getItem('kawakyu_logged_in') === '1') saveState();
     })();
 
     function loadDailyTaskData() {
@@ -12305,37 +12202,10 @@ window.addEventListener('pagehide', function() {
       }
     }
 
-    function togglePin(id) {
-      const m = state.messages.find(x => x.id === id);
-      if (!m) return;
-      m.pinned = !m.pinned;
-      saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
-      renderDetail(); renderMessages();
-    }
-
     function confirmDelete(id) {
       openModal('削除', 'このメッセージを削除しますか？', () => {
         if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
         state.messages = state.messages.filter(m => m.id !== id);
-        saveState();
-        if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
-        renderRoomList();
-        renderMessages();
-        renderDetail();
-      });
-    }
-
-    function confirmClearRoom() {
-      const room = ROOMS.find(r => r.id === currentRoom);
-      openModal('履歴削除', `「${room?.name}」のメッセージをすべて削除しますか？`, () => {
-        if (typeof markIdsAsDeleted === 'function') {
-          const deletedMsgIds = state.messages.filter(m => (m.room || m.channel) === currentRoom).map(m => m.id);
-          const deletedTaskIds = state.tasks.filter(t => t.room === currentRoom).map(t => t.id);
-          markIdsAsDeleted(deletedMsgIds.concat(deletedTaskIds));
-        }
-        state.messages = state.messages.filter(m => (m.room || m.channel) !== currentRoom);
-        state.tasks = state.tasks.filter(t => t.room !== currentRoom);
         saveState();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
         renderRoomList();
@@ -12409,38 +12279,6 @@ window.addEventListener('pagehide', function() {
       if (okBtn) okBtn.textContent = '閉じる';
     }
 
-    function exportData() {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `BO1_backup_${new Date().toISOString().slice(0,10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    }
-
-    function importData(file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const data = JSON.parse(reader.result);
-          if (!Array.isArray(data.messages)) throw new Error();
-          openModal('読み込み', '現在のデータを上書きします。よろしいですか？', () => {
-            // 営業所一覧・現在の営業所などはそのまま残し、ログイン中の営業所のデータだけを読み込んだ内容で上書きする
-            state.userName = data.userName || '';
-            state.members = normalizeMembers(data.members);
-            state.messages = data.messages;
-            state.tasks = data.tasks || [];
-            state.lastRead = data.lastRead || {};
-            saveState();
-            if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
-            updateMeUI();
-            selectRoom(currentRoom);
-          });
-        } catch (_) { alert('ファイル形式が正しくありません。'); }
-      };
-      reader.readAsText(file);
-    }
-
     // ── ブックマーク ──
     function buildBmOptions(msgId) {
       const cats = state.bookmarkCategories || [];
@@ -12462,15 +12300,6 @@ window.addEventListener('pagehide', function() {
       state.bookmarks.push({ id: uid(), msgId, category: category || '', ts: Date.now() });
       saveState();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
-      renderRoomList();
-      renderMessages();
-    }
-
-    function removeBookmark(bmId) {
-      if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([bmId]);
-      state.bookmarks = (state.bookmarks || []).filter(b => b.id !== bmId);
-      saveState();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
       renderRoomList();
       renderMessages();
     }
@@ -15196,7 +15025,26 @@ window.addEventListener('pagehide', function() {
     try { alreadyLoggedIn = localStorage.getItem('kawakyu_logged_in') === '1'; } catch (e) {}
     if (alreadyLoggedIn) {
       hideLoginGate();
-      applyDataRetentionCleanup();
+      // 【重要】applyDataRetentionCleanup()自体を、後方のscriptブロックの読み込み完了を
+      // 確認できるまでリトライしながら遅延させる。
+      // この関数の中身（kasimeSaveToSheet・shakenSaveToSheet・scheduleSaveToSheet等、
+      // スプレッドシートへの実際の反映＝push）は全て後方のscriptブロックで定義されており、
+      // ここを同期的に即時呼び出すと、まだそのブロックが読み込まれる前のため
+      // 「typeof X === 'function'」のガードに引っかかって静かにスキップされてしまう。
+      // その結果、保存期間を過ぎたデータはローカルでは正しく削除されるのに、
+      // スプレッドシートへは反映されないまま（＝サーバー側には残り続ける）という不具合になっていた。
+      // setTimeout(...,0)を1回だけ挟む方式も試したが、ログイン直後は起動時読込の再試行・
+      // リロードが連続することがあり、1ティックだけでは後方ブロックの読み込み完了を
+      // 確実には待ちきれない場合があった。そのため、後方ブロックの代表として
+      // kasimeSaveToSheetが定義済みになるまで、短い間隔で最大20回（約2秒）リトライする。
+      (function waitForLateBlocksThenCleanup(attemptsLeft) {
+        if (typeof kasimeSaveToSheet === 'function') {
+          applyDataRetentionCleanup();
+          return;
+        }
+        if (attemptsLeft <= 0) return; // 2秒待っても読み込めなければ今回は諦める（次回ログイン時に再度リトライされる）
+        setTimeout(() => waitForLateBlocksThenCleanup(attemptsLeft - 1), 100);
+      })(20);
       // ログイン中でのアプリ起動時・ログイン成功時（ログイン成功後は必ずこの経路を再度通る）の
       // 両方で、毎回データ量を確認する。まだ他のscriptブロックが読み込まれていない可能性が
       // あるため、全ブロックの実行が終わるのを待ってから呼び出す。
@@ -15205,17 +15053,6 @@ window.addEventListener('pagehide', function() {
       }, 0);
     } else {
       showLoginGate();
-    }
-
-    // 予定を追加中（フォームに入力済み・未保存）に画面を閉じようとした場合の確認
-    function hasUnsavedScheduleInput() {
-      const modal = document.getElementById('addScheduleModal');
-      if (!modal || !modal.classList.contains('open')) return false;
-      const text = (document.getElementById('taskInput').value || '').trim();
-      const vehicle = (document.getElementById('taskVehicle').value || '').trim();
-      const customer = (document.getElementById('taskCustomer').value || '').trim();
-      const note = (document.getElementById('taskNote').value || '').trim();
-      return !!(text || vehicle || customer || note);
     }
 
     // シフトなど保存中のデータがある状態でアプリ（ブラウザタブ）を閉じようとした場合の警告
@@ -15386,7 +15223,9 @@ function renderShiftBranchSwitcher() {
         });
     });
     state.shiftSettingsMigrated = true;
-    if (typeof saveState === "function") saveState();
+    // ログイン前でのsaveState()は避ける（詳しい経緯はブロック2のlegacyMessagesMigrated側の
+    // 同様のコメントを参照）。
+    if (typeof saveState === "function" && localStorage.getItem('kawakyu_logged_in') === '1') saveState();
 })();
 
 function shiftStaffNames(){
@@ -15594,17 +15433,6 @@ function moveToNextShiftCell(day, staffIdx) {
     const nextDay = day + 1;
     if (nextDay > daysInMonth) { return; }
     focusShiftInputAt(nextDay, 0, true);
-}
-
-function moveToPreviousShiftCell(day, staffIdx) {
-    const prevIdx = staffIdx - 1;
-    if (prevIdx >= 0) {
-        focusShiftInputAt(day, prevIdx, true);
-        return;
-    }
-    const prevDay = day - 1;
-    if (prevDay < 1) { return; }
-    focusShiftInputAt(prevDay, shiftStaffNames().length - 1, true);
 }
 
 // Tabキーは右隣（同じスタッフの翌日）のセルへ移動する
@@ -16332,11 +16160,6 @@ function openShiftWishPanel(){
     panel.style.display = "block";
     renderWishTable();
     checkShiftWishDeadlineWarning();
-}
-
-function closeShiftWishPanel(){
-    const panel = document.getElementById("panelShiftWish");
-    if (panel) panel.style.display = "none";
 }
 
 function updateShiftWishDeadlineBanner(year, month, locked){
@@ -17791,7 +17614,10 @@ async function mergeRemoteScheduleBeforeSave(branchName, spreadsheetId) {
     const remoteSchedules = JSON.parse(raw);
     const bucket = ensureBranchBucket(branchName);
     bucket.schedules = mergeArrayById(bucket.schedules, remoteSchedules);
-    saveState();
+    // schedulesは専用セル（schedules_営業所名）にのみ保存するdedicatedフィールドのため
+    // （buildStateCellPayloadで除外される）、saveState()を呼んでもこのマージ結果自体は
+    // 反映されない＝呼ぶ意味が無いばかりか、他の保存処理と競合するリスクがあるため呼ばない
+    // （詳しい経緯はmergeRemoteShakenBeforeSave内の同様のコメントを参照）。
     localStorage.setItem(`schedules_${branchName}`, JSON.stringify(bucket.schedules));
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
@@ -17809,7 +17635,10 @@ async function mergeRemoteSidebarTasksBeforeSave(branchName, spreadsheetId) {
     const remoteTasks = JSON.parse(raw);
     const bucket = ensureBranchBucket(branchName);
     bucket.sidebarTasks = mergeArrayById(bucket.sidebarTasks, remoteTasks);
-    saveState();
+    // sidebarTasksは専用セル（sidebarTasks_営業所名）にのみ保存するdedicatedフィールドのため
+    // （buildStateCellPayloadで除外される）、saveState()を呼んでもこのマージ結果自体は
+    // 反映されない＝呼ぶ意味が無いばかりか、他の保存処理と競合するリスクがあるため呼ばない
+    // （詳しい経緯はmergeRemoteShakenBeforeSave内の同様のコメントを参照）。
     localStorage.setItem(`sidebarTasks_${branchName}`, JSON.stringify(bucket.sidebarTasks));
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
