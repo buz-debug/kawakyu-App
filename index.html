@@ -6506,6 +6506,25 @@ window.addEventListener('pagehide', function() {
     </div>
   </div>
 
+  <!-- 日常業務：項目名・備考をまとめて編集するフォーム（項目管理一覧の各行から開く） -->
+  <div class="modal-overlay" id="dailyItemEditModal" role="dialog" aria-modal="true">
+    <div class="modal" style="width:min(420px, 92vw);">
+      <h3 class="settings-panel-title">項目を編集</h3>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:11px;color:var(--muted);">項目名
+          <input type="text" id="dailyItemEditName" maxlength="30" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-top:2px;">
+        </label>
+        <label style="font-size:11px;color:var(--muted);">備考
+          <textarea id="dailyItemEditNote" maxlength="500" rows="4" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:13px;margin-top:2px;resize:vertical;font-family:inherit;"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" id="dailyItemEditCancel">キャンセル</button>
+        <button type="button" id="dailyItemEditSave" class="primary">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 日常業務：項目の備考ポップアップ（表示専用、編集は設定画面のみ） -->
   <div class="modal-overlay" id="dailyItemNoteModal" role="dialog" aria-modal="true">
     <div class="modal">
@@ -11996,11 +12015,10 @@ window.addEventListener('pagehide', function() {
         return;
       }
       list.innerHTML = dailyTaskItems.map((item, i) => `
-        <li class="settings-row-grid" style="grid-template-columns:34px 96px 1fr 1fr 122px;">
+        <li class="settings-row-grid" style="grid-template-columns:34px 96px 1fr 122px;">
           <span style="font-size:10px;color:var(--muted);white-space:nowrap;">ID:${escapeHtml(item.id)}</span>
           <input type="time" data-dailyitem-time="${item.id}" value="${escapeHtml(item.time || '')}" style="padding:5px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-          <input type="text" data-dailyitem-name="${item.id}" value="${escapeHtml(item.name)}" maxlength="30" placeholder="項目名" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
-          <input type="text" data-dailyitem-note="${item.id}" value="${escapeHtml(item.note || '')}" maxlength="500" placeholder="備考" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;">
+          <button type="button" data-dailyitemedit="${item.id}" title="クリックして項目名・備考を編集" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:left;background:#fff;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.name)}</button>
           <span class="member-actions">
             <button type="button" data-dailyitemup="${item.id}" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button>
             <button type="button" data-dailyitemdown="${item.id}" title="下へ" ${i === dailyTaskItems.length - 1 ? 'disabled' : ''}>↓</button>
@@ -12016,13 +12034,8 @@ window.addEventListener('pagehide', function() {
       list.querySelectorAll('[data-dailyitem-time]').forEach(input => {
         input.addEventListener('change', () => updateDailyItemField(input.dataset.dailyitemTime, 'time', input.value));
       });
-      list.querySelectorAll('[data-dailyitem-name]').forEach(input => {
-        input.addEventListener('change', () => updateDailyItemField(input.dataset.dailyitemName, 'name', input.value));
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
-      });
-      list.querySelectorAll('[data-dailyitem-note]').forEach(input => {
-        input.addEventListener('change', () => updateDailyItemField(input.dataset.dailyitemNote, 'note', input.value));
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') e.preventDefault(); });
+      list.querySelectorAll('[data-dailyitemedit]').forEach(btn => {
+        btn.addEventListener('click', () => openDailyItemEditForm(btn.dataset.dailyitemedit));
       });
       list.querySelectorAll('[data-dailyitemdel]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -12073,6 +12086,41 @@ window.addEventListener('pagehide', function() {
       renderDailyItemsList();
       renderDailyTable();
     }
+
+    // 日常業務項目管理：項目名・備考をインライン入力ではなく、専用フォームで
+    // まとめて編集する（一覧行が横長になりすぎるとのフィードバックのため）。
+    let dailyItemEditingId = null;
+    function openDailyItemEditForm(id) {
+      const item = dailyTaskItems.find(it => it.id === id);
+      if (!item) return;
+      dailyItemEditingId = id;
+      document.getElementById('dailyItemEditName').value = item.name;
+      document.getElementById('dailyItemEditNote').value = item.note || '';
+      openOverlay(document.getElementById('dailyItemEditModal'));
+    }
+    function closeDailyItemEditForm() {
+      dailyItemEditingId = null;
+      closeOverlay(document.getElementById('dailyItemEditModal'));
+    }
+    function saveDailyItemEditForm() {
+      if (!dailyItemEditingId) return;
+      const i = findDailyItemIndexById(dailyItemEditingId);
+      if (i === -1) { closeDailyItemEditForm(); return; }
+      const newName = (document.getElementById('dailyItemEditName').value || '').trim();
+      if (!newName) { alert('項目名を入力してください。'); return; }
+      if (dailyTaskItems.some((it, idx) => idx !== i && it.name === newName)) {
+        alert('同じ名前の項目が既にあります。');
+        return;
+      }
+      dailyTaskItems[i].name = newName;
+      dailyTaskItems[i].note = (document.getElementById('dailyItemEditNote').value || '').trim();
+      saveDailyTaskItems();
+      renderDailyItemsList();
+      renderDailyTable();
+      closeDailyItemEditForm();
+    }
+    document.getElementById('dailyItemEditCancel').addEventListener('click', closeDailyItemEditForm);
+    document.getElementById('dailyItemEditSave').addEventListener('click', saveDailyItemEditForm);
 
     function openDailyItemNotePopup(id) {
       const item = dailyTaskItems.find(it => it.id === id);
