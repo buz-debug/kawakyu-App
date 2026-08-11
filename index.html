@@ -3293,12 +3293,14 @@
     display:none;
 }
 /* 左右モードでは左カラム（時間枠）のタイトルと重複するため、カレンダー側のタイトルは
-   通常は非表示にし、上下モード（左カラムのタイトルが上のルールで隠れる）でだけ表示する */
+   通常は非表示にし、上下モード（左カラムのタイトルが上のルールで隠れる）でだけ表示する。
+   #shift-wrap .sidebar-logo{display:flex}がID付きで詳細度が高いため、ここは
+   !importantで確実に上書きする */
 .sf-calendar-title{
-    display:none;
+    display:none !important;
 }
 .sf-main-layout.sf-layout-stack .sf-calendar-title{
-    display:flex;
+    display:flex !important;
 }
 .sf-main-layout.sf-layout-stack #timeframeList.sf-timeframe-grid{
     grid-template-columns: repeat(10, 1fr);
