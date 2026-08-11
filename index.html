@@ -3215,10 +3215,23 @@
 /* 上下2カラム表示（タブレット閲覧用、設定の「シフト作成」と同じ並び：上にカレンダー、下に時間枠） */
 .sf-main-layout.sf-layout-stack{
     flex-direction:column;
+    /* .sf-calendar-viewを内容の高さぶんだけにする都合上、はみ出した分はこのレイアウト全体で
+       スクロールさせる（.sf-calendar-body側の内部スクロールはstack時は使わない） */
+    overflow-y:auto;
 }
 .sf-main-layout.sf-layout-stack .sf-calendar-view{
     order:1;
     width:100%;
+    /* 元のflex:1のままだと、シフト表が短くてもこのビューが縦方向に伸び切ってしまい、
+       実際の表とその下の時間枠との間に大きな空白ができてしまう（時間枠が画面最下部まで
+       押し出されて見える不具合の原因）。内容の高さぶんだけに縮め、時間枠がすぐ下に
+       続くようにする。 */
+    flex:none;
+}
+.sf-main-layout.sf-layout-stack .sf-calendar-body{
+    /* 親.sf-calendar-viewが内容の高さぶんになったため、ここでの内部スクロールは不要
+       （はみ出した分は.sf-main-layout.sf-layout-stack側でまとめてスクロールする） */
+    overflow:visible;
 }
 .sf-main-layout.sf-layout-stack .sf-timeframe-view{
     order:2;
@@ -4321,6 +4334,10 @@
     font-weight: bold;
     width: 68px;
     padding: 0 4px;
+    /* 見出し行を切り離しても、左端に固定表示する日付列自体はposition:stickyのままのため、
+       縦スクロール中にこの列の表示が一瞬崩れる（数字だけ消える）不具合が実機で確認された。
+       見出し行の対策と同じく、GPU合成レイヤーに昇格させることで改善を狙う。 */
+    will-change: transform;
 }
 #salesTableHead .sales-daily-col,
 #salesTable .sales-daily-col {
@@ -4408,6 +4425,10 @@
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
+    /* 見出し行を切り離しても、左端に固定表示する時間・項目列自体はposition:stickyのため、
+       縦スクロール中に表示が一瞬崩れる不具合が販売実績表の日付列で確認された。同じ対策
+       （GPU合成レイヤーへの昇格）を適用する。 */
+    will-change: transform;
 }
 #dailyTableHead .daily-item-col,
 #dailyTable .daily-item-col {
@@ -4425,6 +4446,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     border-right: 2px solid var(--text);
+    will-change: transform;
 }
 /* 幅は固定値ではなく、renderDailyTable()内のJS（table-layout:fixedはmin-widthを
    正しく尊重しないため、実測して計算する必要がある）が算出した値を--daily-day-wへ
