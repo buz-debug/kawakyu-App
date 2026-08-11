@@ -3292,6 +3292,14 @@
 .sf-main-layout.sf-layout-stack .sf-timeframe-view .sidebar-header{
     display:none;
 }
+/* 左右モードでは左カラム（時間枠）のタイトルと重複するため、カレンダー側のタイトルは
+   通常は非表示にし、上下モード（左カラムのタイトルが上のルールで隠れる）でだけ表示する */
+.sf-calendar-title{
+    display:none;
+}
+.sf-main-layout.sf-layout-stack .sf-calendar-title{
+    display:flex;
+}
 .sf-main-layout.sf-layout-stack #timeframeList.sf-timeframe-grid{
     grid-template-columns: repeat(10, 1fr);
 }
@@ -6138,7 +6146,7 @@ window.addEventListener('pagehide', function() {
     <div class="sf-calendar-view">
         <div class="sf-calendar-header">
             <div class="sf-controls" style="margin-bottom:0;">
-                <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>シフト</span></div>
+                <div class="sidebar-logo sf-calendar-title" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>シフト</span></div>
                 <button id="btnShiftPrevMonth" onclick="sfChangeMonth(-1)">前月</button>
                 <span id="sfBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
                 <div id="sfMonthLabel" style="font-weight:bold; font-size:19px; margin:0 6px;"></div>
