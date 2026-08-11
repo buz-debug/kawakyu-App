@@ -6452,8 +6452,8 @@ window.addEventListener('pagehide', function() {
     </div>
 
     <div class="tab-panel" id="panelDaily">
-      <div class="daily-tab-wrap" style="padding:16px;height:100%;display:flex;flex-direction:column;min-height:0;">
-        <div class="daily-toolbar" style="display:flex;align-items:center;gap:10px;padding:0 0 12px;margin-bottom:10px;border-bottom:2px solid var(--cw-green);flex-wrap:wrap;">
+      <div class="daily-tab-wrap" style="padding:16px 0;height:100%;display:flex;flex-direction:column;min-height:0;">
+        <div class="daily-toolbar" style="display:flex;align-items:center;gap:10px;padding:0 16px 12px;margin-bottom:10px;border-bottom:2px solid var(--cw-green);flex-wrap:wrap;">
           <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>日常業務</span></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(-1)">前月</button>
           <div id="dailyMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
@@ -6466,7 +6466,7 @@ window.addEventListener('pagehide', function() {
             <select id="dailyActiveMemberSelect" class="toolbar-ctrl" style="border:1px solid var(--border);"></select>
           </span>
         </div>
-        <div class="daily-table-outer" style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+        <div class="daily-table-outer" style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:0 16px;">
           <div class="daily-table-head-wrapper">
             <table id="dailyTableHead"></table>
           </div>
