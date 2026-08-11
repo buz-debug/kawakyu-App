@@ -268,7 +268,9 @@
       font-weight: 800 !important;
       letter-spacing: .4px !important;
       color: #1e293b !important;
-      height: 40px !important;
+      /* ボタン(高さ32px)と合わせ、タイトル行の高さを全タブ共通54px
+         (余白10px+コンテンツ32px+余白10px+区切り線2px)に揃えるための値 */
+      height: 32px !important;
       margin: 0 !important;
       padding: 0 !important;
       display: flex;
@@ -3340,10 +3342,6 @@
     flex-wrap:wrap;
     gap:8px;
     flex-shrink:0;
-    /* 左カラム（時間枠側）のタイトル行はsidebar-logoの高さ40px固定＋余白10px/10px+
-       下の区切り線2pxで常に62pxになる。ここのボタン類は40pxより低いため、
-       min-heightで揃えないと左右で区切り線の高さがずれてしまう */
-    min-height:62px;
     /* 日常業務・販売実績表タブと同じく、タイトル行の下を区切り線で仕切る */
     border-bottom:2px solid var(--cw-green);
 }
