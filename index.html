@@ -3319,7 +3319,9 @@
 }
 
 .sf-calendar-header{
-    padding:12px 16px;
+    /* 他タブのタイトル位置（上16px）に揃える。ここが12pxのままだと、タブ切替のたびに
+       タイトル左のバーの高さが4pxだけ他タブとずれて見える不具合の原因になっていた */
+    padding:16px 16px 12px;
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -3336,7 +3338,9 @@
     flex:1;
     min-height:0;
     overflow:auto;
-    padding:0 16px 8px;
+    /* 区切り線とシフト表がくっついて見えるとのフィードバックのため、上に余白を追加
+       （日常業務・販売実績表タブの区切り線下の余白と同じ考え方） */
+    padding:10px 16px 8px;
 }
 
 /* 左カラム：時間枠（仮締めタブの左カラムと同じ構造） */
