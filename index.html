@@ -1157,7 +1157,9 @@
     .tasks-panel {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 20px;
+      /* 車検予約タブなどと同じく、区切り線(.cal-nav側)が画面端まで届くように
+         左右のpaddingは持たず、上下のみにする */
+      padding: 10px 0 16px;
       min-width: 0;
     }
 
@@ -1165,6 +1167,16 @@
     #taskCalView {
       min-width: 0;
       overflow: hidden;
+    }
+
+    /* 予定タブのカレンダー曜日見出し・本体だけ、.tasks-panelが失った左右の余白(20px)を
+       個別に持たせる（.task-cal-daynamesは車検予約タブとも共有クラスのため、
+       スコープを絞って上書きし、車検予約側には影響させない） */
+    #taskCalView .task-cal-daynames {
+      margin: 0 20px 2px;
+    }
+    #taskCalGrid {
+      margin: 0 20px;
     }
 
     .task-cal-daynames {
@@ -1269,7 +1281,13 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      margin-bottom: 8px;
+      /* 車検予約タブの右カラム上段ボタン行と同じく、上下余白10px＋区切り線で
+         左カラム（連絡ノート・予定共通サイドバー、高さ54px）と揃える。
+         上側の10pxは.tasks-panelのpadding-topが既に担っているため、
+         ここでは重複させず下側10pxのみ持たせる */
+      padding: 0 20px 10px;
+      margin: 0 0 10px;
+      border-bottom: 2px solid var(--cw-green);
     }
 
     .cal-nav button {
