@@ -3329,9 +3329,9 @@
 }
 
 .sf-calendar-header{
-    /* 他タブのタイトル位置（上16px）に揃える。ここが12pxのままだと、タブ切替のたびに
-       タイトル左のバーの高さが4pxだけ他タブとずれて見える不具合の原因になっていた */
-    padding:16px 16px 12px;
+    /* シフトタブ単体での余白調整用（上下10px）。この値を決めたら他タブの余白と
+       合わせて共通ルール化する予定 - 現状は他タブとのタイトル位置揃えより優先 */
+    padding:10px 16px 10px;
     display:flex;
     align-items:center;
     justify-content:space-between;
