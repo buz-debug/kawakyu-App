@@ -2313,7 +2313,8 @@
     }
 
     /* ===== 仮締めタブ ===== */
-    #kasime-wrap { overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    /* シフトタブと同じく、表示が画面の左右ギリギリまで広がっていたため左右に余白を付けた */
+    #kasime-wrap { overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 16px; }
 #kasime-wrap * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 #kasime-wrap, #kasime-wrap {
   height: 100%;
