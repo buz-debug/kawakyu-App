@@ -1270,7 +1270,7 @@
 
     .cal-nav button:hover { opacity: 0.9; }
     /* 月送りボタンの間の年月表示。視認性向上のフィードバックのため元の15pxから引き上げた */
-    .cal-nav span { font-weight: bold; font-size: 17px; margin: 0 6px; }
+    .cal-nav span { font-weight: bold; font-size: 19px; margin: 0 6px; }
 
     .task-cal-dayname {
       text-align: center;
@@ -2313,8 +2313,11 @@
     }
 
     /* ===== 仮締めタブ ===== */
-    /* シフトタブと同じく、表示が画面の左右ギリギリまで広がっていたため左右に余白を付けた */
-    #kasime-wrap { overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 16px; }
+    /* #kasime-wrap自体に左右の余白を付けると、左カラム（仮締め履歴、色付きパネル）まで
+       画面端から浮いてしまい、連絡ノート・予定タブの常設サイドバー（常に画面端まで
+       伸びている）と見た目が揃わなくなる。余白は右側の入力メインエリア側
+       （#kasime-input-col .input-col-body）にだけ持たせる。 */
+    #kasime-wrap { overflow: hidden; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 #kasime-wrap * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 #kasime-wrap, #kasime-wrap {
   height: 100%;
@@ -2941,9 +2944,9 @@
 #kasime-history-col .hist-month-label {
   text-align: center;
   font-weight: bold;
-  /* 視認性向上のフィードバックのため元の11pxから引き上げた（左カラムが狭いため、
-     他タブの月送り表示ほどではないが読みやすくなる範囲で調整） */
-  font-size: 14px;
+  /* 視認性向上のフィードバックのため元の11px→14px、さらに16pxまで引き上げた
+     （左カラムが狭いため、他タブの月送り表示ほどではないが読みやすくなる範囲で調整） */
+  font-size: 16px;
   margin: 0 4px;
   color: #1e293b;
 }
@@ -3055,7 +3058,7 @@
 #kasime-input-col .input-col-body {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0 24px;
+  padding: 8px 16px 24px;
 }
 
 /* スクリーン制御：2カラム内では常時表示 */
@@ -3203,9 +3206,10 @@
     flex:1;
     min-height:0;
     overflow:hidden;
-    /* 表示が画面の左右ギリギリまで広がっているとのフィードバックのため、他タブ
-       （.daily-tab-wrap等のpadding:16px）に合わせて左右に余白を付けた */
-    padding:0 16px;
+    /* #shift-wrap自体に左右の余白を付けると、左カラム（時間枠、色付きパネル）まで
+       画面端から浮いてしまい、連絡ノート・予定タブの常設サイドバー（常に画面端まで
+       伸びている）と見た目が揃わなくなる。余白は右側のカレンダー本体側
+       （.sf-calendar-header/.sf-calendar-body）にだけ持たせる。 */
 }
 
 .sf-main-layout{
@@ -3277,7 +3281,7 @@
 }
 
 .sf-calendar-header{
-    padding:12px 14px;
+    padding:12px 16px;
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -3292,7 +3296,7 @@
     flex:1;
     min-height:0;
     overflow:auto;
-    padding:0 8px 8px;
+    padding:0 16px 8px;
 }
 
 /* 左カラム：時間枠（仮締めタブの左カラムと同じ構造） */
@@ -6093,7 +6097,7 @@ window.addEventListener('pagehide', function() {
                 <div style="font-weight:bold; font-size:16px; margin-right:2px; white-space:nowrap;">シフト</div>
                 <button id="btnShiftPrevMonth" onclick="sfChangeMonth(-1)">前月</button>
                 <span id="sfBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
-                <div id="sfMonthLabel" style="font-weight:bold; font-size:17px; margin:0 6px;"></div>
+                <div id="sfMonthLabel" style="font-weight:bold; font-size:19px; margin:0 6px;"></div>
                 <button id="btnShiftNextMonth" onclick="sfChangeMonth(1)">次月</button>
                 <button id="btnShiftWishInput" onclick="openShiftWishPanel()" style="background: linear-gradient(135deg, #ff9800, #ffb74d);">希望入力</button>
                 <button id="btnSmartphoneView" onclick="openSmartphoneView()" style="display:none; background: linear-gradient(135deg, #667eea, #764ba2);">スマホ表示</button>
@@ -6370,7 +6374,7 @@ window.addEventListener('pagehide', function() {
         <div class="sales-toolbar" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
           <div style="font-weight:bold;font-size:16px;margin-right:6px;white-space:nowrap;">販売実績表</div>
           <button type="button" id="btnSalesPrevMonth" class="sales-nav-btn" onclick="changeSalesMonth(-1)">前月</button>
-          <div id="salesMonthLabel" style="font-weight:bold;font-size:17px;margin:0 6px;"></div>
+          <div id="salesMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
           <button type="button" id="btnSalesNextMonth" class="sales-nav-btn" onclick="changeSalesMonth(1)">次月</button>
           <span id="salesBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
           <span id="salesSaveWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
@@ -6416,7 +6420,7 @@ window.addEventListener('pagehide', function() {
         <div class="daily-toolbar" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
           <div style="font-weight:bold;font-size:16px;margin-right:6px;white-space:nowrap;">日常業務</div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(-1)">前月</button>
-          <div id="dailyMonthLabel" style="font-weight:bold;font-size:17px;margin:0 6px;"></div>
+          <div id="dailyMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(1)">次月</button>
           <span id="dailySaveWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
             <button type="button" class="toolbar-ctrl" onclick="dailySaveToSheet()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;">保存</button>
@@ -6443,7 +6447,7 @@ window.addEventListener('pagehide', function() {
         <div class="shaken-toolbar" style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
           <div style="font-weight:bold;font-size:16px;margin-right:6px;white-space:nowrap;">車検予約</div>
           <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
-          <div id="shakenMonthLabel" style="font-weight:bold;font-size:17px;margin:0 6px;"></div>
+          <div id="shakenMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
           <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
           <div id="shakenBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
             <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
