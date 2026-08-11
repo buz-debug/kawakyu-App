@@ -247,7 +247,10 @@
     #kasime-wrap .sidebar-header,
     #shift-wrap .sidebar-header,
     .shaken-side-col .sidebar-header {
-      padding: 16px 14px 12px !important;
+      /* タイトル行の上下余白は全タブ共通で10px（連絡ノート・予定・仮締め・
+         シフト左カラム・車検予約。日常業務/販売実績表/シフト右カラムは
+         各タブ側のCSSで同じく10pxに揃えている） */
+      padding: 10px 14px 10px !important;
       margin: 0 !important;
       background: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0));
       border-bottom: 2px solid var(--cw-green);
@@ -3329,8 +3332,7 @@
 }
 
 .sf-calendar-header{
-    /* シフトタブ単体での余白調整用（上下10px）。この値を決めたら他タブの余白と
-       合わせて共通ルール化する予定 - 現状は他タブとのタイトル位置揃えより優先 */
+    /* タイトル行の上下余白は全タブ共通で10px */
     padding:10px 16px 10px;
     display:flex;
     align-items:center;
@@ -6424,8 +6426,8 @@ window.addEventListener('pagehide', function() {
     </div>
 
     <div class="tab-panel" id="panelSales">
-      <div class="sales-tab-wrap" style="padding:16px 0;height:100%;display:flex;flex-direction:column;min-height:0;">
-        <div class="sales-toolbar" style="display:flex;align-items:center;gap:10px;padding:0 16px 12px;margin-bottom:10px;border-bottom:2px solid var(--cw-green);flex-wrap:wrap;">
+      <div class="sales-tab-wrap" style="padding:10px 0 16px;height:100%;display:flex;flex-direction:column;min-height:0;">
+        <div class="sales-toolbar" style="display:flex;align-items:center;gap:10px;padding:0 16px 10px;margin-bottom:10px;border-bottom:2px solid var(--cw-green);flex-wrap:wrap;">
           <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>販売実績表</span></div>
           <button type="button" id="btnSalesPrevMonth" class="sales-nav-btn" onclick="changeSalesMonth(-1)">前月</button>
           <div id="salesMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
@@ -6470,8 +6472,8 @@ window.addEventListener('pagehide', function() {
     </div>
 
     <div class="tab-panel" id="panelDaily">
-      <div class="daily-tab-wrap" style="padding:16px 0;height:100%;display:flex;flex-direction:column;min-height:0;">
-        <div class="daily-toolbar" style="display:flex;align-items:center;gap:10px;padding:0 16px 12px;margin-bottom:10px;border-bottom:2px solid var(--cw-green);flex-wrap:wrap;">
+      <div class="daily-tab-wrap" style="padding:10px 0 16px;height:100%;display:flex;flex-direction:column;min-height:0;">
+        <div class="daily-toolbar" style="display:flex;align-items:center;gap:10px;padding:0 16px 10px;margin-bottom:10px;border-bottom:2px solid var(--cw-green);flex-wrap:wrap;">
           <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>日常業務</span></div>
           <button type="button" class="sales-nav-btn" onclick="changeDailyMonth(-1)">前月</button>
           <div id="dailyMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
