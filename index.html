@@ -1471,7 +1471,10 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
-      padding: 12px 16px;
+      /* シフトタブと同じく、左カラム（タイトル行、高さ54px）と区切り線が
+         一直線に揃うよう上下10pxの余白＋下に区切り線を入れる */
+      padding: 10px 16px;
+      border-bottom: 2px solid var(--cw-green);
       flex-shrink: 0;
     }
 
@@ -6516,18 +6519,18 @@ window.addEventListener('pagehide', function() {
             <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
             <div id="shakenMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
             <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
-            <div id="shakenBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
+            <button type="button" id="btnAddShaken" class="toolbar-ctrl"
+              style="margin-left:6px;flex-shrink:0;white-space:nowrap;background:var(--cw-green);color:#fff;border:none;font-weight:600;cursor:pointer;">
+              予約を追加する
+            </button>
+            <div id="shakenBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
               <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
               <select id="shakenBranchSwitcherSelect" class="toolbar-ctrl" onchange="switchShakenViewBranch(this.value)" style="border:1px solid var(--border);"></select>
             </div>
-            <button type="button" id="btnAddShaken" class="toolbar-ctrl"
-              style="margin-left:auto;flex-shrink:0;white-space:nowrap;background:var(--cw-green);color:#fff;border:none;font-weight:600;cursor:pointer;">
-              予約を追加する
-            </button>
             <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
             <button type="button" id="btnShakenSummary" class="sales-nav-btn">月別集計</button>
             <button type="button" id="btnShakenCancelledList" class="toolbar-ctrl"
-              style="flex-shrink:0;white-space:nowrap;background:var(--surface);color:var(--danger);border:1px solid var(--danger);font-weight:600;cursor:pointer;">
+              style="flex-shrink:0;white-space:nowrap;background:var(--surface);color:var(--danger);border:1px solid var(--danger);padding:6px 14px;font-weight:600;cursor:pointer;">
               キャンセル一覧
             </button>
           </div>
