@@ -17418,6 +17418,26 @@ if(isMobileDevice()){
 const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxaX-yixD-v54kq_WaPh5PuZIV4FFSTKglc3a5Ri2h7iedFunwM6Qqu7D-Tk-yHen5I/exec';
 const SHEET_IDS_KEY = 'kawakyu_spreadsheet_ids';
 
+// GASへの通信が固まった場合に無限に待たされないための上限時間。
+// 素のfetch()にはタイムアウトが無いため、通信が詰まる/GASが応答を返さない状況では
+// ブラウザがいつまでも待ち続けてしまう。この時間で強制的に打ち切り、失敗として
+// 呼び出し元（起動時読込の自動リトライなど）に委ねる。
+const GAS_REQUEST_TIMEOUT_MS = 20000;
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e && e.name === 'AbortError') {
+      throw new Error(`通信がタイムアウトしました（${Math.round(timeoutMs / 1000)}秒）`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function getGasUrl() {
   return DEFAULT_GAS_URL;
 }
@@ -17518,11 +17538,11 @@ async function gasRequest(action, spreadsheetId, data) {
   const body = { action, spreadsheetId };
   if (data) body.data = data;
 
-  const resp = await fetch(gasUrl, {
+  const resp = await fetchWithTimeout(gasUrl, {
     method: 'POST',
     redirect: 'follow',
     body: JSON.stringify(body),
-  });
+  }, GAS_REQUEST_TIMEOUT_MS);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const result = await resp.json();
   // GASはエラー時もHTTP 200番で { ok: false, error: ... } を返す仕様のため、
@@ -17538,11 +17558,11 @@ async function gasRequest(action, spreadsheetId, data) {
 async function fetchRegisteredBranches() {
   const gasUrl = getGasUrl();
   if (!gasUrl) throw new Error('GAS URLが設定されていません');
-  const resp = await fetch(gasUrl, {
+  const resp = await fetchWithTimeout(gasUrl, {
     method: 'POST',
     redirect: 'follow',
     body: JSON.stringify({ action: 'listBranches' }),
-  });
+  }, GAS_REQUEST_TIMEOUT_MS);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   return resp.json();
 }
