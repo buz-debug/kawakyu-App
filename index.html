@@ -17624,7 +17624,14 @@ async function refreshBranchPasswordsFromSheet() {
     // 通信できない場合は静かに諦める
   }
 }
-syncBranchListFromGas().then(() => refreshBranchPasswordsFromSheet());
+// この2つは元々ログイン画面（未ログイン状態）向けの処理（営業所一覧の更新・
+// ログイン照合用パスワードの最新化）。ログイン済みの端末で毎回無条件に実行すると、
+// 本来の起動時読込（attemptStartupSheetLoad）と同時にGASへ3リクエストが飛んでしまい、
+// GAS側の同時実行の混雑で起動読込が遅くなる原因になっていた。ログイン済みの場合は
+// 起動時読込が同じスプレッドシートを読み込むため、ここでは省略して良い。
+if (localStorage.getItem('kawakyu_logged_in') !== '1') {
+  syncBranchListFromGas().then(() => refreshBranchPasswordsFromSheet());
+}
 
 // シートからのダウンロード中は、空・古いローカルデータで上書きしてしまう競合を防ぐためのフラグ
 let _sheetDownloadInProgress = false;
