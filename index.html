@@ -2453,11 +2453,12 @@
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
 /* 一番上に並ぶカード（ドロア現金・金庫・機器その他）は、箱自体の10pxで
-   上余白が既に確保されているため、カード見出し自体の上余白は持たせない
-   （左カラム「仮締め履歴」の見出しと高さを揃えるため） */
+   上余白がほぼ確保されているため、カード見出し自体の上余白は控えめにする
+   （左カラム「仮締め履歴」の見出しと概ね高さを揃えつつ、カード自体の
+   見た目の余白が無くならない程度は残す） */
 #kasime-wrap .kasime-left-cols .card-header,
 #kasime-wrap .input-bottom-cols > .input-col > .card:first-child .card-header {
-  padding-top: 0;
+  padding-top: 6px;
   align-items: flex-start;
 }
 #kasime-wrap .card-header-main { display: flex; align-items: center; gap: 6px; }
@@ -3536,6 +3537,10 @@
 #shiftTable .sf-staff-name { padding: 4px 2px; }
 #editTable .sf-staff-name { padding: 4px 2px; }
 #wishTable .sf-staff-name { padding: 4px 2px; }
+/* 見出し行（th）の「スタッフ」だけ他の見出しセル（日付など、上下余白がほぼ無い）より
+   上余白が大きく、行内で不揃いに見えるため、見出し行に限り上余白を詰める
+   （データ行のtd.sf-staff-nameは読みやすさのため通常の余白のまま） */
+#shiftTable th.sf-staff-name { padding-top: 1px; }
 
 .sf-total-hours{
     width:50px !important;
