@@ -2555,7 +2555,8 @@
 }
 #kasime-wrap .empty-icon { font-size: 48px; margin-bottom: 12px; }
 #kasime-wrap /* ===== INPUT SCREEN LAYOUT ===== */
-.input-body { padding: 8px 0 8px; background: var(--bg-chat); }
+/* 上部は.input-col-bodyの10pxが既に担っているため重複させず、下側のみ残す */
+.input-body { padding: 0 0 8px; background: var(--bg-chat); }
 #kasime-wrap /* 上段：担当者・時刻・ボタン */
 .input-top-row {
   display: flex;
