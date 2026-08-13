@@ -3493,6 +3493,11 @@
 #shiftTable th, #editTable th, #wishTable th {
     background:#fcfcfc;
     cursor: pointer;
+    /* 日付見出しセルは「日付<br>(曜日)」の2行、スタッフ列見出しは1行のため、
+       既定のvertical-align:middleのままだと1行側の文字が2行分の高さの中央に
+       沈んで見え、左カラム（時間枠見出し）より下に余白があるように見えてしまう。
+       全見出しセルを上揃えにすることで、行の高さに関係なく一定の位置に揃える。 */
+    vertical-align: top;
 }
 #shiftTable th.sf-day-header, #editTable th.sf-day-header, #wishTable th.sf-day-header {
     font-size:10px !important;
