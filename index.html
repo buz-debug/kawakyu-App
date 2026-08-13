@@ -3007,7 +3007,9 @@
   overflow: hidden;
 }
 
-/* 左：履歴カラム */
+/* 左：履歴カラム（左カラム共通ルール：箱自体に上下左右10px。
+   仮締めタブの全体タイトルは上段の.kasime-top-toolbarに移動済みのため、
+   ここは「仮締め履歴」という中見出しだけを持つ、予定・車検予約と同種の箱） */
 #kasime-history-col {
   width: 22%;
   min-width: 180px;
@@ -3017,9 +3019,12 @@
   flex-direction: column;
   overflow: hidden;
   flex-shrink: 0;
+  padding: 10px;
 }
 #kasime-history-col .hist-header {
-  padding: 10px 12px 8px;
+  /* 上下左右の余白は箱自体の10pxで統一済みのため、ここでは下側の
+     内部スペース（見出しと月送りUIの間）だけを残す */
+  padding: 0 0 8px;
   flex-shrink: 0;
 }
 #kasime-history-col .hist-header-title {
