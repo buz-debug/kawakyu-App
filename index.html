@@ -243,11 +243,10 @@
       overflow: hidden;
     }
 
-    .sidebar-header,
-    #shift-wrap .sidebar-header {
-      /* タイトル行の上下余白は全タブ共通で10px（連絡ノート・予定・仮締め・
-         シフト左カラム。日常業務/販売実績表/シフト右カラム/車検予約は
-         各タブ側のCSSで同じく10pxに揃えている） */
+    .sidebar-header {
+      /* タイトル行の上下余白は全タブ共通で10px（連絡ノート・予定・仮締め。
+         日常業務/販売実績表/シフト/車検予約/仮締めは各タブ側のCSSで
+         同じく10pxに揃えている） */
       padding: 10px 14px 10px !important;
       margin: 0 !important;
       background: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0));
@@ -256,7 +255,7 @@
     }
 
     .sidebar-logo,
-    #shift-wrap .sidebar-logo,
+    .sf-top-toolbar .sidebar-logo,
     .shaken-top-toolbar .sidebar-logo,
     .tasks-top-toolbar .sidebar-logo,
     .kasime-top-toolbar .sidebar-logo,
@@ -278,7 +277,7 @@
     }
 
     .sidebar-logo-bar,
-    #shift-wrap .sidebar-logo-bar,
+    .sf-top-toolbar .sidebar-logo-bar,
     .shaken-top-toolbar .sidebar-logo-bar,
     .tasks-top-toolbar .sidebar-logo-bar,
     .kasime-top-toolbar .sidebar-logo-bar,
@@ -300,7 +299,7 @@
     }
 
     .sidebar-logo span,
-    #shift-wrap .sidebar-logo span,
+    .sf-top-toolbar .sidebar-logo span,
     .shaken-top-toolbar .sidebar-logo span,
     .tasks-top-toolbar .sidebar-logo span,
     .kasime-top-toolbar .sidebar-logo span,
@@ -3226,18 +3225,6 @@
     white-space:nowrap;
 }
 
-/* ======================
-コントロール
-====================== */
-
-.sf-controls{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
-    align-items:center;
-    margin-bottom:8px;
-}
-
 #shift-wrap button{
     padding:7px 14px;
     border:none;
@@ -3315,13 +3302,23 @@
 
 #shift-wrap{
     display:flex;
+    flex-direction:column;
     flex:1;
     min-height:0;
     overflow:hidden;
-    /* #shift-wrap自体に左右の余白を付けると、左カラム（時間枠、色付きパネル）まで
-       画面端から浮いてしまい、連絡ノート・予定タブの常設サイドバー（常に画面端まで
-       伸びている）と見た目が揃わなくなる。余白は右側のカレンダー本体側
-       （.sf-calendar-header/.sf-calendar-body）にだけ持たせる。 */
+    /* 日常業務・車検予約・仮締め・予定と同じく、区切り線（.sf-top-toolbar側）が
+       画面端まで届くように左右のpaddingは持たず、上下のみにする */
+    padding:10px 0 16px;
+}
+.sf-top-toolbar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    padding:0 16px 10px;
+    margin:0 0 10px;
+    border-bottom:2px solid var(--cw-green);
+    flex-shrink:0;
 }
 
 .sf-main-layout{
@@ -3363,19 +3360,6 @@
     min-width:0;
     flex-shrink:0;
 }
-.sf-main-layout.sf-layout-stack .sf-timeframe-view .sidebar-header{
-    display:none;
-}
-/* 左右モードでは左カラム（時間枠）のタイトルと重複するため、カレンダー側のタイトルは
-   通常は非表示にし、上下モード（左カラムのタイトルが上のルールで隠れる）でだけ表示する。
-   #shift-wrap .sidebar-logo{display:flex}がID付きで詳細度が高いため、ここは
-   !importantで確実に上書きする */
-.sf-calendar-title{
-    display:none !important;
-}
-.sf-main-layout.sf-layout-stack .sf-calendar-title{
-    display:flex !important;
-}
 .sf-main-layout.sf-layout-stack #timeframeList.sf-timeframe-grid{
     grid-template-columns: repeat(10, 1fr);
 }
@@ -3402,21 +3386,6 @@
     overflow:hidden;
 }
 
-.sf-calendar-header{
-    /* タイトル行の上下余白は全タブ共通で10px */
-    padding:10px 16px 10px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    gap:8px;
-    flex-shrink:0;
-    /* 日常業務・販売実績表タブと同じく、タイトル行の下を区切り線で仕切る */
-    border-bottom:2px solid var(--cw-green);
-}
-.sf-calendar-header h1{
-    color:#1e293b;
-}
 .sf-calendar-body{
     flex:1;
     min-height:0;
@@ -3426,7 +3395,9 @@
     padding:10px 16px 8px;
 }
 
-/* 左カラム：時間枠（仮締めタブの左カラムと同じ構造） */
+/* 左カラム：時間枠（左カラム共通ルール：箱自体に上下左右10px。仮締めタブの
+   左カラムと同じ構造。シフトタブの全体タイトルは上段の.sf-top-toolbarに
+   移動済みのため、ここは「時間枠」という中見出しだけを持つ） */
 .sf-timeframe-view{
     width:22%;
     min-width:180px;
@@ -3436,9 +3407,12 @@
     display:flex;
     flex-direction:column;
     overflow:hidden;
+    padding:10px;
 }
 .sf-timeframe-header{
-    padding:10px 12px 8px;
+    /* 上下左右の余白は箱自体の10pxで統一済みのため、ここでは下側の
+       内部スペース（見出しとリストの間）だけを残す */
+    padding:0 0 8px;
     flex-shrink:0;
 }
 .sf-timeframe-header-title{
@@ -6217,12 +6191,28 @@ window.addEventListener('pagehide', function() {
     <div class="tab-panel" id="panelShift">
       <div id="shift-wrap">
 
+<!-- 上段：タイトル＋月送り・希望入力・営業所・レイアウト切替・シフト作成を1行にまとめる
+     （日常業務・車検予約・仮締め・予定と同じ構造。左右⇔上下レイアウトどちらでも共通） -->
+<div class="sf-top-toolbar">
+    <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>シフト</span></div>
+    <button id="btnShiftPrevMonth" onclick="sfChangeMonth(-1)">前月</button>
+    <span id="sfBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
+    <div id="sfMonthLabel" style="font-weight:bold; font-size:19px; margin:0 6px;"></div>
+    <button id="btnShiftNextMonth" onclick="sfChangeMonth(1)">次月</button>
+    <button id="btnShiftWishInput" onclick="openShiftWishPanel()" style="background: linear-gradient(135deg, #ff9800, #ffb74d);">希望入力</button>
+    <button id="btnSmartphoneView" onclick="openSmartphoneView()" style="display:none; background: linear-gradient(135deg, #667eea, #764ba2);">スマホ表示</button>
+    <div id="shiftBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
+        <select id="shiftBranchSwitcherSelect" class="toolbar-ctrl" onchange="switchShiftViewBranch(this.value)" style="border:1px solid var(--border);padding:7px 14px;border-radius:4px;"></select>
+    </div>
+    <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;margin-left:auto;">レイアウト切替：左右</button>
+    <button id="btnShiftCreate" onclick="sfOpenShiftEditGated()" style="background:#555;">シフト作成</button>
+</div>
+
+<!-- 下段：.sf-main-layoutが引き続き左右⇔上下レイアウトを切り替える -->
 <div class="sf-main-layout">
 
     <div class="sf-timeframe-view">
-        <div class="sidebar-header">
-          <div class="sidebar-logo"><span class="sidebar-logo-bar"></span><span>シフト</span></div>
-        </div>
         <div class="sf-timeframe-header">
             <div class="sf-timeframe-header-title">時間枠</div>
         </div>
@@ -6230,23 +6220,6 @@ window.addEventListener('pagehide', function() {
     </div>
 
     <div class="sf-calendar-view">
-        <div class="sf-calendar-header">
-            <div class="sf-controls" style="margin-bottom:0;">
-                <div class="sidebar-logo sf-calendar-title" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>シフト</span></div>
-                <button id="btnShiftPrevMonth" onclick="sfChangeMonth(-1)">前月</button>
-                <span id="sfBranchPrintLabel" style="display:none; font-weight:bold; font-size:15px;"></span>
-                <div id="sfMonthLabel" style="font-weight:bold; font-size:19px; margin:0 6px;"></div>
-                <button id="btnShiftNextMonth" onclick="sfChangeMonth(1)">次月</button>
-                <button id="btnShiftWishInput" onclick="openShiftWishPanel()" style="background: linear-gradient(135deg, #ff9800, #ffb74d);">希望入力</button>
-                <button id="btnSmartphoneView" onclick="openSmartphoneView()" style="display:none; background: linear-gradient(135deg, #667eea, #764ba2);">スマホ表示</button>
-                <div id="shiftBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:6px;">
-                    <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
-                    <select id="shiftBranchSwitcherSelect" class="toolbar-ctrl" onchange="switchShiftViewBranch(this.value)" style="border:1px solid var(--border);padding:7px 14px;border-radius:4px;"></select>
-                </div>
-                <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;margin-left:auto;">レイアウト切替：左右</button>
-                <button id="btnShiftCreate" onclick="sfOpenShiftEditGated()" style="background:#555;">シフト作成</button>
-            </div>
-        </div>
         <div class="sf-calendar-body">
             <div class="sf-table-wrapper">
                 <table id="shiftTable"></table>
