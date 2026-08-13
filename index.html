@@ -260,6 +260,7 @@
     #kasime-wrap .sidebar-logo,
     #shift-wrap .sidebar-logo,
     .shaken-top-toolbar .sidebar-logo,
+    .tasks-top-toolbar .sidebar-logo,
     .daily-tab-wrap .sidebar-logo,
     .sales-tab-wrap .sidebar-logo {
       font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif !important;
@@ -281,6 +282,7 @@
     #kasime-wrap .sidebar-logo-bar,
     #shift-wrap .sidebar-logo-bar,
     .shaken-top-toolbar .sidebar-logo-bar,
+    .tasks-top-toolbar .sidebar-logo-bar,
     .daily-tab-wrap .sidebar-logo-bar,
     .sales-tab-wrap .sidebar-logo-bar {
       display: inline-block;
@@ -302,6 +304,7 @@
     #kasime-wrap .sidebar-logo span,
     #shift-wrap .sidebar-logo span,
     .shaken-top-toolbar .sidebar-logo span,
+    .tasks-top-toolbar .sidebar-logo span,
     .daily-tab-wrap .sidebar-logo span,
     .sales-tab-wrap .sidebar-logo span {
       color: #1e293b !important;
@@ -1154,29 +1157,34 @@
 
     .btn-send:hover { background: var(--cw-green-dark); }
 
-    .tasks-panel {
+    /* ===== 予定タブ：タイトル行は日常業務・車検予約と同じく1行にまとめ、
+       その下だけ左右2カラム（左カラムはタスク一覧、右カラムはカレンダー） ===== */
+    .tasks-side-col {
+      width: 22%;
+      min-width: 180px;
+      max-width: 260px;
+      flex-shrink: 0;
+      background: #e8f0fe;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .tasks-main-col {
       flex: 1;
-      overflow-y: auto;
-      /* 車検予約タブなどと同じく、区切り線(.cal-nav側)が画面端まで届くように
-         左右のpaddingは持たず、上下のみにする */
-      padding: 10px 0 16px;
       min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     /* カレンダー幅を固定 */
     #taskCalView {
+      flex: 1;
       min-width: 0;
-      overflow: hidden;
-    }
-
-    /* 予定タブのカレンダー曜日見出し・本体だけ、.tasks-panelが失った左右の余白(20px)を
-       個別に持たせる（.task-cal-daynamesは車検予約タブとも共有クラスのため、
-       スコープを絞って上書きし、車検予約側には影響させない） */
-    #taskCalView .task-cal-daynames {
-      margin: 0 20px 2px;
-    }
-    #taskCalGrid {
-      margin: 0 20px;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 0 16px 16px;
     }
 
     .task-cal-daynames {
@@ -1281,11 +1289,10 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 8px;
-      /* 車検予約タブの右カラム上段ボタン行と同じく、上下余白10px＋区切り線で
-         左カラム（連絡ノート・予定共通サイドバー、高さ54px）と揃える。
-         上側の10pxは.tasks-panelのpadding-topが既に担っているため、
+      /* 日常業務・車検予約と同じ、上下10pxの余白＋下に区切り線。
+         上側の10pxは.tasks-tab-wrapのpadding-topが既に担っているため、
          ここでは重複させず下側10pxのみ持たせる */
-      padding: 0 20px 10px;
+      padding: 0 16px 10px;
       margin: 0 0 10px;
       border-bottom: 2px solid var(--cw-green);
     }
@@ -4808,55 +4815,6 @@
     <!-- チャットタブ: ブックマーク一覧 -->
     <div class="sidebar-body" id="roomList"></div>
 
-    <!-- タスクタブ: タスク管理 -->
-    <div id="sidebarTaskOnly" style="display:none;flex:1;flex-direction:column;min-height:0;overflow:hidden;gap:0;">
-
-      <!-- タスクを追加するボタン -->
-      <div style="padding:10px 12px 8px;flex-shrink:0;">
-        <button type="button" id="btnAddTask"
-          style="width:100%;padding:7px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
-          タスクを追加する
-        </button>
-      </div>
-
-      <!-- 完了タスクボタン -->
-      <div style="padding:8px 12px;flex-shrink:0;">
-        <button type="button" id="btnShowDoneTasks"
-          style="width:100%;padding:7px;background:rgba(255,255,255,.4);color:#1e3a5f;border:1px solid rgba(30,58,95,.25);border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-          完了タスク
-        </button>
-      </div>
-
-      <div style="flex:1;min-height:0;overflow-y:auto;">
-
-      <!-- ②繰越タスク -->
-      <div style="background:#fff7ed;">
-        <div style="font-size:13px;font-weight:700;color:#000;padding:8px 12px 4px;display:flex;align-items:center;gap:6px;background:#fff7ed;">
-          繰越タスク
-        </div>
-        <div id="overdueTaskList" style="padding:0 0 6px;"></div>
-      </div>
-
-      <!-- ③今日のタスク -->
-      <div style="background:#fff;">
-        <div style="font-size:13px;font-weight:700;color:#000;padding:8px 12px 4px;display:flex;align-items:center;gap:6px;">
-          今日のタスク
-        </div>
-        <div id="todayTaskList" style="padding:0 0 6px;"></div>
-      </div>
-
-      <!-- ④明日以降のタスク -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:#1e3a5f;padding:8px 12px 4px;">
-          明日以降のタスク
-        </div>
-        <div id="futureTaskList" style="padding:0 0 6px;"></div>
-      </div>
-
-      </div>
-
-    </div>
-
   </aside>
 
   <!-- 中央 -->
@@ -6128,27 +6086,83 @@ window.addEventListener('pagehide', function() {
     </div>
 
         <div class="tab-panel" id="panelTasks">
-      <div class="tasks-panel">
-        <div id="taskCalView">
-          <div class="cal-nav">
-            <button type="button" id="calPrev">前月</button>
-            <span id="calTitle"></span>
-            <button type="button" id="calNext">次月</button>
-            <button type="button" id="btnAddSchedule" class="toolbar-ctrl"
-              style="margin-left:8px;flex-shrink:0;white-space:nowrap;background:var(--cw-green);color:#fff;border:none;font-weight:600;cursor:pointer;">
-              予定を追加する
-            </button>
+      <div class="tasks-tab-wrap" style="display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;padding:10px 0 16px;">
+
+        <!-- 上段：タイトル＋月送り・予定を追加するボタンを1行にまとめる（日常業務・車検予約と同じ構造） -->
+        <div class="cal-nav tasks-top-toolbar">
+          <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>予定</span></div>
+          <button type="button" id="calPrev">前月</button>
+          <span id="calTitle"></span>
+          <button type="button" id="calNext">次月</button>
+          <button type="button" id="btnAddSchedule" class="toolbar-ctrl"
+            style="margin-left:8px;flex-shrink:0;white-space:nowrap;background:var(--cw-green);color:#fff;border:none;font-weight:600;cursor:pointer;">
+            予定を追加する
+          </button>
+        </div>
+
+        <!-- 下段：左右2カラム（左はタスク一覧、右はカレンダー） -->
+        <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
+          <div class="tasks-side-col">
+
+            <!-- タスクを追加するボタン -->
+            <div style="padding:0 12px 8px;flex-shrink:0;">
+              <button type="button" id="btnAddTask"
+                style="width:100%;padding:7px;background:var(--cw-green);color:#fff;border:none;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">
+                タスクを追加する
+              </button>
+            </div>
+
+            <!-- 完了タスクボタン -->
+            <div style="padding:8px 12px;flex-shrink:0;">
+              <button type="button" id="btnShowDoneTasks"
+                style="width:100%;padding:7px;background:rgba(255,255,255,.4);color:#1e3a5f;border:1px solid rgba(30,58,95,.25);border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                完了タスク
+              </button>
+            </div>
+
+            <div style="flex:1;min-height:0;overflow-y:auto;">
+
+            <!-- ②繰越タスク -->
+            <div style="background:#fff7ed;">
+              <div style="font-size:13px;font-weight:700;color:#000;padding:8px 12px 4px;display:flex;align-items:center;gap:6px;background:#fff7ed;">
+                繰越タスク
+              </div>
+              <div id="overdueTaskList" style="padding:0 0 6px;"></div>
+            </div>
+
+            <!-- ③今日のタスク -->
+            <div style="background:#fff;">
+              <div style="font-size:13px;font-weight:700;color:#000;padding:8px 12px 4px;display:flex;align-items:center;gap:6px;">
+                今日のタスク
+              </div>
+              <div id="todayTaskList" style="padding:0 0 6px;"></div>
+            </div>
+
+            <!-- ④明日以降のタスク -->
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#1e3a5f;padding:8px 12px 4px;">
+                明日以降のタスク
+              </div>
+              <div id="futureTaskList" style="padding:0 0 6px;"></div>
+            </div>
+
+            </div>
           </div>
-          <div class="task-cal-daynames">
-            <div class="task-cal-dayname sun">日</div>
-            <div class="task-cal-dayname">月</div>
-            <div class="task-cal-dayname">火</div>
-            <div class="task-cal-dayname">水</div>
-            <div class="task-cal-dayname">木</div>
-            <div class="task-cal-dayname">金</div>
-            <div class="task-cal-dayname sat">土</div>
+
+          <div class="tasks-main-col">
+            <div id="taskCalView">
+              <div class="task-cal-daynames">
+                <div class="task-cal-dayname sun">日</div>
+                <div class="task-cal-dayname">月</div>
+                <div class="task-cal-dayname">火</div>
+                <div class="task-cal-dayname">水</div>
+                <div class="task-cal-dayname">木</div>
+                <div class="task-cal-dayname">金</div>
+                <div class="task-cal-dayname sat">土</div>
+              </div>
+              <div class="task-calendar" id="taskCalGrid"></div>
+            </div>
           </div>
-          <div class="task-calendar" id="taskCalGrid"></div>
         </div>
       </div>
     </div>
@@ -14190,7 +14204,6 @@ window.addEventListener('pagehide', function() {
         // チャット専用エリア（検索・ブックマーク）の表示切替
         const chatOnly = document.getElementById('sidebarChatOnly');
         const roomList = document.getElementById('roomList');
-        const taskOnly = document.getElementById('sidebarTaskOnly');
         const contactWriteBtn = document.getElementById('btnContactWrite');
         if (contactWriteBtn) contactWriteBtn.style.display = (currentTab === 'tasks' || currentTab === 'shaken') ? 'none' : '';
         const sidebarToolbar = document.querySelector('.sidebar-toolbar');
@@ -14198,16 +14211,15 @@ window.addEventListener('pagehide', function() {
         if (currentTab === 'tasks') {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
-          taskOnly.style.display = 'flex';
-          // 仮締めタブでサイドバーを隠した状態から戻ってきた場合に備えて再表示する
+          // 予定タブはタスク一覧を専用の左カラムに持つ独自レイアウトのため、
+          // 他の独自レイアウトタブ（日常業務・車検予約等）と同様にメインサイドバーを非表示にする
           const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = '';
+          if (mainSidebar) mainSidebar.style.display = 'none';
           render4ColTasks();
           renderTaskCalendar();
         } else if (currentTab === 'kasime') {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
-          taskOnly.style.display = 'none';
           // 仮締め時はメインサイドバーを非表示（2カラムは仮締め内で完結）
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = 'none';
@@ -14219,7 +14231,6 @@ window.addEventListener('pagehide', function() {
         } else if (currentTab === 'shift') {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
-          taskOnly.style.display = 'none';
           // シフトタブも独自レイアウトのためメインサイドバーを非表示
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = 'none';
@@ -14228,7 +14239,6 @@ window.addEventListener('pagehide', function() {
         } else if (currentTab === 'sales') {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
-          taskOnly.style.display = 'none';
           // 販売実績表も独自レイアウトのためメインサイドバーを非表示
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = 'none';
@@ -14238,7 +14248,6 @@ window.addEventListener('pagehide', function() {
         } else if (currentTab === 'daily') {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
-          taskOnly.style.display = 'none';
           // 日常業務も独自レイアウトのためメインサイドバーを非表示
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = 'none';
@@ -14246,7 +14255,6 @@ window.addEventListener('pagehide', function() {
         } else if (currentTab === 'shaken') {
           chatOnly.style.display = 'none';
           roomList.style.display = 'none';
-          taskOnly.style.display = 'none';
           // 左カラムに表示するものが無いため、他の独自レイアウトタブ（日常業務等）と同様に
           // メインサイドバーを非表示にし、車検予約タブは全幅で表示する。
           const mainSidebar = document.getElementById('sidebar');
@@ -14255,7 +14263,6 @@ window.addEventListener('pagehide', function() {
         } else {
           chatOnly.style.display = '';
           roomList.style.display = '';
-          taskOnly.style.display = 'none';
           // 他タブではメインサイドバーを戻す
           const mainSidebar = document.getElementById('sidebar');
           if (mainSidebar) mainSidebar.style.display = '';
