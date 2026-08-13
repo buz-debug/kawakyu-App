@@ -225,33 +225,42 @@
     }
 
     /* ── 左: チャット一覧（ChatWork風サイドバー） ── */
-    .sidebar {
+    /* ===== 連絡ノートタブ：タイトル行は日常業務・車検予約等と同じく1行にまとめ、
+       その下だけ左右2カラム（左カラムはブックマーク一覧、右カラムはメッセージ） ===== */
+    .chat-top-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      /* 日常業務・車検予約と同じ、上下10pxの余白＋下に区切り線。
+         上側の10pxは.chat-tab-wrapのpadding-topが既に担っているため、
+         ここでは重複させず下側10pxのみ持たせる */
+      padding: 0 16px 10px;
+      margin: 0 0 10px;
+      border-bottom: 2px solid var(--cw-green);
+      flex-shrink: 0;
+    }
+
+    /* 左カラム（タイトルを持たないコンテンツ専用の箱）は、アプリ共通ルールとして
+       上下左右すべて10pxの余白を箱自体に持たせる（.tasks-side-col/.shaken-side-colと同じ）。 */
+    .chat-side-col {
       width: 22%;
       min-width: 180px;
       max-width: 260px;
+      flex-shrink: 0;
       background: var(--cw-sidebar);
       color: #1e3a5f;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .chat-main-col {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      flex-shrink: 0;
-      transition: margin-left .2s, width .2s;
-    }
-
-    .sidebar.collapsed {
-      width: 0;
-      margin-left: -260px;
       overflow: hidden;
-    }
-
-    .sidebar-header {
-      /* タイトル行の上下余白は全タブ共通で10px（連絡ノート・予定・仮締め。
-         日常業務/販売実績表/シフト/車検予約/仮締めは各タブ側のCSSで
-         同じく10pxに揃えている） */
-      padding: 10px 14px 10px !important;
-      margin: 0 !important;
-      background: linear-gradient(180deg, rgba(255,255,255,.35), rgba(255,255,255,0));
-      border-bottom: 2px solid var(--cw-green);
-      position: relative;
     }
 
     .sidebar-logo,
@@ -260,7 +269,8 @@
     .tasks-top-toolbar .sidebar-logo,
     .kasime-top-toolbar .sidebar-logo,
     .daily-tab-wrap .sidebar-logo,
-    .sales-tab-wrap .sidebar-logo {
+    .sales-tab-wrap .sidebar-logo,
+    .chat-top-toolbar .sidebar-logo {
       font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif !important;
       font-size: 17px !important;
       font-weight: 800 !important;
@@ -282,7 +292,8 @@
     .tasks-top-toolbar .sidebar-logo-bar,
     .kasime-top-toolbar .sidebar-logo-bar,
     .daily-tab-wrap .sidebar-logo-bar,
-    .sales-tab-wrap .sidebar-logo-bar {
+    .sales-tab-wrap .sidebar-logo-bar,
+    .chat-top-toolbar .sidebar-logo-bar {
       display: inline-block;
       width: 5px !important;
       height: 20px !important;
@@ -293,18 +304,14 @@
       flex-shrink: 0;
     }
 
-    .sidebar-toolbar {
-      /* 区切り線の下の余白を全タブ共通の10pxに揃える */
-      padding: 10px 14px 14px;
-    }
-
     .sidebar-logo span,
     .sf-top-toolbar .sidebar-logo span,
     .shaken-top-toolbar .sidebar-logo span,
     .tasks-top-toolbar .sidebar-logo span,
     .kasime-top-toolbar .sidebar-logo span,
     .daily-tab-wrap .sidebar-logo span,
-    .sales-tab-wrap .sidebar-logo span {
+    .sales-tab-wrap .sidebar-logo span,
+    .chat-top-toolbar .sidebar-logo span {
       color: #1e293b !important;
       font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif !important;
       font-size: 17px !important;
@@ -326,16 +333,12 @@
 
     .sidebar-search::placeholder { color: #5b7fa6; }
 
-    .sidebar-body {
-      flex: 1;
-      overflow-y: auto;
-    }
-
     .sidebar-section-title {
       font-size: 15px;
       font-weight: 700;
       color: var(--cw-green);
-      padding: 12px 14px 8px;
+      /* 箱(.chat-side-col)自体が上・左右10pxを持つため、ここでは重複させず下側のみ */
+      padding: 0 0 8px;
       text-transform: none;
     }
 
@@ -418,7 +421,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 14px 4px;
+      /* 箱(.chat-side-col)自体が左右10pxを持つため、ここでは重複させない */
+      padding: 6px 0 4px;
       font-size: 13px;
       font-weight: 600;
       color: var(--cw-green);
@@ -437,7 +441,8 @@
     .bm-list.bm-collapsed { display: none; }
 
     .bm-item {
-      padding: 6px 14px 6px 18px;
+      /* 箱(.chat-side-col)自体が左右10pxを持つため、カテゴリ見出しとの相対インデント(4px)のみ残す */
+      padding: 6px 0 6px 4px;
       cursor: pointer;
       border-left: 3px solid transparent;
       display: flex;
@@ -632,9 +637,7 @@
     }
 
     .btn-contact-write {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 7px;
+      padding: 7px 14px;
       font-size: 12px;
       font-weight: 600;
       color: #fff;
@@ -4817,27 +4820,29 @@
 
   <!-- 下段：コンテンツエリア -->
   <div class="app-row">
-  <!-- 左: チャット一覧 -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-logo"><span class="sidebar-logo-bar"></span><span id="sidebarTitle">連絡ノート</span></div>
-    </div>
-    <div class="sidebar-toolbar">
-      <button type="button" class="btn-contact-write" id="btnContactWrite" aria-expanded="false" aria-controls="composerWrap">
-        連絡事項を書く
-      </button>
-      <div id="sidebarChatOnly"></div>
-    </div>
-
-    <!-- チャットタブ: ブックマーク一覧 -->
-    <div class="sidebar-body" id="roomList"></div>
-
-  </aside>
 
   <!-- 中央 -->
   <div class="main">
     <div class="tab-panel active" id="panelChat">
-      <div class="messages" id="messages" role="log" aria-live="polite"></div>
+      <div class="chat-tab-wrap" style="display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;padding:10px 0 16px;">
+
+        <!-- 上段：タイトル＋連絡事項を書くボタンを1行にまとめる（日常業務・車検予約等と同じ構造） -->
+        <div class="chat-top-toolbar">
+          <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>連絡ノート</span></div>
+          <button type="button" class="btn-contact-write" id="btnContactWrite" aria-expanded="false" aria-controls="composerWrap">
+            連絡事項を書く
+          </button>
+        </div>
+
+        <!-- 下段：左右2カラム（左はブックマーク一覧、右はメッセージ） -->
+        <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
+          <div class="chat-side-col" id="roomList"></div>
+          <div class="chat-main-col">
+            <div class="messages" id="messages" role="log" aria-live="polite"></div>
+          </div>
+        </div>
+
+      </div>
     </div>
 
     <div class="tab-panel" id="panelKasime">
@@ -8963,7 +8968,7 @@ window.addEventListener('pagehide', function() {
                   <div class="bm-preview">${escapeHtml(preview)}</div>
                 </div>`;
               }).join('')
-            : `<div style="padding:4px 14px 6px;font-size:11px;color:#8a9aa8;">なし</div>`
+            : `<div style="padding:4px 0 6px;font-size:11px;color:#8a9aa8;">なし</div>`
           ) +
         `</div></div>`;
       });
@@ -14217,75 +14222,28 @@ window.addEventListener('pagehide', function() {
           headerDownloadBtn.style.display = showHeaderDownload ? '' : 'none';
         }
 
-        // サイドバータイトルをタブ名に連動
-        const titles = { chat: '連絡ノート', tasks: '予定', kasime: '仮締め', shift: 'シフト', sales: '販売実績表', daily: '日常業務', shaken: '車検予約' };
-        document.getElementById('sidebarTitle').textContent = titles[currentTab] || currentTab;
-
-        // チャット専用エリア（検索・ブックマーク）の表示切替
-        const chatOnly = document.getElementById('sidebarChatOnly');
-        const roomList = document.getElementById('roomList');
-        const contactWriteBtn = document.getElementById('btnContactWrite');
-        if (contactWriteBtn) contactWriteBtn.style.display = (currentTab === 'tasks' || currentTab === 'shaken') ? 'none' : '';
-        const sidebarToolbar = document.querySelector('.sidebar-toolbar');
-        if (sidebarToolbar) sidebarToolbar.style.display = (currentTab === 'tasks' || currentTab === 'shaken') ? 'none' : '';
+        // 各タブとも自己完結レイアウト（タイトル行を含む専用wrap）を持つため、
+        // タブ切替時に必要なのはそれぞれの再描画のみ。
         if (currentTab === 'tasks') {
-          chatOnly.style.display = 'none';
-          roomList.style.display = 'none';
-          // 予定タブはタスク一覧を専用の左カラムに持つ独自レイアウトのため、
-          // 他の独自レイアウトタブ（日常業務・車検予約等）と同様にメインサイドバーを非表示にする
-          const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = 'none';
           render4ColTasks();
           renderTaskCalendar();
         } else if (currentTab === 'kasime') {
-          chatOnly.style.display = 'none';
-          roomList.style.display = 'none';
-          // 仮締め時はメインサイドバーを非表示（2カラムは仮締め内で完結）
-          const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = 'none';
           // 仮締めタブを開いた瞬間に入力できる状態にする
           if (typeof renderList === 'function') renderList();
           if (typeof initCounters === 'function') initCounters();
           if (typeof buildInputForm === 'function') buildInputForm();
           if (typeof renderKasimeBranchSwitcher === 'function') renderKasimeBranchSwitcher();
         } else if (currentTab === 'shift') {
-          chatOnly.style.display = 'none';
-          roomList.style.display = 'none';
-          // シフトタブも独自レイアウトのためメインサイドバーを非表示
-          const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = 'none';
           if (typeof renderViewTable === 'function') renderViewTable();
           if (typeof renderShiftBranchSwitcher === 'function') renderShiftBranchSwitcher();
         } else if (currentTab === 'sales') {
-          chatOnly.style.display = 'none';
-          roomList.style.display = 'none';
-          // 販売実績表も独自レイアウトのためメインサイドバーを非表示
-          const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = 'none';
           if (typeof exitSalesChartView === 'function') exitSalesChartView();
           if (typeof renderSalesBranchSwitcher === 'function') renderSalesBranchSwitcher();
           if (typeof renderSalesTable === 'function') renderSalesTable();
         } else if (currentTab === 'daily') {
-          chatOnly.style.display = 'none';
-          roomList.style.display = 'none';
-          // 日常業務も独自レイアウトのためメインサイドバーを非表示
-          const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = 'none';
           if (typeof renderDailyTable === 'function') renderDailyTable();
         } else if (currentTab === 'shaken') {
-          chatOnly.style.display = 'none';
-          roomList.style.display = 'none';
-          // 左カラムに表示するものが無いため、他の独自レイアウトタブ（日常業務等）と同様に
-          // メインサイドバーを非表示にし、車検予約タブは全幅で表示する。
-          const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = 'none';
           if (typeof renderShakenView === 'function') renderShakenView();
-        } else {
-          chatOnly.style.display = '';
-          roomList.style.display = '';
-          // 他タブではメインサイドバーを戻す
-          const mainSidebar = document.getElementById('sidebar');
-          if (mainSidebar) mainSidebar.style.display = '';
         }
     }
 
