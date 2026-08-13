@@ -244,7 +244,6 @@
     }
 
     .sidebar-header,
-    #kasime-wrap .sidebar-header,
     #shift-wrap .sidebar-header {
       /* タイトル行の上下余白は全タブ共通で10px（連絡ノート・予定・仮締め・
          シフト左カラム。日常業務/販売実績表/シフト右カラム/車検予約は
@@ -257,10 +256,10 @@
     }
 
     .sidebar-logo,
-    #kasime-wrap .sidebar-logo,
     #shift-wrap .sidebar-logo,
     .shaken-top-toolbar .sidebar-logo,
     .tasks-top-toolbar .sidebar-logo,
+    .kasime-top-toolbar .sidebar-logo,
     .daily-tab-wrap .sidebar-logo,
     .sales-tab-wrap .sidebar-logo {
       font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif !important;
@@ -279,10 +278,10 @@
     }
 
     .sidebar-logo-bar,
-    #kasime-wrap .sidebar-logo-bar,
     #shift-wrap .sidebar-logo-bar,
     .shaken-top-toolbar .sidebar-logo-bar,
     .tasks-top-toolbar .sidebar-logo-bar,
+    .kasime-top-toolbar .sidebar-logo-bar,
     .daily-tab-wrap .sidebar-logo-bar,
     .sales-tab-wrap .sidebar-logo-bar {
       display: inline-block;
@@ -301,10 +300,10 @@
     }
 
     .sidebar-logo span,
-    #kasime-wrap .sidebar-logo span,
     #shift-wrap .sidebar-logo span,
     .shaken-top-toolbar .sidebar-logo span,
     .tasks-top-toolbar .sidebar-logo span,
+    .kasime-top-toolbar .sidebar-logo span,
     .daily-tab-wrap .sidebar-logo span,
     .sales-tab-wrap .sidebar-logo span {
       color: #1e293b !important;
@@ -2616,7 +2615,8 @@
   border-bottom: none;
   padding-bottom: 0;
 }
-#kasime-wrap .input-top-row > .top-cancel-btn {
+#kasime-wrap .input-top-row > .top-cancel-btn,
+#kasime-wrap .kasime-top-toolbar > .top-cancel-btn {
   align-self: center;
   height: auto;
   min-width: 0;
@@ -2970,10 +2970,39 @@
 }
 #kasime-wrap .btn-csv:active { background: #e8f0fe; }
 
-/* ===== 2カラムレイアウト（仮締めタブ専用） ===== */
+/* ===== 仮締めタブ：タイトル行は日常業務・車検予約と同じく1行にまとめ、
+   その下だけ左右2カラム ===== */
 #kasime-app {
   display: flex;
+  flex-direction: column;
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 0 16px;
+}
+/* #kasime-wrap * のリセット（margin/padding:0）がクラス指定より詳細度で勝ってしまうため、
+   #kasime-wrapを付けて詳細度を揃えている */
+#kasime-wrap .kasime-top-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 16px 10px;
+  margin: 0 0 10px;
+  border-bottom: 2px solid var(--cw-green);
+  flex-shrink: 0;
+}
+/* .toolbar-ctrl（担当者セレクト等）も同じ理由でリセットに潰されるため、
+   #kasime-wrap内での値を明示的に復元する（.toolbar-ctrl本体の値と同じ） */
+#kasime-wrap .toolbar-ctrl {
+  padding: 7px 14px;
+  font-size: 12px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+#kasime-wrap .kasime-body-row {
+  display: flex;
+  flex: 1;
   min-height: 0;
   overflow: hidden;
 }
@@ -4853,11 +4882,41 @@
 
   <!-- CSV MODAL -->
 
+  <!-- ===== 上段：タイトル＋担当者・時刻・キャンセル・保存を1行にまとめる
+       （日常業務・車検予約・予定と同じ構造） ===== -->
+  <div class="kasime-top-toolbar">
+    <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>仮締め</span></div>
+
+    <!-- 担当者（日常業務タブと同じ、ラベル＋セレクトのシンプルな形） -->
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap;">担当者：</span>
+      <select id="personSelect" class="toolbar-ctrl" style="border:1px solid var(--border);"></select>
+    </span>
+
+    <!-- 時刻 -->
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap;">時刻：</span>
+      <div class="time-inline-controls">
+        <select class="time-select" id="timeHour"></select>
+        <span class="time-colon">:</span>
+        <select class="time-select" id="timeMin"></select>
+      </div>
+    </span>
+
+    <!-- キャンセルボタン -->
+    <button class="top-cancel-btn" onclick="cancelInput()">キャンセル</button>
+
+    <!-- 保存ボタン（記録追加＋スプレッドシート保存） -->
+    <span id="kasimeSaveWrap" style="display:none;align-items:center;gap:6px;">
+      <button type="button" class="toolbar-ctrl" onclick="saveRecordToSheet()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;padding:7px 14px;">保存</button>
+    </span>
+  </div>
+
+  <!-- ===== 下段：左右2カラム ===== -->
+  <div class="kasime-body-row">
+
   <!-- ========== 左カラム：履歴一覧 ========== -->
   <div id="kasime-history-col">
-    <div class="sidebar-header">
-      <div class="sidebar-logo"><span class="sidebar-logo-bar"></span><span>仮締め</span></div>
-    </div>
     <div class="hist-header">
       <div class="hist-header-title">仮締め履歴</div>
       <div class="hist-month-nav">
@@ -4877,34 +4936,6 @@
   <div id="kasime-input-col">
     <div class="input-col-body">
     <div class="input-body">
-
-      <!-- ===== 上段：担当者・時刻・キャンセル・保存 ===== -->
-      <div class="input-top-row">
-        <!-- 担当者 -->
-        <div class="person-card">
-          <span class="person-label">担当者</span>
-          <select class="person-select" id="personSelect"></select>
-        </div>
-
-        <!-- 時刻 -->
-        <div class="person-card time-card">
-          <span class="person-label">時刻</span>
-          <div class="time-inline-controls">
-            <select class="time-select" id="timeHour"></select>
-            <span class="time-colon">:</span>
-            <select class="time-select" id="timeMin"></select>
-          </div>
-        </div>
-
-        <!-- キャンセルボタン -->
-        <button class="top-cancel-btn" onclick="cancelInput()">キャンセル</button>
-
-        <!-- 保存ボタン（記録追加＋スプレッドシート保存） -->
-        <span id="kasimeSaveWrap" style="display:none;align-items:center;gap:6px;">
-          <button type="button" class="toolbar-ctrl" onclick="saveRecordToSheet()" style="background:var(--cw-green);color:#fff;border:none;cursor:pointer;padding:7px 14px;">保存</button>
-        </span>
-
-      </div>
 
       <!-- ===== 下段：3カラム ===== -->
       <div class="input-bottom-cols">
@@ -5007,6 +5038,8 @@
     </div><!-- /input-body -->
     </div><!-- /input-col-body -->
   </div><!-- /kasime-input-col -->
+
+  </div><!-- /kasime-body-row -->
 
 </div><!-- #kasime-app -->
 
