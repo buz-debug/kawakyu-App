@@ -245,10 +245,9 @@
 
     .sidebar-header,
     #kasime-wrap .sidebar-header,
-    #shift-wrap .sidebar-header,
-    .shaken-side-col .sidebar-header {
+    #shift-wrap .sidebar-header {
       /* タイトル行の上下余白は全タブ共通で10px（連絡ノート・予定・仮締め・
-         シフト左カラム・車検予約。日常業務/販売実績表/シフト右カラムは
+         シフト左カラム。日常業務/販売実績表/シフト右カラム/車検予約は
          各タブ側のCSSで同じく10pxに揃えている） */
       padding: 10px 14px 10px !important;
       margin: 0 !important;
@@ -260,7 +259,7 @@
     .sidebar-logo,
     #kasime-wrap .sidebar-logo,
     #shift-wrap .sidebar-logo,
-    .shaken-side-col .sidebar-logo,
+    .shaken-top-toolbar .sidebar-logo,
     .daily-tab-wrap .sidebar-logo,
     .sales-tab-wrap .sidebar-logo {
       font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif !important;
@@ -281,7 +280,7 @@
     .sidebar-logo-bar,
     #kasime-wrap .sidebar-logo-bar,
     #shift-wrap .sidebar-logo-bar,
-    .shaken-side-col .sidebar-logo-bar,
+    .shaken-top-toolbar .sidebar-logo-bar,
     .daily-tab-wrap .sidebar-logo-bar,
     .sales-tab-wrap .sidebar-logo-bar {
       display: inline-block;
@@ -302,7 +301,7 @@
     .sidebar-logo span,
     #kasime-wrap .sidebar-logo span,
     #shift-wrap .sidebar-logo span,
-    .shaken-side-col .sidebar-logo span,
+    .shaken-top-toolbar .sidebar-logo span,
     .daily-tab-wrap .sidebar-logo span,
     .sales-tab-wrap .sidebar-logo span {
       color: #1e293b !important;
@@ -1466,16 +1465,25 @@
     }
     .task-cal-allday-bar:hover { opacity: .7; }
 
-    /* ===== 車検予約タブ：左右2カラムレイアウト（仮締め・シフトタブと同じ構造） ===== */
+    /* ===== 車検予約タブ：タイトル行は日常業務・販売実績表と同じく1行にまとめ、
+       その下だけ左右2カラム（左カラムは今後のメニュー追加用の空きスペース） ===== */
+    .shaken-top-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      /* 日常業務・販売実績表タブと同じ、上下10pxの余白＋下に区切り線 */
+      padding: 0 16px 10px;
+      margin: 0 0 10px;
+      border-bottom: 2px solid var(--cw-green);
+      flex-shrink: 0;
+    }
     .shaken-side-col {
       width: 22%;
       min-width: 180px;
       max-width: 260px;
       flex-shrink: 0;
       background: #e8f0fe;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
     }
     .shaken-main-col {
       flex: 1;
@@ -1484,17 +1492,6 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
-    }
-    .shaken-main-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      /* シフトタブと同じく、左カラム（タイトル行、高さ54px）と区切り線が
-         一直線に揃うよう上下10pxの余白＋下に区切り線を入れる */
-      padding: 10px 16px;
-      border-bottom: 2px solid var(--cw-green);
-      flex-shrink: 0;
     }
 
     /* ===== 車検予約カレンダー ===== */
@@ -6523,60 +6520,59 @@ window.addEventListener('pagehide', function() {
 
     <!-- ===== 車検予約タブ ===== -->
     <div class="tab-panel" id="panelShaken">
-      <div class="shaken-tab-wrap" style="display:flex;height:100%;min-height:0;overflow:hidden;">
+      <div class="shaken-tab-wrap" style="display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;padding:10px 0 16px;">
 
-        <!-- 左カラム：見出しのみ（仮締め・シフトタブと同じ2カラム構造） -->
-        <div class="shaken-side-col">
-          <div class="sidebar-header">
-            <div class="sidebar-logo"><span class="sidebar-logo-bar"></span><span>車検予約</span></div>
+        <!-- 上段：タイトル＋月送り・営業所・操作ボタンを1行にまとめる（日常業務・販売実績表と同じ構造） -->
+        <div class="shaken-top-toolbar">
+          <div class="sidebar-logo" style="margin-right:52px !important;"><span class="sidebar-logo-bar"></span><span>車検予約</span></div>
+          <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
+          <div id="shakenMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
+          <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
+          <button type="button" id="btnAddShaken" class="toolbar-ctrl"
+            style="margin-left:6px;flex-shrink:0;white-space:nowrap;background:var(--cw-green);color:#fff;border:none;font-weight:600;cursor:pointer;">
+            予約を追加する
+          </button>
+          <div id="shakenBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
+            <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
+            <select id="shakenBranchSwitcherSelect" class="toolbar-ctrl" onchange="switchShakenViewBranch(this.value)" style="border:1px solid var(--border);"></select>
           </div>
+          <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
+          <button type="button" id="btnShakenSummary" class="sales-nav-btn">月別集計</button>
+          <button type="button" id="btnShakenCancelledList" class="toolbar-ctrl"
+            style="flex-shrink:0;white-space:nowrap;background:var(--surface);color:var(--danger);border:1px solid var(--danger);padding:6px 14px;font-weight:600;cursor:pointer;">
+            キャンセル一覧
+          </button>
         </div>
 
-        <!-- 右カラム：月送り・営業所・凡例・操作ボタン＋カレンダー本体 -->
-        <div class="shaken-main-col">
-          <div class="shaken-main-toolbar">
-            <button type="button" id="shakenCalPrev" class="sales-nav-btn">前月</button>
-            <div id="shakenMonthLabel" style="font-weight:bold;font-size:19px;margin:0 6px;"></div>
-            <button type="button" id="shakenCalNext" class="sales-nav-btn">次月</button>
-            <button type="button" id="btnAddShaken" class="toolbar-ctrl"
-              style="margin-left:6px;flex-shrink:0;white-space:nowrap;background:var(--cw-green);color:#fff;border:none;font-weight:600;cursor:pointer;">
-              予約を追加する
-            </button>
-            <div id="shakenBranchSwitcherWrap" style="display:none;align-items:center;gap:6px;margin-left:auto;">
-              <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
-              <select id="shakenBranchSwitcherSelect" class="toolbar-ctrl" onchange="switchShakenViewBranch(this.value)" style="border:1px solid var(--border);"></select>
+        <!-- 下段：左右2カラム（左カラムは今後のメニュー追加用の空きスペース） -->
+        <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
+          <div class="shaken-side-col"></div>
+
+          <div class="shaken-main-col">
+            <div style="display:flex;align-items:center;gap:14px;padding:0 16px 8px;font-size:11px;color:var(--muted);flex-wrap:wrap;">
+              <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#fbbf24;display:inline-block;"></span>代車あり／代車使用</span>
+              <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:var(--cw-green);display:inline-block;"></span>代車なし</span>
             </div>
-            <button type="button" id="shakenViewToggleBtn" class="sales-nav-btn">リスト表示</button>
-            <button type="button" id="btnShakenSummary" class="sales-nav-btn">月別集計</button>
-            <button type="button" id="btnShakenCancelledList" class="toolbar-ctrl"
-              style="flex-shrink:0;white-space:nowrap;background:var(--surface);color:var(--danger);border:1px solid var(--danger);padding:6px 14px;font-weight:600;cursor:pointer;">
-              キャンセル一覧
-            </button>
-          </div>
 
-          <div style="display:flex;align-items:center;gap:14px;padding:10px 16px 8px;font-size:11px;color:var(--muted);flex-wrap:wrap;">
-            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:#fbbf24;display:inline-block;"></span>代車あり／代車使用</span>
-            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;border-radius:3px;background:var(--cw-green);display:inline-block;"></span>代車なし</span>
-          </div>
-
-          <div id="shakenCalView" style="flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;">
-            <div class="task-cal-daynames">
-              <div class="task-cal-dayname sun">日</div>
-              <div class="task-cal-dayname">月</div>
-              <div class="task-cal-dayname">火</div>
-              <div class="task-cal-dayname">水</div>
-              <div class="task-cal-dayname">木</div>
-              <div class="task-cal-dayname">金</div>
-              <div class="task-cal-dayname sat">土</div>
+            <div id="shakenCalView" style="flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;">
+              <div class="task-cal-daynames">
+                <div class="task-cal-dayname sun">日</div>
+                <div class="task-cal-dayname">月</div>
+                <div class="task-cal-dayname">火</div>
+                <div class="task-cal-dayname">水</div>
+                <div class="task-cal-dayname">木</div>
+                <div class="task-cal-dayname">金</div>
+                <div class="task-cal-dayname sat">土</div>
+              </div>
+              <div id="shakenCalWeeks"></div>
             </div>
-            <div id="shakenCalWeeks"></div>
+
+            <div id="shakenListView" style="display:none;flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;"></div>
+
+            <div id="shakenCancelledView" style="display:none;flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;"></div>
+
+            <div id="shakenSummaryView" style="display:none;flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;"></div>
           </div>
-
-          <div id="shakenListView" style="display:none;flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;"></div>
-
-          <div id="shakenCancelledView" style="display:none;flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;"></div>
-
-          <div id="shakenSummaryView" style="display:none;flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;"></div>
         </div>
       </div>
     </div>
