@@ -2452,6 +2452,14 @@
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
+/* 一番上に並ぶカード（ドロア現金・金庫・機器その他）は、箱自体の10pxで
+   上余白が既に確保されているため、カード見出し自体の上余白は持たせない
+   （左カラム「仮締め履歴」の見出しと高さを揃えるため） */
+#kasime-wrap .kasime-left-cols .card-header,
+#kasime-wrap .input-bottom-cols > .input-col > .card:first-child .card-header {
+  padding-top: 0;
+  align-items: flex-start;
+}
 #kasime-wrap .card-header-main { display: flex; align-items: center; gap: 6px; }
 #kasime-wrap .card-header-main-lg {
   font-size: 15px;
