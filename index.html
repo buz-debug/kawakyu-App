@@ -4528,7 +4528,7 @@
 #dailyTableHead, #dailyTable {
     border-collapse: separate;
     border-spacing: 0;
-    width: 100%;
+    width: max-content;
     table-layout: fixed;
     font-size: 10px;
 }
@@ -4584,14 +4584,14 @@
     border-right: 2px solid var(--text);
     will-change: transform;
 }
-/* 幅は固定値ではなく、renderDailyTable()内のJS（table-layout:fixedはmin-widthを
-   正しく尊重しないため、実測して計算する必要がある）が算出した値を--daily-day-wへ
-   設定する。画面が広いときは各セルが伸びてスクロール領域いっぱいまで埋まり、
-   画面が狭いときは30pxを下回らず、今まで通り横スクロールになる。
-   （JSが未実行の初期状態でも崩れないよう、フォールバック値として30pxを指定） */
+/* 販売実績表と同じく固定px幅にする。以前は画面幅に合わせてJSで動的に伸縮させて
+   いたが、セルをタップするたびにrenderDailyTable()が再計算・再描画するため、
+   タブレットでタップのたびに列幅が微妙にずれて「項目が横に動く」不具合の原因に
+   なっていた。固定幅にすることで再描画してもセル幅が変わらず、販売実績表と
+   同じようにスクロールだけが起きる安定した表示になる。 */
 #dailyTableHead .daily-day-col,
 #dailyTable .daily-day-col {
-    width: var(--daily-day-w, 30px);
+    width: 30px;
 }
 #dailyTable .daily-clickable-cell {
     cursor: pointer;
@@ -6231,7 +6231,7 @@ window.addEventListener('pagehide', function() {
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
         <select id="shiftBranchSwitcherSelect" class="toolbar-ctrl" onchange="switchShiftViewBranch(this.value)" style="border:1px solid var(--border);padding:7px 14px;border-radius:4px;"></select>
     </div>
-    <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;margin-left:auto;">レイアウト切替：左右</button>
+    <button id="btnShiftLayoutToggle" onclick="toggleShiftLayout()" style="background:#555;">レイアウト切替：左右</button>
     <button id="btnShiftCreate" onclick="sfOpenShiftEditGated()" style="background:#555;">シフト作成</button>
 </div>
 
@@ -12128,29 +12128,7 @@ window.addEventListener('pagehide', function() {
 
       headTable.innerHTML = headerRow;
       table.innerHTML = bodyHtml;
-      syncDailyDayColWidth(headTable, days);
       if (bodyWrapper && headWrapper) headWrapper.scrollLeft = bodyWrapper.scrollLeft;
-    }
-
-    // 担当者入力セル（日にちの列）の横幅を、画面の実際の余白に合わせて計算する。
-    // table-layout:fixedはmin-widthを正しく尊重せず、幅を指定していない列を
-    // 実際の内容に関わらず縮めてしまうことがあるため、CSSだけでは「画面が広い時は
-    // 伸ばし、狭い時は30pxを下回らせない」という挙動を安定して実現できない。
-    // ここで実測してから--daily-day-wへ反映することで、両方を確実に満たす
-    // （#dailyTableHeadと#dailyTableはどちらも同じCSSカスタムプロパティを参照するため、
-    // 共通の祖先である.daily-table-outerへ設定すれば両方に反映される）。
-    const DAILY_DAY_COL_MIN_W = 30;
-    function syncDailyDayColWidth(headTable, days) {
-      const bodyWrapper = document.querySelector('.daily-table-wrapper');
-      const outer = document.querySelector('.daily-table-outer');
-      const timeCol = headTable.querySelector('.daily-time-col');
-      const itemCol = headTable.querySelector('.daily-item-col');
-      if (!bodyWrapper || !outer || !timeCol || !itemCol || !days) return;
-      // 一旦フォールバック幅（30px）で計算した場合の合計と、実際に使える幅を比較する
-      const fixedW = timeCol.getBoundingClientRect().width + itemCol.getBoundingClientRect().width;
-      const availableW = bodyWrapper.clientWidth - fixedW;
-      const perDayW = Math.max(DAILY_DAY_COL_MIN_W, Math.floor(availableW / days));
-      outer.style.setProperty('--daily-day-w', perDayW + 'px');
     }
 
     function findDailyItemIndexById(id) {
