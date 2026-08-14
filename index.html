@@ -4474,6 +4474,10 @@
        縦スクロール中にこの列の表示が一瞬崩れる（数字だけ消える）不具合が実機で確認された。
        見出し行の対策と同じく、GPU合成レイヤーに昇格させることで改善を狙う。 */
     will-change: transform;
+    /* タブレット実機で、この列に直接指を置いて操作した際にわずかに横へずれる
+       不具合が確認された。この列上で始まるタッチ操作は縦方向のみ許可することで、
+       横スクロールのジェスチャーとして解釈されるのを防ぐ。 */
+    touch-action: pan-y;
 }
 #salesTableHead .sales-daily-col,
 #salesTable .sales-daily-col {
@@ -4569,6 +4573,10 @@
     align-items: stretch;
     border-right: 2px solid var(--text);
     will-change: transform;
+    /* タブレット実機で、この列に直接指を置いて操作した際にわずかに横へずれる
+       不具合が確認された。この列上で始まるタッチ操作は縦方向のみ許可することで、
+       横スクロールのジェスチャーとして解釈されるのを防ぐ。 */
+    touch-action: pan-y;
 }
 .daily-item-time-col {
     flex-shrink: 0;
