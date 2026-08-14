@@ -4549,40 +4549,43 @@
     line-height: 1.15;
     font-size: 10px;
 }
-#dailyTableHead .daily-time-col,
-#dailyTable .daily-time-col {
-    position: sticky;
-    left: 0;
-    background: #fcfcfc;
-    z-index: 2;
-    width: 40px;
-    padding: 0 2px;
-    font-size: 9px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    /* 見出し行を切り離しても、左端に固定表示する時間・項目列自体はposition:stickyのため、
-       縦スクロール中に表示が一瞬崩れる不具合が販売実績表の日付列で確認された。同じ対策
-       （GPU合成レイヤーへの昇格）を適用する。 */
-    will-change: transform;
-}
+/* 販売実績表と同じく、左端に固定する列は1列だけにする。以前は「時間」「項目」を
+   別々のsticky列（left:0とleft:40pxの二重固定）にしていたが、タブレット実機で
+   スクロール中に項目列側が追従しきれず左右にずれる不具合が確認され、販売実績表と
+   同じ「sticky列は1つだけ」という構成に揃えることで解消した。時間は項目名の中に
+   小さく添えて表示する。 */
 #dailyTableHead .daily-item-col,
 #dailyTable .daily-item-col {
     position: sticky;
-    left: 40px;
+    left: 0;
     background: #fcfcfc;
     z-index: 1;
-    font-weight: bold;
-    width: 270px;
-    min-width: 270px;
-    max-width: 270px;
-    padding: 0 4px;
+    width: 300px;
+    min-width: 300px;
+    max-width: 300px;
+    padding: 0 6px;
     text-align: left;
+    border-right: 2px solid var(--text);
+    will-change: transform;
+}
+#dailyTable td.daily-item-col {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+}
+.daily-item-time {
+    flex-shrink: 0;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.daily-item-name {
+    font-weight: bold;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    border-right: 2px solid var(--text);
-    will-change: transform;
+    min-width: 0;
 }
 /* 販売実績表と同じく固定px幅にする。以前は画面幅に合わせてJSで動的に伸縮させて
    いたが、セルをタップするたびにrenderDailyTable()が再計算・再描画するため、
@@ -4604,7 +4607,6 @@
 
 /* 項目が縦に並ぶとチェックを入れる行を見失いやすいため、販売実績表の列ごとの色分けと
    同じ考え方で、1行ごとに背景色を変えて見分けやすくする（日常業務タブの基本設計） */
-#dailyTable tr.daily-row-alt > td.daily-time-col,
 #dailyTable tr.daily-row-alt > td.daily-item-col,
 #dailyTable tr.daily-row-alt > td.daily-day-col {
     background: #eef3fb;
@@ -12079,7 +12081,7 @@ window.addEventListener('pagehide', function() {
       }
 
       if (!dailyTaskItems.length) {
-        headTable.innerHTML = `<tr><th class="daily-time-col">時間</th><th class="daily-item-col">項目がありません</th></tr>`;
+        headTable.innerHTML = `<tr><th class="daily-item-col">項目がありません</th></tr>`;
         table.innerHTML = '';
         return;
       }
@@ -12094,7 +12096,7 @@ window.addEventListener('pagehide', function() {
         return at < bt ? -1 : (at > bt ? 1 : 0);
       });
 
-      let headerRow = `<tr><th class="daily-time-col">時間</th><th class="daily-item-col">項目</th>`;
+      let headerRow = `<tr><th class="daily-item-col">時間／項目</th>`;
       for (let d = 1; d <= days; d++) {
         const date = new Date(year, month, d);
         let dayColorClass = '';
@@ -12114,7 +12116,7 @@ window.addEventListener('pagehide', function() {
         // 項目が縦に並ぶとチェックを入れる行を見失いやすいため、1行ごとに背景色を交互に変える
         const classNames = [itemIndex % 2 === 1 ? 'daily-row-alt' : '', itemIndex === 0 ? 'daily-first-row' : ''].filter(Boolean).join(' ');
         const rowClass = classNames ? ` class="${classNames}"` : '';
-        bodyHtml += `<tr${rowClass}><td class="daily-time-col">${showTime ? escapeHtml(item.time) : ''}</td><td class="daily-item-col" style="cursor:pointer;" title="${escapeHtml(item.name)}（クリックで備考を表示）" onclick="openDailyItemNotePopup('${item.id}')">${escapeHtml(item.name)}</td>`;
+        bodyHtml += `<tr${rowClass}><td class="daily-item-col" style="cursor:pointer;" title="${escapeHtml(item.name)}（クリックで備考を表示）" onclick="openDailyItemNotePopup('${item.id}')">${showTime ? `<span class="daily-item-time">${escapeHtml(item.time)}</span>` : ''}<span class="daily-item-name">${escapeHtml(item.name)}</span></td>`;
         for (let d = 1; d <= days; d++) {
           const isToday = (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d);
           const dayRecord = dailyTaskRecords[`${year}-${month + 1}-${d}`] || {};
