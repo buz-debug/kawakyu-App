@@ -4432,23 +4432,57 @@
     font-weight: 600;
 }
 
-/* 見出し行（項目名＋日計/累計の2段）は、以前はposition:stickyでテーブル内に留めていたが、
-   日常業務タブと同じ「Chromeのposition:sticky自体がトラックパッドの高速スクロール中に
-   位置計算を一瞬取りこぼす」不具合が販売実績表でも再現したため、同じ対策を適用する。
-   見出し専用の別テーブル（#salesTableHead、スクロールしない）を上に固定表示し、
-   データ行はその下の.sales-table-wrapper（縦スクロールのみ）に入れる。横スクロールだけは
-   JS（renderSalesTable/renderSalesDayViewTable内）で.sales-table-wrapperのscrollLeftを
-   .sales-table-head-wrapperへ同期させる。 */
-#salesTableHead, #salesTable {
+/* 見出し行（項目名＋日計/累計の2段）と日付列は、どちらも本体（.sales-table-wrapper）の
+   スクロールに巻き込まれない、完全に別の要素として構成する（エクセルの行・列固定と
+   同じ考え方）。以前はCSSのposition:stickyで固定していたが、実機のスクロール中に
+   見出しセルの表示が一瞬崩れたり、日付列に指を置いた際にわずかに横へずれたりする
+   不具合があった。sticky等のCSS上の"見た目の固定"に頼るのではなく、そもそも
+   スクロール可能な要素の外に物理的に配置することで、これらの不具合を根本的に無くす。
+   横スクロール位置は.sales-table-wrapperから.sales-table-head-wrapperへ、
+   縦スクロール位置は.sales-table-wrapperから.sales-table-side-wrapperへ、
+   それぞれJS（renderSalesTable/renderSalesDayViewTable内）で同期する。 */
+.sales-table-toprow {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+.sales-table-bottomrow {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+.sales-table-corner {
+    flex-shrink: 0;
+    width: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fcfcfc;
+    font-weight: bold;
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+    box-sizing: border-box;
+}
+.sales-table-side-wrapper {
+    flex-shrink: 0;
+    width: 68px;
+    overflow: hidden;
+}
+#salesTableHead, #salesTable, #salesTableSide {
     border-collapse: separate;
     border-spacing: 0;
-    width: max-content;
     table-layout: fixed;
     font-size: 11px;
 }
+#salesTableHead, #salesTable {
+    width: max-content;
+}
+#salesTableSide {
+    width: 68px;
+}
 /* 全辺に罫線を付けると隣接セルと二重線になるため右・下だけに付け、外周の左端・上端は
    .sales-table-outer自身のborderで囲む */
-#salesTableHead th, #salesTable td {
+#salesTableHead th, #salesTable td, #salesTableSide td {
     border-right: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     padding: 0;
@@ -4461,23 +4495,10 @@
     padding: 3px 6px;
     height: auto;
 }
-#salesTableHead .sales-day-col,
-#salesTable .sales-day-col {
-    position: sticky;
-    left: 0;
+#salesTableSide td {
     background: #fcfcfc;
-    z-index: 1;
     font-weight: bold;
-    width: 68px;
     padding: 0 4px;
-    /* 見出し行を切り離しても、左端に固定表示する日付列自体はposition:stickyのままのため、
-       縦スクロール中にこの列の表示が一瞬崩れる（数字だけ消える）不具合が実機で確認された。
-       見出し行の対策と同じく、GPU合成レイヤーに昇格させることで改善を狙う。 */
-    will-change: transform;
-    /* タブレット実機で、この列に直接指を置いて操作した際にわずかに横へずれる
-       不具合が確認された。この列上で始まるタッチ操作は縦方向のみ許可することで、
-       横スクロールのジェスチャーとして解釈されるのを防ぐ。 */
-    touch-action: pan-y;
 }
 #salesTableHead .sales-daily-col,
 #salesTable .sales-daily-col {
@@ -4509,36 +4530,67 @@
     font-weight: 600;
     color: #0f766e;
 }
-/* 見出し用テーブルは常に画面上に固定表示され、縦スクロールのbody側と横スクロール位置だけ
+/* 見出し用・日付列用テーブルは常に画面上に固定表示され、本体側のスクロール位置だけ
    JSで同期する。overflow:hiddenでユーザーによる直接のスクロール操作（スクロールバー等）を
-   防ぎ、scrollLeftの変更はJS経由のみで行う。 */
+   防ぎ、scrollLeft/scrollTopの変更はJS経由のみで行う。 */
 .sales-table-head-wrapper {
     overflow: hidden;
-    flex-shrink: 0;
+    flex: 1;
+    min-width: 0;
 }
 
 /* ======================
 日常業務
 ====================== */
-/* 日付見出し行は、以前はposition:stickyでテーブル内に留めていたが、Chromeでトラックパッドの
-   高速スクロール中に「stickyの位置計算が一瞬ずれて、見出しセルの上半分（日付の数字）が
-   上のツールバーの裏に隠れる」というブラウザ側の描画バグが実機の録画で複数回確認され、
-   border-collapseやwill-change等のCSS調整では解消できなかった。
-   根本対策として、見出し行をそもそも縦スクロールの対象から外す構成に変更した：
-   見出し専用の別テーブル（#dailyTableHead、スクロールしない）を上に固定表示し、
-   データ行はその下の.daily-table-wrapper（縦スクロールのみ）に入れる。
-   横スクロールだけは2つのテーブルの見た目がずれないよう、JS（renderDailyTable内）で
-   .daily-table-wrapperのscrollLeftを.daily-table-head-wrapperへ同期させる。 */
-#dailyTableHead, #dailyTable {
+/* 見出し行（横方向）と項目列（縦方向）は、どちらも本体（.daily-table-wrapper）の
+   スクロールに巻き込まれない、完全に別の要素として構成する（エクセルの行・列固定と
+   同じ考え方）。以前はCSSのposition:stickyで固定していたが、実機のスクロール中に
+   見出しセルの表示が一瞬崩れたり、項目列に指を置いた際にわずかに横へずれたりする
+   不具合があった。sticky等のCSS上の"見た目の固定"に頼るのではなく、そもそも
+   スクロール可能な要素の外に物理的に配置することで、これらの不具合を根本的に無くす。
+   横スクロール位置は.daily-table-wrapperから.daily-table-head-wrapperへ、
+   縦スクロール位置は.daily-table-wrapperから.daily-table-side-wrapperへ、
+   それぞれJS（renderDailyTable内）で同期する。 */
+.daily-table-toprow {
+    display: flex;
+    align-items: stretch;
+    flex-shrink: 0;
+}
+.daily-table-bottomrow {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+.daily-table-corner {
+    flex-shrink: 0;
+    width: 300px;
+    display: flex;
+    align-items: stretch;
+    background: #fcfcfc;
+    border-bottom: 1px solid var(--border);
+    border-right: 2px solid var(--text);
+    box-sizing: border-box;
+}
+.daily-table-side-wrapper {
+    flex-shrink: 0;
+    width: 300px;
+    overflow: hidden;
+}
+#dailyTableHead, #dailyTable, #dailyTableSide {
     border-collapse: separate;
     border-spacing: 0;
-    width: max-content;
     table-layout: fixed;
     font-size: 10px;
 }
+#dailyTableHead, #dailyTable {
+    width: max-content;
+}
+#dailyTableSide {
+    width: 300px;
+}
 /* 全辺に罫線を付けると隣接セルと二重線になるため右・下だけに付け、外周の左端・上端は
    .daily-table-outer自身のborderで囲む */
-#dailyTableHead th, #dailyTable td {
+#dailyTableHead th, #dailyTable td, #dailyTableSide td {
     border-right: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     padding: 0;
@@ -4553,30 +4605,12 @@
     line-height: 1.15;
     font-size: 10px;
 }
-/* 販売実績表と同じく、左端に固定する列は1列だけにする。以前は「時間」「項目」を
-   別々のsticky列（left:0とleft:40pxの二重固定）にしていたが、タブレット実機で
-   スクロール中に項目列側が追従しきれず左右にずれる不具合が確認され、販売実績表と
-   同じ「sticky列は1つだけ」という構成に揃えることで解消した。
-   時間・項目それぞれの見た目上の区切り（縦線・配置）は、sticky化しない内側の
-   div分割で再現し、以前の2列表示の見た目を保っている。 */
-#dailyTableHead .daily-item-col,
-#dailyTable .daily-item-col {
-    position: sticky;
-    left: 0;
+#dailyTableSide td {
     background: #fcfcfc;
-    z-index: 1;
-    width: 300px;
-    min-width: 300px;
-    max-width: 300px;
-    padding: 0;
     display: flex;
     align-items: stretch;
+    padding: 0;
     border-right: 2px solid var(--text);
-    will-change: transform;
-    /* タブレット実機で、この列に直接指を置いて操作した際にわずかに横へずれる
-       不具合が確認された。この列上で始まるタッチ操作は縦方向のみ許可することで、
-       横スクロールのジェスチャーとして解釈されるのを防ぐ。 */
-    touch-action: pan-y;
 }
 .daily-item-time-col {
     flex-shrink: 0;
@@ -4622,16 +4656,17 @@
 
 /* 項目が縦に並ぶとチェックを入れる行を見失いやすいため、販売実績表の列ごとの色分けと
    同じ考え方で、1行ごとに背景色を変えて見分けやすくする（日常業務タブの基本設計） */
-#dailyTable tr.daily-row-alt > td.daily-item-col,
+#dailyTableSide tr.daily-row-alt > td,
 #dailyTable tr.daily-row-alt > td.daily-day-col {
     background: #eef3fb;
 }
-/* 見出し用テーブルは常に画面上に固定表示され、縦スクロールのbody側と横スクロール位置だけ
+/* 見出し用・項目列用テーブルは常に画面上に固定表示され、本体側のスクロール位置だけ
    JSで同期する。overflow:hiddenでユーザーによる直接のスクロール操作（スクロールバー等）を
-   防ぎ、scrollLeftの変更はJS経由のみで行う。 */
+   防ぎ、scrollLeft/scrollTopの変更はJS経由のみで行う。 */
 .daily-table-head-wrapper {
     overflow: hidden;
-    flex-shrink: 0;
+    flex: 1;
+    min-width: 0;
 }
 
 
@@ -4707,7 +4742,8 @@
     display: inline !important;
     margin-left: 6px;
   }
-  .sales-tab-wrap, .sales-table-wrapper, .sales-table-outer, .sales-table-head-wrapper {
+  .sales-tab-wrap, .sales-table-wrapper, .sales-table-outer, .sales-table-head-wrapper,
+  .sales-table-toprow, .sales-table-bottomrow, .sales-table-side-wrapper {
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
@@ -6545,11 +6581,19 @@ window.addEventListener('pagehide', function() {
         </div>
         <div id="salesDayViewLabel" style="display:none;text-align:center;font-weight:bold;font-size:15px;padding:5px 16px 10px;"></div>
         <div class="sales-table-outer" style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:0 16px;">
-          <div class="sales-table-head-wrapper">
-            <table id="salesTableHead"></table>
+          <div class="sales-table-toprow">
+            <div class="sales-table-corner"></div>
+            <div class="sales-table-head-wrapper">
+              <table id="salesTableHead"></table>
+            </div>
           </div>
-          <div class="sales-table-wrapper" style="flex:1;min-height:0;overflow:auto;">
-            <table id="salesTable"></table>
+          <div class="sales-table-bottomrow">
+            <div class="sales-table-side-wrapper">
+              <table id="salesTableSide"></table>
+            </div>
+            <div class="sales-table-wrapper" style="flex:1;min-width:0;min-height:0;overflow:auto;">
+              <table id="salesTable"></table>
+            </div>
           </div>
         </div>
         <div id="salesChartView" style="display:none;flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:6px;padding:14px;flex-direction:column;margin:0 16px;">
@@ -6585,11 +6629,19 @@ window.addEventListener('pagehide', function() {
           </span>
         </div>
         <div class="daily-table-outer" style="flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:6px;overflow:hidden;margin:0 16px;">
-          <div class="daily-table-head-wrapper">
-            <table id="dailyTableHead"></table>
+          <div class="daily-table-toprow">
+            <div class="daily-table-corner"></div>
+            <div class="daily-table-head-wrapper">
+              <table id="dailyTableHead"></table>
+            </div>
           </div>
-          <div class="daily-table-wrapper" style="flex:1;min-height:0;overflow:auto;">
-            <table id="dailyTable"></table>
+          <div class="daily-table-bottomrow">
+            <div class="daily-table-side-wrapper">
+              <table id="dailyTableSide"></table>
+            </div>
+            <div class="daily-table-wrapper" style="flex:1;min-width:0;min-height:0;overflow:auto;">
+              <table id="dailyTable"></table>
+            </div>
           </div>
         </div>
       </div>
@@ -11652,7 +11704,6 @@ window.addEventListener('pagehide', function() {
     // 見出し側の横スクロール同期が効かなくなる不具合の原因）。<colgroup>で列幅を
     // 明示的に固定することで、行の内容やcolspanに関係なく2つのテーブルの列幅を
     // 確実に一致させる。
-    const SALES_DAY_COL_W = 68;
     const SALES_DAILY_COL_W = 58;
     const SALES_CUMULATIVE_COL_W = 50;
     // colgroupで列幅を固定しても、テーブル自身の width:max-content（CSS）は列幅の合計を
@@ -11660,8 +11711,8 @@ window.addEventListener('pagehide', function() {
     // （本体側だけ横に伸びてしまう）ことが実機検証で判明した。列幅の合計を計算し、
     // 見出し用・本体テーブル両方にwidthとして明示的に指定することで確実に一致させる。
     function buildSalesColgroup() {
-      let totalWidth = SALES_DAY_COL_W;
-      let html = `<colgroup><col style="width:${SALES_DAY_COL_W}px">`;
+      let totalWidth = 0;
+      let html = `<colgroup>`;
       salesItems.forEach(item => {
         html += `<col style="width:${SALES_DAILY_COL_W}px">`;
         totalWidth += SALES_DAILY_COL_W;
@@ -11677,8 +11728,10 @@ window.addEventListener('pagehide', function() {
     function renderSalesTable() {
       const table = document.getElementById('salesTable');
       const headTable = document.getElementById('salesTableHead');
+      const sideTable = document.getElementById('salesTableSide');
+      const corner = document.querySelector('.sales-table-corner');
       const label = document.getElementById('salesMonthLabel');
-      if (!table || !headTable) return;
+      if (!table || !headTable || !sideTable || !corner) return;
       const year = salesCurrentDate.getFullYear();
       const month = salesCurrentDate.getMonth();
       if (label) label.textContent = `${year}年 ${month + 1}月`;
@@ -11689,11 +11742,13 @@ window.addEventListener('pagehide', function() {
         return;
       }
 
+      corner.textContent = '日付';
+
       const days = new Date(year, month + 1, 0).getDate();
       const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
       const today = new Date();
 
-      let headerRow1 = `<tr><th class="sales-day-col" rowspan="2">日付</th>`;
+      let headerRow1 = `<tr>`;
       let headerRow2 = `<tr>`;
       salesItems.forEach(item => {
         const dailyOnly = item.mode === 'dailyOnly';
@@ -11704,6 +11759,7 @@ window.addEventListener('pagehide', function() {
       headerRow1 += `</tr>`;
       headerRow2 += `</tr>`;
 
+      let sideHtml = '';
       let bodyHtml = '';
       const cumulative = {};
       salesItems.forEach(item => { cumulative[item.id] = 0; });
@@ -11720,8 +11776,9 @@ window.addEventListener('pagehide', function() {
         else if (date.getDay() === 0) { dayColorClass = ' sf-sunday'; }
         else if (date.getDay() === 6) { dayColorClass = ' sf-saturday'; }
 
-        const firstRowClass = d === 1 ? ' sales-first-row' : '';
-        bodyHtml += `<tr class="${isToday ? 'sales-today' : ''}${firstRowClass}"><td class="sales-day-col${dayColorClass}" style="cursor:pointer;" onclick="enterSalesDayView(${d})" title="この日の全営業所一覧を見る">${d}（${week}）</td>`;
+        const rowClass = `${isToday ? 'sales-today' : ''}${d === 1 ? ' sales-first-row' : ''}`;
+        sideHtml += `<tr class="${rowClass}"><td class="sales-day-col${dayColorClass}" style="cursor:pointer;" onclick="enterSalesDayView(${d})" title="この日の全営業所一覧を見る">${d}（${week}）</td></tr>`;
+        bodyHtml += `<tr class="${rowClass}">`;
         salesItems.forEach((item, itemIndex) => {
           const val = dayRecord[item.id];
           cumulative[item.id] += (typeof val === 'number') ? val : 0;
@@ -11740,12 +11797,13 @@ window.addEventListener('pagehide', function() {
       }
 
       if (!salesItems.length) {
-        headTable.innerHTML = `<tr><th class="sales-day-col">日付</th><th>項目がありません</th></tr>`;
-        table.innerHTML = Array.from({ length: days }, (_, i) => {
+        headTable.innerHTML = `<tr><th>項目がありません</th></tr>`;
+        sideTable.innerHTML = Array.from({ length: days }, (_, i) => {
           const d = i + 1;
           const date = new Date(year, month, d);
-          return `<tr><td class="sales-day-col" style="cursor:pointer;" onclick="enterSalesDayView(${d})">${d}（${weekNames[date.getDay()]}）</td><td></td></tr>`;
+          return `<tr><td class="sales-day-col" style="cursor:pointer;" onclick="enterSalesDayView(${d})">${d}（${weekNames[date.getDay()]}）</td></tr>`;
         }).join('');
+        table.innerHTML = Array.from({ length: days }, () => `<tr><td></td></tr>`).join('');
         bindSalesHeadScrollSync();
         return;
       }
@@ -11753,6 +11811,7 @@ window.addEventListener('pagehide', function() {
       const colgroup = buildSalesColgroup();
       headTable.innerHTML = colgroup.html + headerRow1 + headerRow2;
       table.innerHTML = colgroup.html + bodyHtml;
+      sideTable.innerHTML = sideHtml;
       headTable.style.width = colgroup.totalWidth + 'px';
       table.style.width = colgroup.totalWidth + 'px';
       bindSalesHeadScrollSync();
@@ -11762,11 +11821,15 @@ window.addEventListener('pagehide', function() {
     function renderSalesDayViewTable(year, month, day) {
       const table = document.getElementById('salesTable');
       const headTable = document.getElementById('salesTableHead');
-      if (!table || !headTable) return;
+      const sideTable = document.getElementById('salesTableSide');
+      const corner = document.querySelector('.sales-table-corner');
+      if (!table || !headTable || !sideTable || !corner) return;
       const branches = state.branches || [];
       const recordKey = `${year}-${month + 1}-${day}`;
 
-      let headerRow1 = `<tr><th class="sales-day-col" rowspan="2">営業所</th>`;
+      corner.textContent = '営業所';
+
+      let headerRow1 = `<tr>`;
       let headerRow2 = `<tr>`;
       salesItems.forEach(item => {
         const dailyOnly = item.mode === 'dailyOnly';
@@ -11777,11 +11840,13 @@ window.addEventListener('pagehide', function() {
       headerRow1 += `</tr>`;
       headerRow2 += `</tr>`;
 
+      let sideHtml = '';
       let bodyHtml = '';
       branches.forEach(branch => {
         const branchRecords = getBranchSalesRecords(branch.name);
         const dayRecord = branchRecords[recordKey] || {};
-        bodyHtml += `<tr><td class="sales-day-col">${escapeHtml(branch.name)}</td>`;
+        sideHtml += `<tr><td class="sales-day-col">${escapeHtml(branch.name)}</td></tr>`;
+        bodyHtml += `<tr>`;
         salesItems.forEach(item => {
           const val = dayRecord[item.id];
           bodyHtml += `<td class="sales-daily-col">${typeof val === 'number' ? val : ''}</td>`;
@@ -11804,8 +11869,9 @@ window.addEventListener('pagehide', function() {
       });
 
       if (!salesItems.length) {
-        headTable.innerHTML = `<tr><th class="sales-day-col">営業所</th><th>項目がありません</th></tr>`;
-        table.innerHTML = branches.map(b => `<tr><td class="sales-day-col">${escapeHtml(b.name)}</td><td></td></tr>`).join('');
+        headTable.innerHTML = `<tr><th>項目がありません</th></tr>`;
+        sideTable.innerHTML = branches.map(b => `<tr><td class="sales-day-col">${escapeHtml(b.name)}</td></tr>`).join('');
+        table.innerHTML = branches.map(() => `<tr><td></td></tr>`).join('');
         bindSalesHeadScrollSync();
         return;
       }
@@ -11813,6 +11879,7 @@ window.addEventListener('pagehide', function() {
       const colgroup = buildSalesColgroup();
       headTable.innerHTML = colgroup.html + headerRow1 + headerRow2;
       table.innerHTML = colgroup.html + bodyHtml;
+      sideTable.innerHTML = sideHtml;
       headTable.style.width = colgroup.totalWidth + 'px';
       table.style.width = colgroup.totalWidth + 'px';
       bindSalesHeadScrollSync();
@@ -12062,16 +12129,21 @@ window.addEventListener('pagehide', function() {
     function renderDailyTable() {
       const table = document.getElementById('dailyTable');
       const headTable = document.getElementById('dailyTableHead');
+      const sideTable = document.getElementById('dailyTableSide');
+      const corner = document.querySelector('.daily-table-corner');
       const label = document.getElementById('dailyMonthLabel');
-      if (!table || !headTable) return;
-      // 見出し用テーブルは縦スクロールしない別テーブルのため、横スクロール位置だけ
-      // データ側（.daily-table-wrapper）に合わせてJSで同期する（一度だけ登録）。
+      if (!table || !headTable || !sideTable || !corner) return;
+      // 見出し行・項目列はどちらも本体（.daily-table-wrapper）とは別要素のため、
+      // 横スクロール位置は.daily-table-head-wrapperへ、縦スクロール位置は
+      // .daily-table-side-wrapperへ、それぞれJSで同期する（一度だけ登録）。
       const bodyWrapper = document.querySelector('.daily-table-wrapper');
       const headWrapper = document.querySelector('.daily-table-head-wrapper');
-      if (bodyWrapper && headWrapper && !bodyWrapper.dataset.dailyScrollSyncBound) {
+      const sideWrapper = document.querySelector('.daily-table-side-wrapper');
+      if (bodyWrapper && headWrapper && sideWrapper && !bodyWrapper.dataset.dailyScrollSyncBound) {
         bodyWrapper.dataset.dailyScrollSyncBound = '1';
         bodyWrapper.addEventListener('scroll', () => {
           headWrapper.scrollLeft = bodyWrapper.scrollLeft;
+          sideWrapper.scrollTop = bodyWrapper.scrollTop;
         });
       }
       const year = dailyCurrentDate.getFullYear();
@@ -12095,8 +12167,12 @@ window.addEventListener('pagehide', function() {
         activeSel.value = memberNames.includes(prevValue) ? prevValue : '';
       }
 
+      corner.innerHTML = `<span class="daily-item-time-col">時間</span><span class="daily-item-name-col">項目</span>`;
+
       if (!dailyTaskItems.length) {
-        headTable.innerHTML = `<tr><th class="daily-item-col"><span class="daily-item-time-col">時間</span><span class="daily-item-name-col">項目がありません</span></th></tr>`;
+        corner.querySelector('.daily-item-name-col').textContent = '項目がありません';
+        headTable.innerHTML = '';
+        sideTable.innerHTML = '';
         table.innerHTML = '';
         return;
       }
@@ -12111,7 +12187,7 @@ window.addEventListener('pagehide', function() {
         return at < bt ? -1 : (at > bt ? 1 : 0);
       });
 
-      let headerRow = `<tr><th class="daily-item-col"><span class="daily-item-time-col">時間</span><span class="daily-item-name-col">項目</span></th>`;
+      let headerRow = `<tr>`;
       for (let d = 1; d <= days; d++) {
         const date = new Date(year, month, d);
         let dayColorClass = '';
@@ -12122,6 +12198,7 @@ window.addEventListener('pagehide', function() {
       }
       headerRow += `</tr>`;
 
+      let sideHtml = '';
       let bodyHtml = '';
       let lastShownTime = null;
       sortedItems.forEach((item, itemIndex) => {
@@ -12131,7 +12208,8 @@ window.addEventListener('pagehide', function() {
         // 項目が縦に並ぶとチェックを入れる行を見失いやすいため、1行ごとに背景色を交互に変える
         const classNames = [itemIndex % 2 === 1 ? 'daily-row-alt' : '', itemIndex === 0 ? 'daily-first-row' : ''].filter(Boolean).join(' ');
         const rowClass = classNames ? ` class="${classNames}"` : '';
-        bodyHtml += `<tr${rowClass}><td class="daily-item-col" style="cursor:pointer;" title="${escapeHtml(item.name)}（クリックで備考を表示）" onclick="openDailyItemNotePopup('${item.id}')"><span class="daily-item-time-col">${showTime ? escapeHtml(item.time) : ''}</span><span class="daily-item-name-col">${escapeHtml(item.name)}</span></td>`;
+        sideHtml += `<tr${rowClass}><td style="cursor:pointer;" title="${escapeHtml(item.name)}（クリックで備考を表示）" onclick="openDailyItemNotePopup('${item.id}')"><span class="daily-item-time-col">${showTime ? escapeHtml(item.time) : ''}</span><span class="daily-item-name-col">${escapeHtml(item.name)}</span></td></tr>`;
+        bodyHtml += `<tr${rowClass}>`;
         for (let d = 1; d <= days; d++) {
           const isToday = (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d);
           const dayRecord = dailyTaskRecords[`${year}-${month + 1}-${d}`] || {};
@@ -12144,8 +12222,10 @@ window.addEventListener('pagehide', function() {
       });
 
       headTable.innerHTML = headerRow;
+      sideTable.innerHTML = sideHtml;
       table.innerHTML = bodyHtml;
       if (bodyWrapper && headWrapper) headWrapper.scrollLeft = bodyWrapper.scrollLeft;
+      if (bodyWrapper && sideWrapper) sideWrapper.scrollTop = bodyWrapper.scrollTop;
     }
 
     function findDailyItemIndexById(id) {
@@ -17369,21 +17449,25 @@ function isMobileDevice(){
     return uaIsPhone || screenIsPhoneWidth;
 }
 
-// 販売実績表：見出し用テーブル（#salesTableHead）は縦スクロールしない別テーブルのため、
-// 横スクロール位置だけ本体テーブル側（.sales-table-wrapper）に追従させる（一度だけ登録）。
+// 販売実績表：見出し用テーブル（#salesTableHead）・日付列用テーブル（#salesTableSide）は
+// どちらも本体（.sales-table-wrapper）とは別要素のため、横スクロール位置は見出し側へ、
+// 縦スクロール位置は日付列側へ、それぞれ追従させる（一度だけ登録）。
 // 日常業務タブと同じ対策（詳細はrenderDailyTable内のコメント参照）。
 function bindSalesHeadScrollSync() {
   const bodyWrapper = document.querySelector('.sales-table-wrapper');
   const headWrapper = document.querySelector('.sales-table-head-wrapper');
-  if (!bodyWrapper || !headWrapper) return;
+  const sideWrapper = document.querySelector('.sales-table-side-wrapper');
+  if (!bodyWrapper || !headWrapper || !sideWrapper) return;
   if (!bodyWrapper.dataset.salesScrollSyncBound) {
     bodyWrapper.dataset.salesScrollSyncBound = '1';
     bodyWrapper.addEventListener('scroll', () => {
       headWrapper.scrollLeft = bodyWrapper.scrollLeft;
+      sideWrapper.scrollTop = bodyWrapper.scrollTop;
     });
   }
-  // 再描画直後、それまでの横スクロール位置を見出し側にも即座に反映する
+  // 再描画直後、それまでのスクロール位置を見出し側・日付列側にも即座に反映する
   headWrapper.scrollLeft = bodyWrapper.scrollLeft;
+  sideWrapper.scrollTop = bodyWrapper.scrollTop;
 }
 
 renderViewTable();
