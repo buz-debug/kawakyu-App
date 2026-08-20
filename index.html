@@ -2929,6 +2929,12 @@
   font-size: 12px; font-weight: 700; cursor: pointer; color: var(--danger);
 }
 #kasime-wrap .modal-delete:active { background: #FFE7E7; }
+#kasime-wrap .modal-edit {
+  padding: 7px 14px;
+  background: #EEF3FA; border: 1px solid #C9D9EC; border-radius: 4px;
+  font-size: 12px; font-weight: 700; cursor: pointer; color: var(--cw-green);
+}
+#kasime-wrap .modal-edit:active { background: #DCE6F3; }
 #kasime-wrap input[type=number]::-webkit-inner-spin-button, #kasime-wrap input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
 #kasime-wrap input[type=number] { appearance: textfield; -moz-appearance: textfield; }
 /* ===== CSV MODAL ===== */
@@ -4936,6 +4942,8 @@
       <div class="modal-header-row">
         <div class="modal-title" id="kasime-modalTitle"></div>
         <div class="modal-header-actions">
+          <span style="font-size:11px;color:var(--muted);align-self:center;">編集できるのは備考欄のみ</span>
+          <button class="modal-edit" onclick="editCurrentRecord()">編集</button>
           <button class="modal-delete" onclick="deleteCurrentRecord()">削除</button>
           <button class="modal-close" onclick="closeDetail()">閉じる</button>
         </div>
@@ -5803,14 +5811,12 @@ function openDetail(r) {
 
   html += `</div>`; // /kasime-left-cols
 
-  if (r.note) {
-    html += `
-      <div class="card kasime-note-card">
-        <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">備考</span></div></div>
-        <div style="padding:2px 12px 8px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(r.note)}</div>
-      </div>
-    `;
-  }
+  html += `
+    <div class="card kasime-note-card" id="kasimeNoteCard">
+      <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">備考</span></div></div>
+      <div style="padding:2px 12px 8px;font-size:13px;white-space:pre-wrap;word-break:break-word;${r.note ? '' : 'color:var(--muted);'}">${r.note ? escapeHtml(r.note) : '（備考なし）'}</div>
+    </div>
+  `;
 
   html += `</div>`; // /kasime-left-group
 
@@ -5899,6 +5905,42 @@ function closeDetail() {
   window.addEventListener('mouseup', onUp);
   window.addEventListener('touchend', onUp);
 })();
+// 備考欄のみ編集可能（ドロア現金・金庫・機器その他・計算有高・差額などの金額項目は編集不可）
+function editCurrentRecord() {
+  if (currentDetailId === null) return;
+  if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(kasimeViewBranch)) {
+    if (typeof showBranchReadOnlyWarning === 'function') showBranchReadOnlyWarning();
+    return;
+  }
+  const r = records.find(x => x.id === currentDetailId);
+  if (!r) return;
+  const card = document.getElementById('kasimeNoteCard');
+  if (!card) return;
+  card.innerHTML = `
+    <div class="card-header"><div class="card-header-main"><span class="card-header-main-lg">備考</span></div></div>
+    <div style="padding:2px 12px 8px;">
+      <textarea id="kasimeNoteEditInput" rows="4" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:13px;resize:vertical;font-family:inherit;box-sizing:border-box;">${escapeHtml(r.note || '')}</textarea>
+    </div>
+    <div class="modal-actions" style="padding:0 12px 10px;">
+      <button type="button" class="primary" onclick="saveCurrentRecordNote()">保存</button>
+    </div>
+  `;
+  const textarea = document.getElementById('kasimeNoteEditInput');
+  if (textarea) textarea.focus();
+}
+
+function saveCurrentRecordNote() {
+  if (currentDetailId === null) return;
+  const r = records.find(x => x.id === currentDetailId);
+  if (!r) return;
+  const input = document.getElementById('kasimeNoteEditInput');
+  r.note = input ? input.value.trim() : (r.note || '');
+  persist();
+  renderList();
+  openDetail(r);
+  kasimeSaveToSheet('備考を更新しました');
+}
+
 function deleteCurrentRecord() {
   if (currentDetailId === null) return;
   if (typeof isBranchViewReadOnly === 'function' && isBranchViewReadOnly(kasimeViewBranch)) {
