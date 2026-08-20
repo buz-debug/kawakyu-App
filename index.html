@@ -4603,6 +4603,9 @@
     height: 22px;
     text-align: center;
     box-sizing: border-box;
+    /* 項目欄（#dailyTableSide）と背景色を揃える。以前はここで未指定のため白のまま
+       残り、項目欄の#fcfcfcとわずかに色味が異なって見えていた。 */
+    background: #fcfcfc;
 }
 #dailyTableHead th {
     background: #fcfcfc;
@@ -12281,6 +12284,18 @@ window.addEventListener('pagehide', function() {
       headTable.innerHTML = headerRow;
       sideTable.innerHTML = sideHtml;
       table.innerHTML = bodyHtml;
+      // 月末の担当者欄を項目欄のすぐ隣まで手動でスクロールできるよう、表の右側に
+      // 表示幅ぶんの余白を確保する（全項目が画面に収まっている場合でも、この余白分だけ
+      // 左右スクロールできるようになる）。見出し側（headTable）にも同じ幅の余白を
+      // 付けることで、スクロール位置を合わせても日付欄と担当者欄がずれない。
+      // 余白は表示幅そのものではなく「表示幅－日付列1列分」にする。表示幅ぴったりだと
+      // 最大までスクロールした時に最終日の列まで画面外へ押し出されてしまうため。
+      if (bodyWrapper) {
+        const DAY_COL_W = 30; // #dailyTable .daily-day-col の幅と合わせる
+        const scrollPad = Math.max(0, bodyWrapper.clientWidth - DAY_COL_W) + 'px';
+        table.style.paddingRight = scrollPad;
+        headTable.style.paddingRight = scrollPad;
+      }
       if (bodyWrapper && headWrapper) headWrapper.scrollLeft = bodyWrapper.scrollLeft;
       if (bodyWrapper && sideWrapper) sideWrapper.scrollTop = bodyWrapper.scrollTop;
     }
