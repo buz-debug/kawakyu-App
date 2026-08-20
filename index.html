@@ -4636,6 +4636,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.daily-item-hint {
+    font-size: 8px;
+    font-weight: normal;
+    color: var(--muted);
+    margin-left: 4px;
+}
 /* 販売実績表と同じく固定px幅にする。以前は画面幅に合わせてJSで動的に伸縮させて
    いたが、セルをタップするたびにrenderDailyTable()が再計算・再描画するため、
    タブレットでタップのたびに列幅が微妙にずれて「項目が横に動く」不具合の原因に
@@ -12175,7 +12181,7 @@ window.addEventListener('pagehide', function() {
         activeSel.value = memberNames.includes(prevValue) ? prevValue : '';
       }
 
-      corner.innerHTML = `<span class="daily-item-time-col">時間</span><span class="daily-item-name-col">項目</span>`;
+      corner.innerHTML = `<span class="daily-item-time-col">時間</span><span class="daily-item-name-col">項目<span class="daily-item-hint">各項目をクリックで詳細表示</span></span>`;
 
       if (!dailyTaskItems.length) {
         corner.querySelector('.daily-item-name-col').textContent = '項目がありません';
