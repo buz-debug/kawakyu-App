@@ -16879,8 +16879,17 @@ function cancelKasimeUnsavedWarning(){
 
 function confirmKasimeDiscardAndClose(){
     document.getElementById("kasimeUnsavedWarningModal").style.display = "none";
-    // 全タブの実際の状態を洗い直す（入力フォームの内容自体は消えないため、まだ本当に
-    // 未保存な内容が残っていればアプリを閉じる際の警告は引き続き正しく出る）
+    // 「保存せずに閉じる」なので、入力中のフォーム内容（枚数・計算有高・備考等）を
+    // 実際にリセットする。cancelInput()と同じ処理だが、こちらは既に「保存せず」の
+    // 確認を終えているため確認ダイアログは出さない。
+    if (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts()) {
+        if (typeof clearDraft === 'function') clearDraft();
+        if (typeof initCounters === 'function') initCounters();
+        if (typeof buildInputForm === 'function') buildInputForm();
+        if (typeof renderList === 'function') renderList();
+    }
+    // 全タブの実際の状態を洗い直す（他タブにまだ本当に未保存な内容が残っていれば
+    // アプリを閉じる際の警告は引き続き正しく出る）
     if (typeof recomputeHasUnsyncedTabChanges === 'function') window._hasUnsyncedTabChanges = recomputeHasUnsyncedTabChanges();
     if(pendingKasimeCloseAction){ pendingKasimeCloseAction(); pendingKasimeCloseAction = null; }
 }
