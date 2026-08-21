@@ -15662,7 +15662,9 @@ function revertUnsavedShiftChanges() {
         shiftsCleanSnapshot = null;
     }
     if (typeof clearUnsavedBaseline === 'function') clearUnsavedBaseline('shift');
-    window._hasUnsyncedTabChanges = false;
+    // シフト分だけでなく全タブの実際の状態を洗い直す（他タブにまだ未保存編集が
+    // 残っていれば、アプリを閉じる際の警告は引き続き正しく出るようにする）
+    window._hasUnsyncedTabChanges = (typeof recomputeHasUnsyncedTabChanges === 'function') ? recomputeHasUnsyncedTabChanges() : false;
     if (typeof clearShiftSelection === "function") clearShiftSelection();
     renderViewTable();
     if (typeof renderEditTable === "function") renderEditTable();
@@ -16877,6 +16879,9 @@ function cancelKasimeUnsavedWarning(){
 
 function confirmKasimeDiscardAndClose(){
     document.getElementById("kasimeUnsavedWarningModal").style.display = "none";
+    // 全タブの実際の状態を洗い直す（入力フォームの内容自体は消えないため、まだ本当に
+    // 未保存な内容が残っていればアプリを閉じる際の警告は引き続き正しく出る）
+    if (typeof recomputeHasUnsyncedTabChanges === 'function') window._hasUnsyncedTabChanges = recomputeHasUnsyncedTabChanges();
     if(pendingKasimeCloseAction){ pendingKasimeCloseAction(); pendingKasimeCloseAction = null; }
 }
 
@@ -16914,6 +16919,9 @@ function confirmSyncedTabDiscardAndClose(){
         if (pendingSyncedTabModalId === 'salesUnsavedWarningModal') revertPendingSaveForTab('sales');
         else if (pendingSyncedTabModalId === 'dailyUnsavedWarningModal') revertPendingSaveForTab('daily');
     }
+    // 破棄した分だけでなく全タブの実際の状態を洗い直す（他タブにまだ未保存編集が
+    // 残っていれば、アプリを閉じる際の警告は引き続き正しく出るようにする）
+    if (typeof recomputeHasUnsyncedTabChanges === 'function') window._hasUnsyncedTabChanges = recomputeHasUnsyncedTabChanges();
     const action = pendingSyncedTabCloseAction;
     pendingSyncedTabCloseAction = null;
     pendingSyncedTabModalId = null;
@@ -18911,6 +18919,25 @@ function revertSimpleTabChanges(tabBtnId, branchName) {
     const snap = localStorage.getItem(simpleSyncSnapshotKey(tabBtnId, k));
     if (snap !== null) { try { localStorage.setItem(k, snap); } catch (e) {} }
   });
+}
+
+// window._hasUnsyncedTabChangesは「閉じてもよいか」の警告（beforeunload等）で使う共通フラグ。
+// 特定タブの未保存編集を破棄した際、このフラグを無条件でfalseにすると、別のタブにまだ
+// 本当に未保存の編集が残っている場合にその警告まで消えてしまう。逆に何もしないと、破棄した
+// タブ分の警告がいつまでも残り続ける。そのため、破棄後は全タブの実際の状態を洗い直して
+// 正しい値に更新する。
+function recomputeHasUnsyncedTabChanges() {
+  try {
+    if (typeof shiftsCleanSnapshot !== 'undefined' && shiftsCleanSnapshot !== null) return true;
+    if (typeof dailyRecordsCleanSnapshot !== 'undefined' && dailyRecordsCleanSnapshot !== null) return true;
+    if (typeof salesRecordsCleanSnapshot !== 'undefined' && salesRecordsCleanSnapshot !== null) return true;
+    if (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts()) return true;
+    if (typeof state !== 'undefined' && state.currentBranch && typeof hasSimpleUnsavedChanges === 'function') {
+      const branch = state.currentBranch;
+      if (['kasime', 'shaken', 'schedule', 'sidebarTask', 'state'].some(t => hasSimpleUnsavedChanges(t, branch))) return true;
+    }
+  } catch (e) {}
+  return false;
 }
 
 let _pendingSaveTabs = [];
