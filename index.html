@@ -7519,6 +7519,19 @@ window.addEventListener('pagehide', function() {
       </div>
   </div>
 
+  <!-- ===== 起動時：前回の保存が完了していないデータの確認モーダル ===== -->
+  <div class="modal-overlay" id="pendingSaveModal" role="dialog" aria-modal="true">
+    <div class="modal" style="width:min(520px, 92vw);">
+      <h3 class="settings-panel-title">⚠️ 前回の保存が完了していません</h3>
+      <div id="pendingSaveModalBody" style="font-size:13px;line-height:1.7;white-space:pre-wrap;max-height:50vh;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 12px;"></div>
+      <p style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">他の端末が同じ内容を先に更新している場合、「保存する」を押すとその内容を上書きする可能性があります。内容をご確認のうえ選択してください。</p>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" id="pendingSaveModalDiscard">保存しないで起動</button>
+        <button type="button" id="pendingSaveModalSave" class="primary">保存する</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== 販売実績未保存警告モーダル ===== -->
   <div id="salesUnsavedWarningModal" class="sf-modal sf-unsaved-warning-modal">
       <div class="sf-unsaved-warning-box">
@@ -11064,10 +11077,12 @@ window.addEventListener('pagehide', function() {
     function markSalesRecordsDirtyBeforeEdit() {
       if (salesRecordsCleanSnapshot === null) {
         salesRecordsCleanSnapshot = JSON.stringify(salesRecords);
+        if (typeof persistUnsavedBaseline === 'function') persistUnsavedBaseline('sales', salesRecordsCleanSnapshot);
       }
     }
     function markSalesRecordsSynced() {
       salesRecordsCleanSnapshot = null;
+      if (typeof clearUnsavedBaseline === 'function') clearUnsavedBaseline('sales');
     }
 
     function salesKey(base) {
@@ -12079,10 +12094,12 @@ window.addEventListener('pagehide', function() {
     function markDailyRecordsDirtyBeforeEdit() {
       if (dailyRecordsCleanSnapshot === null) {
         dailyRecordsCleanSnapshot = JSON.stringify(dailyTaskRecords);
+        if (typeof persistUnsavedBaseline === 'function') persistUnsavedBaseline('daily', dailyRecordsCleanSnapshot);
       }
     }
     function markDailyRecordsSynced() {
       dailyRecordsCleanSnapshot = null;
+      if (typeof clearUnsavedBaseline === 'function') clearUnsavedBaseline('daily');
     }
 
     function dailyKey(base) {
@@ -14336,21 +14353,27 @@ window.addEventListener('pagehide', function() {
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const targetTab = tab.dataset.tab;
-        const kasimeHasUnsaved = window._hasUnsyncedTabChanges ||
-          (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
+        // window._hasUnsyncedTabChangesは全タブ共通の1つのフラグのため、これだけで判定すると
+        // 「実際に編集したのは別のタブなのに、たまたま今いるタブの未保存警告が出る」という
+        // 誤表示が起きる（例：日常業務を編集→保存せず予定タブ経由で販売実績表へ移動→販売実績表を
+        // 離れようとした時に「販売実績が保存されていません」と出るが、実際に未保存なのは日常業務）。
+        // 各タブ固有の判定（そのタブ自身が前回同期時点から変更されているか）を使うことで、
+        // 表示されるタブ名と実際に未保存なタブを一致させる。
+        const kasimeHasUnsaved = (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts())
+          || (typeof hasSimpleUnsavedChanges === 'function' && typeof state !== 'undefined' && hasSimpleUnsavedChanges('kasime', state.currentBranch));
         if (currentTab === 'kasime' && targetTab !== 'kasime' && kasimeHasUnsaved) {
           attemptLeaveKasime(() => applyTabSwitch(targetTab));
           return;
         }
-        if (currentTab === 'shift' && targetTab !== 'shift' && window._hasUnsyncedTabChanges) {
+        if (currentTab === 'shift' && targetTab !== 'shift' && typeof shiftsCleanSnapshot !== 'undefined' && shiftsCleanSnapshot !== null) {
           attemptCloseShiftEdit(() => applyTabSwitch(targetTab));
           return;
         }
-        if (currentTab === 'sales' && targetTab !== 'sales' && window._hasUnsyncedTabChanges) {
+        if (currentTab === 'sales' && targetTab !== 'sales' && typeof salesRecordsCleanSnapshot !== 'undefined' && salesRecordsCleanSnapshot !== null) {
           attemptLeaveSyncedTab('salesUnsavedWarningModal', () => applyTabSwitch(targetTab));
           return;
         }
-        if (currentTab === 'daily' && targetTab !== 'daily' && window._hasUnsyncedTabChanges) {
+        if (currentTab === 'daily' && targetTab !== 'daily' && typeof dailyRecordsCleanSnapshot !== 'undefined' && dailyRecordsCleanSnapshot !== null) {
           attemptLeaveSyncedTab('dailyUnsavedWarningModal', () => applyTabSwitch(targetTab));
           return;
         }
@@ -15623,11 +15646,13 @@ let shiftsCleanSnapshot = null;
 function markShiftsDirtyBeforeEdit() {
     if (shiftsCleanSnapshot === null) {
         shiftsCleanSnapshot = JSON.stringify(shifts);
+        if (typeof persistUnsavedBaseline === 'function') persistUnsavedBaseline('shift', shiftsCleanSnapshot);
     }
 }
 
 function markShiftsSynced() {
     shiftsCleanSnapshot = null;
+    if (typeof clearUnsavedBaseline === 'function') clearUnsavedBaseline('shift');
 }
 
 function revertUnsavedShiftChanges() {
@@ -15636,6 +15661,7 @@ function revertUnsavedShiftChanges() {
         localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
         shiftsCleanSnapshot = null;
     }
+    if (typeof clearUnsavedBaseline === 'function') clearUnsavedBaseline('shift');
     window._hasUnsyncedTabChanges = false;
     if (typeof clearShiftSelection === "function") clearShiftSelection();
     renderViewTable();
@@ -16809,7 +16835,10 @@ function confirmDiscardAndClose(){
 let pendingShiftCloseAction = null;
 
 function attemptCloseShiftEdit(closeFn){
-    if(!window._hasUnsyncedTabChanges){ closeFn(); return; }
+    // window._hasUnsyncedTabChangesは全タブ共通の1つのフラグのため、これで判定すると
+    // 「実際に未保存なのは別のタブ」なのにシフトの警告が出てしまうことがある。
+    // シフト自身が前回同期時点から変更されているか（shiftsCleanSnapshot）で判定する。
+    if(typeof shiftsCleanSnapshot === 'undefined' || shiftsCleanSnapshot === null){ closeFn(); return; }
     pendingShiftCloseAction = closeFn;
     document.getElementById("shiftUnsavedWarningModal").style.display = "flex";
 }
@@ -16832,8 +16861,10 @@ function confirmShiftDiscardAndClose(){
 let pendingKasimeCloseAction = null;
 
 function attemptLeaveKasime(closeFn){
-    const hasUnsaved = window._hasUnsyncedTabChanges ||
-        (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts());
+    // window._hasUnsyncedTabChangesは全タブ共通の1つのフラグのため使わず、仮締め自身の
+    // 状態（入力中フォーム・前回同期できていないデータ）だけで判定する。
+    const hasUnsaved = (typeof hasUnsavedKasimeAmounts === 'function' && hasUnsavedKasimeAmounts())
+        || (typeof hasSimpleUnsavedChanges === 'function' && typeof state !== 'undefined' && hasSimpleUnsavedChanges('kasime', state.currentBranch));
     if(!hasUnsaved){ closeFn(); return; }
     pendingKasimeCloseAction = closeFn;
     document.getElementById("kasimeUnsavedWarningModal").style.display = "flex";
@@ -16856,7 +16887,14 @@ let pendingSyncedTabCloseAction = null;
 let pendingSyncedTabModalId = null;
 
 function attemptLeaveSyncedTab(modalId, closeFn){
-    if(!window._hasUnsyncedTabChanges){ closeFn(); return; }
+    // window._hasUnsyncedTabChangesは全タブ共通の1つのフラグのため使わず、
+    // モーダルの対象タブ自身が前回同期時点から変更されているかで判定する。
+    const hasUnsaved = modalId === 'salesUnsavedWarningModal'
+        ? (typeof salesRecordsCleanSnapshot !== 'undefined' && salesRecordsCleanSnapshot !== null)
+        : modalId === 'dailyUnsavedWarningModal'
+          ? (typeof dailyRecordsCleanSnapshot !== 'undefined' && dailyRecordsCleanSnapshot !== null)
+          : window._hasUnsyncedTabChanges;
+    if(!hasUnsaved){ closeFn(); return; }
     pendingSyncedTabCloseAction = closeFn;
     pendingSyncedTabModalId = modalId;
     document.getElementById(modalId).style.display = "flex";
@@ -16870,6 +16908,12 @@ function cancelSyncedTabUnsavedWarning(){
 
 function confirmSyncedTabDiscardAndClose(){
     if(pendingSyncedTabModalId){ document.getElementById(pendingSyncedTabModalId).style.display = "none"; }
+    // 「保存せずに閉じる」なので、まだシートに反映していない編集内容を実際に破棄して元に戻す
+    // （これをしないと未保存状態の内部フラグが残り続け、他のタブを開くたびに再び警告が出てしまう）
+    if (typeof revertPendingSaveForTab === 'function') {
+        if (pendingSyncedTabModalId === 'salesUnsavedWarningModal') revertPendingSaveForTab('sales');
+        else if (pendingSyncedTabModalId === 'dailyUnsavedWarningModal') revertPendingSaveForTab('daily');
+    }
     const action = pendingSyncedTabCloseAction;
     pendingSyncedTabCloseAction = null;
     pendingSyncedTabModalId = null;
@@ -17576,13 +17620,23 @@ const SHEET_IDS_KEY = 'kawakyu_spreadsheet_ids';
 // ブラウザがいつまでも待ち続けてしまう。この時間で強制的に打ち切り、失敗として
 // 呼び出し元（起動時読込の自動リトライなど）に委ねる。
 const GAS_REQUEST_TIMEOUT_MS = 20000;
-async function fetchWithTimeout(url, options, timeoutMs) {
+async function fetchWithTimeout(url, options, timeoutMs, _isSleepRetry) {
   const controller = new AbortController();
+  const startedAt = Date.now();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (e) {
     if (e && e.name === 'AbortError') {
+      // 実際に経過した時間がタイムアウト値を大幅に超えている場合、通信そのものが遅いのではなく、
+      // PCのスリープ等でJSの実行が長時間止まっていて、復帰した瞬間にこのタイマーが遅れて
+      // 発火しただけの可能性が高い（本当に応答が無い場合、経過時間はタイムアウト値と
+      // ほぼ一致するはず）。この場合はスリープ復帰直後で通信環境が既に回復していることが
+      // 多いため、失敗として表に出す前に1回だけ静かに送り直す。
+      const elapsed = Date.now() - startedAt;
+      if (elapsed > timeoutMs * 2 && !_isSleepRetry) {
+        return fetchWithTimeout(url, options, timeoutMs, true);
+      }
       throw new Error(`通信がタイムアウトしました（${Math.round(timeoutMs / 1000)}秒）`);
     }
     throw e;
@@ -18423,6 +18477,7 @@ function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride, onSuccess) {
   return syncToSheet(branchName, keys).then(() => {
     window._hasUnsyncedTabChanges = false;
     appToast(successMsg || 'スプレッドシートに保存しました');
+    if (typeof markTabSyncedForPendingCheck === 'function') markTabSyncedForPendingCheck(tabBtnId, keys);
     if (typeof onSuccess === 'function') onSuccess();
   }).catch(err => {
     // トーストは見逃されやすいため、データが保存されていない可能性がある重大なエラーは
@@ -18434,7 +18489,7 @@ function _tabSaveToSheet(tabBtnId, successMsg, branchNameOverride, onSuccess) {
   });
 }
 function shiftSaveToSheet() {
-  _tabSaveToSheet('shift', undefined, undefined, function () {
+  return _tabSaveToSheet('shift', undefined, undefined, function () {
     if (typeof markShiftsSynced === 'function') markShiftsSynced();
   });
 }
@@ -18471,7 +18526,7 @@ let _dailySavePending = false;
 let _dailySaveDebounceTimer = null;
 function runDailySaveToSheet() {
   _dailySaveInProgress = true;
-  _tabSaveToSheet('daily', undefined, undefined, function () {
+  return _tabSaveToSheet('daily', undefined, undefined, function () {
     if (typeof markDailyRecordsSynced === 'function') markDailyRecordsSynced();
   }).finally(() => {
     _dailySaveInProgress = false;
@@ -18483,8 +18538,8 @@ function runDailySaveToSheet() {
 }
 function dailySaveToSheet() {
   if (_dailySaveDebounceTimer) { clearTimeout(_dailySaveDebounceTimer); _dailySaveDebounceTimer = null; }
-  if (_dailySaveInProgress) { _dailySavePending = true; return; }
-  runDailySaveToSheet();
+  if (_dailySaveInProgress) { _dailySavePending = true; return Promise.resolve(); }
+  return runDailySaveToSheet();
 }
 function scheduleDailySaveToSheet() {
   if (_dailySaveDebounceTimer) clearTimeout(_dailySaveDebounceTimer);
@@ -18493,9 +18548,9 @@ function scheduleDailySaveToSheet() {
     dailySaveToSheet();
   }, 500);
 }
-function kasimeSaveToSheet(successMsg) { _tabSaveToSheet('kasime', successMsg); }
+function kasimeSaveToSheet(successMsg) { return _tabSaveToSheet('kasime', successMsg); }
 // メンバー・タスク・予定・ブックマークなど「state」全体の即時保存に使う汎用ラッパー
-function stateSaveToSheet(successMsg, branchName) { _tabSaveToSheet('state', successMsg, branchName); }
+function stateSaveToSheet(successMsg, branchName) { return _tabSaveToSheet('state', successMsg, branchName); }
 
 // 予定タブの「予定カレンダー」「タスク」は、連絡ノート等の他のstateデータと保存を分離し、
 // それぞれ専用のキーで独立して保存する。保存前に現在の内容を専用キーへ書き出してから送信する。
@@ -18663,17 +18718,277 @@ function retrySheetLoadFromModal() {
   if (typeof showLoadingToast === 'function') showLoadingToast('データを読み込んでいます');
   attemptStartupSheetLoad(branchName);
 }
-const _startupSyncPromise = autoLoadOnStartup();
+// ── PCのシャットダウン等で、前回「保存」を押した処理が完了しないまま終了した場合の検知 ──
+// シフト・日常業務・販売実績表は、保存前マージの基準（baseline）をlocalStorageにも
+// 保持しておくことで、アプリを再起動しても「前回どこまでが同期済みだったか」を判定できる。
+// このbaselineが残っている＝前回の保存が完了していない、ということなので、起動時読込
+// （syncFromSheet、常にスプレッドシートの内容をそのまま採用する＝ローカルとマージしない）が
+// この未反映データを黙って上書きしてしまう前に、必ずユーザーに確認を求める。
+const UNSAVED_BASELINE_TAB_INFO = {
+  shift: { label: 'シフト' },
+  daily: { label: '日常業務' },
+  sales: { label: '販売実績表' },
+};
+function unsavedBaselineStorageKey(tab) {
+  return `pendingSaveBaseline_${tab}_${state.currentBranch}`;
+}
+function persistUnsavedBaseline(tab, snapshotJson) {
+  try {
+    localStorage.setItem(unsavedBaselineStorageKey(tab), JSON.stringify({ snapshot: snapshotJson, ts: Date.now() }));
+  } catch (e) {}
+}
+function clearUnsavedBaseline(tab) {
+  try { localStorage.removeItem(unsavedBaselineStorageKey(tab)); } catch (e) {}
+}
+function readUnsavedBaseline(tab) {
+  try {
+    const raw = localStorage.getItem(unsavedBaselineStorageKey(tab));
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
 
-// スマホでは、起動時の自動読込がある場合はその結果を待ってから「マイシフト」画面を開く。
-// 読込前の古い・空のスタッフ一覧が一瞬表示されてしまうのを防ぐため。
-// （同期が成功した場合はページごとリロードされるため、この画面は開かれず新しいデータで開き直される）
-if (typeof isMobileDevice === 'function' && isMobileDevice()) {
-  if (_startupSyncPromise && typeof _startupSyncPromise.then === 'function') {
-    _startupSyncPromise.then(() => { openSmartphoneView(); });
-  } else {
-    openSmartphoneView();
+function describeDateKeyJa(dateKey) {
+  const parts = String(dateKey).split('-');
+  if (parts.length !== 3) return dateKey;
+  const m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
+  if (!m || !d) return dateKey;
+  return `${m}月${d}日`;
+}
+
+// 日常業務・販売実績表共通：{日付キー: {項目キー: 値}} 形式の差分検出
+function computeNestedDictChanges(current, baseline) {
+  const cur = current || {};
+  const base = baseline || {};
+  const changes = [];
+  const allDates = new Set([...Object.keys(cur), ...Object.keys(base)]);
+  allDates.forEach(dateKey => {
+    const curSub = cur[dateKey] || {};
+    const baseSub = base[dateKey] || {};
+    const subKeys = new Set([...Object.keys(curSub), ...Object.keys(baseSub)]);
+    const changedSubKeys = [];
+    subKeys.forEach(sk => {
+      if (!valuesEqualForMerge(curSub[sk], baseSub[sk])) changedSubKeys.push(sk);
+    });
+    if (changedSubKeys.length) changes.push({ dateKey, changedSubKeys });
+  });
+  changes.sort((a, b) => a.dateKey.localeCompare(b.dateKey, undefined, { numeric: true }));
+  return changes;
+}
+
+// シフト専用：{"年-月-日-スタッフ名": 記号} 形式の差分検出
+function computeShiftDictChanges(current, baseline) {
+  const cur = current || {};
+  const base = baseline || {};
+  const changed = [];
+  const allKeys = new Set([...Object.keys(cur), ...Object.keys(base)]);
+  allKeys.forEach(key => {
+    if (!valuesEqualForMerge(cur[key], base[key])) changed.push(key);
+  });
+  return changed;
+}
+
+// 指定タブの「前回保存できていない内容」を、日付・項目単位の説明文にまとめる。
+// 変更が無ければnullを返す。
+function buildUnsavedDetail(tab) {
+  const info = readUnsavedBaseline(tab);
+  if (!info || !info.snapshot) return null;
+  let baseline;
+  try { baseline = JSON.parse(info.snapshot); } catch (e) { return null; }
+
+  const lines = [];
+  if (tab === 'daily') {
+    let current;
+    try { current = JSON.parse(localStorage.getItem(`dailyTaskRecords_${state.currentBranch}`) || '{}'); } catch (e) { current = {}; }
+    const itemNameOf = (id) => {
+      try {
+        const bucket = ensureBranchBucket(state.currentBranch);
+        const item = (bucket.dailyTaskItems || []).find(it => it.id === id);
+        return item ? item.name : id;
+      } catch (e) { return id; }
+    };
+    computeNestedDictChanges(current, baseline).forEach(({ dateKey, changedSubKeys }) => {
+      lines.push(`　${describeDateKeyJa(dateKey)}：${changedSubKeys.map(itemNameOf).join('、')}`);
+    });
+  } else if (tab === 'sales') {
+    let current;
+    try { current = JSON.parse(localStorage.getItem(`salesRecords_${state.currentBranch}`) || '{}'); } catch (e) { current = {}; }
+    computeNestedDictChanges(current, baseline).forEach(({ dateKey, changedSubKeys }) => {
+      lines.push(`　${describeDateKeyJa(dateKey)}：${changedSubKeys.join('、')}`);
+    });
+  } else if (tab === 'shift') {
+    let current;
+    try { current = JSON.parse(localStorage.getItem(`shifts_${state.currentBranch}`) || '{}'); } catch (e) { current = {}; }
+    const byDate = {};
+    computeShiftDictChanges(current, baseline).forEach(key => {
+      const m = /^(\d+)-(\d+)-(\d+)-(.+)$/.exec(key);
+      if (!m) return;
+      const dateKey = `${m[1]}-${m[2]}-${m[3]}`;
+      (byDate[dateKey] || (byDate[dateKey] = [])).push(m[4]);
+    });
+    Object.keys(byDate).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).forEach(dateKey => {
+      lines.push(`　${describeDateKeyJa(dateKey)}：${byDate[dateKey].join('、')}`);
+    });
   }
+  if (!lines.length) return null;
+  return { tab, label: UNSAVED_BASELINE_TAB_INFO[tab].label, ts: info.ts, lines };
+}
+
+// baselineへ強制的に巻き戻す（＝前回未保存の編集を破棄する）。「保存しないで起動」用。
+function revertPendingSaveForTab(tab) {
+  const info = readUnsavedBaseline(tab);
+  try {
+    if (info && info.snapshot) {
+      if (tab === 'shift') {
+        shifts = JSON.parse(info.snapshot);
+        localStorage.setItem(shiftKey('shifts'), JSON.stringify(shifts));
+        shiftsCleanSnapshot = null;
+        if (typeof renderViewTable === 'function') renderViewTable();
+      } else if (tab === 'daily') {
+        dailyTaskRecords = JSON.parse(info.snapshot);
+        localStorage.setItem(dailyKey('dailyTaskRecords'), JSON.stringify(dailyTaskRecords));
+        dailyRecordsCleanSnapshot = null;
+        if (typeof renderDailyTable === 'function') renderDailyTable();
+      } else if (tab === 'sales') {
+        salesRecords = JSON.parse(info.snapshot);
+        localStorage.setItem(salesKey('salesRecords'), JSON.stringify(salesRecords));
+        salesRecordsCleanSnapshot = null;
+        if (typeof renderSalesTable === 'function') renderSalesTable();
+      }
+    }
+  } catch (e) {}
+  clearUnsavedBaseline(tab);
+}
+
+// 仮締め・車検予約・予定・連絡ノートは、シフト・日常業務・販売実績表のような日付・項目
+// 単位の詳細表示までは行わず、「前回保存できていないデータがあるかどうか」だけを検知する
+// 簡易版。保存成功のたびに、その時点でスプレッドシートへ送った内容をそのまま
+// 「最後に同期できた内容」として控えておき、起動時にこれと現在のローカル値を比較するだけ
+// で判定する（日付・項目単位の差分計算は行わない）。
+const SIMPLE_UNSAVED_TAB_LABELS = {
+  kasime: '仮締め',
+  shaken: '車検予約',
+  schedule: '予定',
+  sidebarTask: '予定',
+  state: '連絡ノート',
+};
+function simpleSyncSnapshotKey(tabBtnId, dataKey) {
+  return `lastSyncedSnapshot_${tabBtnId}_${dataKey}`;
+}
+// 'state'（連絡ノート）はSTORAGE_KEY_1（営業所共通設定セル）とメッセージ専用キーの
+// 両方をまとめて保存するが、STORAGE_KEY_1側には「既読状態（lastRead）」のように
+// 単にそのタブを開いただけで自動更新される値も含まれる。これをそのまま比較対象にすると、
+// 実際の編集が無くてもアプリを開くたびに「連絡ノートが未保存」と誤検知してしまうため、
+// 連絡ノートについてはメッセージ本体（kawakyu-chatwork-messages-v1）だけを比較対象にする。
+function simpleTabTrackedKeys(tabBtnId, keys) {
+  if (tabBtnId === 'state') return (keys || []).filter(k => k === 'kawakyu-chatwork-messages-v1');
+  return keys || [];
+}
+function markTabSyncedForPendingCheck(tabBtnId, keys) {
+  if (!SIMPLE_UNSAVED_TAB_LABELS[tabBtnId]) return;
+  simpleTabTrackedKeys(tabBtnId, keys).forEach(k => {
+    try {
+      const v = localStorage.getItem(k);
+      if (v !== null) localStorage.setItem(simpleSyncSnapshotKey(tabBtnId, k), v);
+      else localStorage.removeItem(simpleSyncSnapshotKey(tabBtnId, k));
+    } catch (e) {}
+  });
+}
+function hasSimpleUnsavedChanges(tabBtnId, branchName) {
+  const keys = (typeof getSyncKeysForTab === 'function') ? getSyncKeysForTab(tabBtnId, branchName) : [];
+  return simpleTabTrackedKeys(tabBtnId, keys).some(k => {
+    const cur = localStorage.getItem(k);
+    const snap = localStorage.getItem(simpleSyncSnapshotKey(tabBtnId, k));
+    // 一度も保存したことが無い（比較対象のスナップショットが無い）場合は、単に保存の
+    // 機会がまだ無かっただけの可能性があるため、未反映とはみなさない。
+    if (snap === null) return false;
+    return cur !== snap;
+  });
+}
+function revertSimpleTabChanges(tabBtnId, branchName) {
+  const keys = (typeof getSyncKeysForTab === 'function') ? getSyncKeysForTab(tabBtnId, branchName) : [];
+  simpleTabTrackedKeys(tabBtnId, keys).forEach(k => {
+    const snap = localStorage.getItem(simpleSyncSnapshotKey(tabBtnId, k));
+    if (snap !== null) { try { localStorage.setItem(k, snap); } catch (e) {} }
+  });
+}
+
+let _pendingSaveTabs = [];
+let _pendingSaveSimpleTabs = [];
+function checkPendingSaveOnStartup() {
+  if (localStorage.getItem('kawakyu_logged_in') !== '1') return false;
+  if (typeof state === 'undefined' || !state.currentBranch) return false;
+  const branchName = state.currentBranch;
+
+  const details = ['shift', 'daily', 'sales'].map(buildUnsavedDetail).filter(Boolean);
+  const simpleTabs = Object.keys(SIMPLE_UNSAVED_TAB_LABELS).filter(tab => hasSimpleUnsavedChanges(tab, branchName));
+  if (!details.length && !simpleTabs.length) return false;
+
+  _pendingSaveTabs = details.map(d => d.tab);
+  _pendingSaveSimpleTabs = simpleTabs;
+
+  const detailBlocks = details.map(d => {
+    const dt = new Date(d.ts);
+    const dtStr = `${dt.getMonth() + 1}/${dt.getDate()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}頃の編集`;
+    return `【${d.label}】（${dtStr}）\n${d.lines.join('\n')}`;
+  });
+  const simpleLabels = [...new Set(simpleTabs.map(t => SIMPLE_UNSAVED_TAB_LABELS[t]))];
+  const simpleBlock = simpleLabels.length
+    ? '以下のタブに、前回反映できていない変更がある可能性があります：\n' + simpleLabels.map(l => `　・${l}`).join('\n')
+    : '';
+
+  const body = [...detailBlocks, simpleBlock].filter(Boolean).join('\n\n');
+  const bodyEl = document.getElementById('pendingSaveModalBody');
+  if (bodyEl) bodyEl.textContent = body;
+  openOverlay(document.getElementById('pendingSaveModal'));
+  return true;
+}
+
+function proceedStartupAfterPendingSaveDecision() {
+  const promise = autoLoadOnStartup();
+  if (typeof isMobileDevice === 'function' && isMobileDevice()) {
+    if (promise && typeof promise.then === 'function') {
+      promise.then(() => { openSmartphoneView(); });
+    } else {
+      openSmartphoneView();
+    }
+  }
+}
+
+document.getElementById('pendingSaveModalDiscard').addEventListener('click', () => {
+  closeOverlay(document.getElementById('pendingSaveModal'));
+  const branchName = state.currentBranch;
+  _pendingSaveTabs.forEach(revertPendingSaveForTab);
+  _pendingSaveSimpleTabs.forEach(tab => revertSimpleTabChanges(tab, branchName));
+  _pendingSaveTabs = [];
+  _pendingSaveSimpleTabs = [];
+  proceedStartupAfterPendingSaveDecision();
+});
+document.getElementById('pendingSaveModalSave').addEventListener('click', async () => {
+  closeOverlay(document.getElementById('pendingSaveModal'));
+  for (const tab of _pendingSaveTabs) {
+    try {
+      if (tab === 'shift' && typeof shiftSaveToSheet === 'function') await shiftSaveToSheet();
+      else if (tab === 'daily' && typeof dailySaveToSheet === 'function') await dailySaveToSheet();
+      else if (tab === 'sales' && typeof salesSaveToSheet === 'function') await salesSaveToSheet();
+    } catch (e) {}
+  }
+  for (const tab of _pendingSaveSimpleTabs) {
+    try {
+      if (tab === 'kasime' && typeof kasimeSaveToSheet === 'function') await kasimeSaveToSheet();
+      else if (tab === 'shaken' && typeof shakenSaveToSheet === 'function') await shakenSaveToSheet();
+      else if (tab === 'schedule' && typeof scheduleSaveToSheet === 'function') await scheduleSaveToSheet();
+      else if (tab === 'sidebarTask' && typeof sidebarTaskSaveToSheet === 'function') await sidebarTaskSaveToSheet();
+      else if (tab === 'state' && typeof stateSaveToSheet === 'function') await stateSaveToSheet();
+    } catch (e) {}
+  }
+  _pendingSaveTabs = [];
+  _pendingSaveSimpleTabs = [];
+  proceedStartupAfterPendingSaveDecision();
+});
+
+if (!checkPendingSaveOnStartup()) {
+  proceedStartupAfterPendingSaveDecision();
 }
 
 // リロード直後、直前の読込が成功していれば通知する
