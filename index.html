@@ -12203,6 +12203,37 @@ window.addEventListener('pagehide', function() {
       // 販売実績表と同じ保存ルール：ここではシートへ自動保存せず、「保存」ボタンを押した時点で反映する。
     }
 
+    // 見出し行・項目列（日常業務）／見出し行・日付列（販売実績表）は、いずれも本体の
+    // スクロールとは別要素のため、本体のscrollLeft/scrollTopをJSで追従させている。
+    // scrollイベントだけに頼ると、慣性スクロール（トラックパッド等）中はブラウザ自体の
+    // 描画とイベント発火のタイミングが微妙にずれ、スクロールが止まった瞬間に項目欄・
+    // 日付列側がわずかに遅れて追従し、ズレて見えることがある（PCによって顕著さが変わる）。
+    // そのため、スクロール中はrequestAnimationFrameで毎フレーム同期し続け、本体の描画と
+    // 完全に同じタイミングで追従させる（止まってから一定時間で自動的に同期ループを止める）。
+    function bindSyncedScrollPanes(bodyWrapper, headWrapper, sideWrapper) {
+      if (!bodyWrapper || bodyWrapper.dataset.syncedScrollBound) return;
+      bodyWrapper.dataset.syncedScrollBound = '1';
+      let rafId = null;
+      let lastScrollTime = 0;
+      function sync() {
+        if (headWrapper) headWrapper.scrollLeft = bodyWrapper.scrollLeft;
+        if (sideWrapper) sideWrapper.scrollTop = bodyWrapper.scrollTop;
+      }
+      function loop() {
+        sync();
+        if (Date.now() - lastScrollTime < 200) {
+          rafId = requestAnimationFrame(loop);
+        } else {
+          rafId = null;
+        }
+      }
+      bodyWrapper.addEventListener('scroll', () => {
+        lastScrollTime = Date.now();
+        sync();
+        if (rafId === null) rafId = requestAnimationFrame(loop);
+      });
+    }
+
     function renderDailyTable() {
       const table = document.getElementById('dailyTable');
       const headTable = document.getElementById('dailyTableHead');
@@ -12216,13 +12247,7 @@ window.addEventListener('pagehide', function() {
       const bodyWrapper = document.querySelector('.daily-table-wrapper');
       const headWrapper = document.querySelector('.daily-table-head-wrapper');
       const sideWrapper = document.querySelector('.daily-table-side-wrapper');
-      if (bodyWrapper && headWrapper && sideWrapper && !bodyWrapper.dataset.dailyScrollSyncBound) {
-        bodyWrapper.dataset.dailyScrollSyncBound = '1';
-        bodyWrapper.addEventListener('scroll', () => {
-          headWrapper.scrollLeft = bodyWrapper.scrollLeft;
-          sideWrapper.scrollTop = bodyWrapper.scrollTop;
-        });
-      }
+      bindSyncedScrollPanes(bodyWrapper, headWrapper, sideWrapper);
       const year = dailyCurrentDate.getFullYear();
       const month = dailyCurrentDate.getMonth();
       if (label) label.textContent = `${year}年 ${month + 1}月`;
@@ -17591,13 +17616,7 @@ function bindSalesHeadScrollSync() {
   const headWrapper = document.querySelector('.sales-table-head-wrapper');
   const sideWrapper = document.querySelector('.sales-table-side-wrapper');
   if (!bodyWrapper || !headWrapper || !sideWrapper) return;
-  if (!bodyWrapper.dataset.salesScrollSyncBound) {
-    bodyWrapper.dataset.salesScrollSyncBound = '1';
-    bodyWrapper.addEventListener('scroll', () => {
-      headWrapper.scrollLeft = bodyWrapper.scrollLeft;
-      sideWrapper.scrollTop = bodyWrapper.scrollTop;
-    });
-  }
+  if (typeof bindSyncedScrollPanes === 'function') bindSyncedScrollPanes(bodyWrapper, headWrapper, sideWrapper);
   // 再描画直後、それまでのスクロール位置を見出し側・日付列側にも即座に反映する
   headWrapper.scrollLeft = bodyWrapper.scrollLeft;
   sideWrapper.scrollTop = bodyWrapper.scrollTop;
