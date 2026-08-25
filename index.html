@@ -10871,6 +10871,22 @@ window.addEventListener('pagehide', function() {
         if (len >= limit) { color = 'var(--danger)'; barColor = 'var(--danger)'; }
         else if (len >= limit * warnRatio) { color = '#b45309'; barColor = '#f59e0b'; }
         const pct = Math.min(100, Math.round((len / limit) * 100));
+        // 連絡ノートのメッセージが想定より大きい場合に原因を一目で確認できるよう、
+        // 件数の内訳（自社投稿・自社宛・分離前の旧データ・分類不明）を表示する。
+        let breakdownHtml = '';
+        if (typeof messagesKeyName === 'function' && key === messagesKeyName(branchName) && raw) {
+          try {
+            const parsedMsgs = JSON.parse(raw).messages || [];
+            let own = 0, received = 0, legacy = 0, other = 0;
+            parsedMsgs.forEach(m => {
+              if (m.senderBranch === branchName) own++;
+              else if (m.targetBranch === branchName) received++;
+              else if (Array.isArray(m.legacyBranches) && m.legacyBranches.includes(branchName)) legacy++;
+              else other++;
+            });
+            breakdownHtml = `<div style="font-size:11px;color:var(--muted);margin-top:2px;">内訳：件数${parsedMsgs.length.toLocaleString()}件（自社投稿${own} / 自社宛${received} / 旧データ${legacy}${other ? ' / 分類不明' + other : ''}）</div>`;
+          } catch (e) {}
+        }
         return `<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
             <span style="font-size:12px;">${escapeHtml(label)}</span>
@@ -10879,6 +10895,7 @@ window.addEventListener('pagehide', function() {
           <div style="background:#eee;border-radius:3px;height:6px;overflow:hidden;">
             <div style="width:${pct}%;height:100%;background:${barColor};"></div>
           </div>
+          ${breakdownHtml}
         </div>`;
       }).join('');
 
