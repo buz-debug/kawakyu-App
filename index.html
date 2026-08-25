@@ -8245,7 +8245,7 @@ window.addEventListener('pagehide', function() {
     const STATE_TOPLEVEL_KEYS_CELL1 = [
       'userName', 'branches', 'currentBranch', 'adminPassword', 'legacyMessagesMigrated',
       'salesItems', 'salesItemsMigrated', 'dailyTaskItemsMigrated', 'dataRetentionMonths',
-      'branchSettingsMigrated',
+      'branchSettingsMigrated', 'messagesSplitMigrated',
     ];
     // state.branchData[営業所名]内の項目のうち、専用の営業所別セルだけに保存し、
     // このセルには含めない（二重保存を避けるため）もの。読み込み時にloadState()側で、
@@ -8264,6 +8264,15 @@ window.addEventListener('pagehide', function() {
     function branchSettingsKeyName(branchName) {
       return `branchSettings_${branchName}`;
     }
+    // 連絡ノートのメッセージは営業所をまたいでやり取りされるため、branchSettingsのように
+    // 「1営業所につき1セル、他は含めない」では済まない。各メッセージにはsenderBranch（送信元）・
+    // targetBranch（宛先）が付いており、1件が関係する営業所は多くても2つ（自社の場合は1つ）。
+    // 各営業所は「自分が送信元 or 宛先のメッセージだけ」を専用セルに持ち、他営業所宛ての
+    // 投稿・編集・削除のみ、相手営業所のスプレッドシートへも直接反映する
+    // （propagateMessageChangeToOtherBranches参照）。
+    function messagesKeyName(branchName) {
+      return `messages_${branchName}`;
+    }
     const BRANCH_SETTINGS_ARRAY_ID_FIELDS = ['members', 'tasks', 'bookmarks', 'dailyTaskItems'];
     const BRANCH_SETTINGS_FLAT_FIELDS = [
       'businessHours', 'timeFrames', 'timeFrameOrder', 'calcConditions', 'shiftDeadline',
@@ -8276,8 +8285,16 @@ window.addEventListener('pagehide', function() {
     const MESSAGES_STORAGE_KEY = 'kawakyu-chatwork-messages-v1';
     const COLORS = ['#4a7fb5','#5b7c9d','#7c6b9d','#c45c3e','#8b5cf6','#0891b2','#ca8a04'];
 
-    // 新形式（専用キー）を優先し、まだ無ければ旧形式（設定データに同梱）から読み取る（移行用）。
-    function loadMessagesFromStorage(legacyEmbedded) {
+    // 新形式（営業所専用キー） > 中間形式（旧・全営業所共有の専用キー） > 最古形式（設定データに
+    // 同梱）の順にフォールバックして読み取る（移行用）。
+    function loadMessagesFromStorage(branchName, legacyEmbedded) {
+      try {
+        const raw = localStorage.getItem(messagesKeyName(branchName));
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.messages)) return parsed.messages;
+        }
+      } catch (e) {}
       try {
         const raw = localStorage.getItem(MESSAGES_STORAGE_KEY);
         if (raw) {
@@ -8867,7 +8884,7 @@ window.addEventListener('pagehide', function() {
               adminPassword: s.adminPassword || undefined,
               legacyMessagesMigrated: s.legacyMessagesMigrated || false,
               members: normalizeMembers(s.members),
-              messages: loadMessagesFromStorage(s.messages),
+              messages: loadMessagesFromStorage(s.currentBranch, s.messages),
               tasks: Array.isArray(s.tasks) ? s.tasks : [],
               lastRead: s.lastRead || {},
               bookmarkCategories: (Array.isArray(s.bookmarkCategories) && s.bookmarkCategories.length)
@@ -9018,15 +9035,29 @@ window.addEventListener('pagehide', function() {
       return cell1;
     }
 
+    // 【重要】saveState()からはメッセージ専用セルへ書き込まない。saveState()は
+    // currentBranchの変更等、メッセージと無関係な理由でも（起動時のサーバーからの
+    // ダウンロードが完了する前の早いタイミングでも）呼ばれるため、もしここで書き込むと、
+    // まだ空のstate.messagesがmessages_営業所名へ先に書き込まれてしまい、その後
+    // ダウンロードされる正しい内容よりも「新形式（専用セル）優先」のロジック
+    // （loadMessagesFromStorage）によって誤って優先されてしまう不具合が起きる。
+    // そのため、メッセージの保存は「実際にメッセージが変更された箇所」
+    // （submitPost・submitReply・saveEdit・confirmDelete）とmergeRemoteMessagesBeforeSave
+    // からだけ、saveMessagesLocal()で明示的に行う。
+    function saveMessagesLocal() {
+      if (!state.currentBranch) return;
+      try {
+        localStorage.setItem(messagesKeyName(state.currentBranch), JSON.stringify({ messages: Array.isArray(state.messages) ? state.messages : [] }));
+      } catch (e) {}
+    }
+
     function saveState() {
       const json = JSON.stringify(state);
       memoryStore = json;
       if (!storageAvailable) return;
       try {
-        const { messages } = state;
         const cell1 = buildStateCellPayload(state);
         localStorage.setItem(STORAGE_KEY_1, JSON.stringify(cell1));
-        localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify({ messages: Array.isArray(messages) ? messages : [] }));
       } catch (err) {
         console.error(err);
         storageAvailable = false;
@@ -10818,15 +10849,18 @@ window.addEventListener('pagehide', function() {
 
       const rows = keys.map(key => {
         let raw = dataOverride ? (dataOverride[key] || '') : (localStorage.getItem(key) || '');
-        // 移行期間中（連絡ノートのメッセージがまだ専用キーとしてスプレッドシートに保存されていない場合）は、
-        // 旧形式（設定データに同梱）から実際のメッセージ内容を計算して表示する。
-        // これをしないと、実際にはデータがあるのに「最新を取得」で0文字に見えてしまい、
-        // メッセージが消えたように誤解される。
-        if (dataOverride && key === 'kawakyu-chatwork-messages-v1' && !raw && dataOverride['kawakyu-chatwork-v5']) {
+        // 移行期間中（連絡ノートのメッセージがまだ営業所専用キーとしてスプレッドシートに
+        // 保存されていない場合）は、旧形式（全営業所共有の専用キー、さらに旧い設定データへの
+        // 同梱）から実際のメッセージ内容を計算して表示する。これをしないと、実際にはデータが
+        // あるのに「最新を取得」で0文字に見えてしまい、メッセージが消えたように誤解される。
+        if (dataOverride && typeof messagesKeyName === 'function' && key === messagesKeyName(branchName) && !raw) {
           try {
-            const legacy = JSON.parse(dataOverride['kawakyu-chatwork-v5']);
-            if (Array.isArray(legacy.messages)) {
-              raw = JSON.stringify({ messages: legacy.messages });
+            if (dataOverride['kawakyu-chatwork-messages-v1']) {
+              const legacyShared = JSON.parse(dataOverride['kawakyu-chatwork-messages-v1']);
+              if (Array.isArray(legacyShared.messages)) raw = JSON.stringify({ messages: legacyShared.messages });
+            } else if (dataOverride['kawakyu-chatwork-v5']) {
+              const legacy = JSON.parse(dataOverride['kawakyu-chatwork-v5']);
+              if (Array.isArray(legacy.messages)) raw = JSON.stringify({ messages: legacy.messages });
             }
           } catch (e) {}
         }
@@ -12180,6 +12214,29 @@ window.addEventListener('pagehide', function() {
       if (localStorage.getItem('kawakyu_logged_in') === '1') saveState();
     })();
 
+    // 連絡ノートのメッセージを、全営業所で共有される単一セルから、営業所専用セル
+    // （messages_営業所名）へ切り出す（一度だけ実行）。各営業所ごとに「その営業所から見える
+    // メッセージ（送信元・宛先が自分、または旧形式でlegacyBranchesに含まれる）」だけを
+    // ローカルに書き出す。これにより、営業所分離前の古いメッセージ（legacyBranches付き）も
+    // この時点で該当する全営業所へ展開され、以後は特別扱い不要になる（1回限りの固定サイズの
+    // 重複で、今後増え続けない）。
+    (function migrateMessagesIntoDedicatedCells() {
+      if (state.messagesSplitMigrated) return;
+      if (!Array.isArray(state.branches)) return;
+      const allMessages = state.messages || [];
+      state.branches.forEach(b => {
+        if (localStorage.getItem(messagesKeyName(b.name)) !== null) return; // 移行済み
+        const visible = allMessages.filter(m => {
+          if (m.senderBranch) return m.senderBranch === b.name || m.targetBranch === b.name;
+          if (Array.isArray(m.legacyBranches)) return m.legacyBranches.includes(b.name);
+          return true;
+        });
+        localStorage.setItem(messagesKeyName(b.name), JSON.stringify({ messages: visible }));
+      });
+      state.messagesSplitMigrated = true;
+      if (localStorage.getItem('kawakyu_logged_in') === '1') saveState();
+    })();
+
     function loadDailyTaskData() {
       try { dailyTaskItems = normalizeDailyTaskItems(cloneJsonValue(ensureBranchBucket(state.currentBranch).dailyTaskItems || [])); } catch (e) { dailyTaskItems = []; }
       try { dailyTaskRecords = JSON.parse(localStorage.getItem(dailyKey('dailyTaskRecords'))) || {}; } catch (e) { dailyTaskRecords = {}; }
@@ -12699,7 +12756,9 @@ window.addEventListener('pagehide', function() {
         state.messages.push(msg);
         state.lastRead[currentRoom] = msg.ts;
         saveState();
+        if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('投稿をスプレッドシートに保存しました');
+        if (typeof propagateMessageChangeToOtherBranches === 'function') propagateMessageChangeToOtherBranches(msg, 'upsert');
         composerAttachments = [];
         renderComposerAttachments();
         document.getElementById('composerFileInput').value = '';
@@ -12721,10 +12780,13 @@ window.addEventListener('pagehide', function() {
 
     function confirmDelete(id) {
       openModal('削除', 'このメッセージを削除しますか？', () => {
+        const deletedMsg = state.messages.find(m => m.id === id);
         if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([id]);
         state.messages = state.messages.filter(m => m.id !== id);
         saveState();
+        if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
         if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+        if (deletedMsg && typeof propagateMessageChangeToOtherBranches === 'function') propagateMessageChangeToOtherBranches(deletedMsg, 'delete');
         renderRoomList();
         renderMessages();
         renderDetail();
@@ -14298,7 +14360,9 @@ window.addEventListener('pagehide', function() {
       msg.body = text;
       msg.edited = true;
       saveState();
+      if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
+      if (typeof propagateMessageChangeToOtherBranches === 'function') propagateMessageChangeToOtherBranches(msg, 'upsert');
       closeEditModal();
       renderMessages();
       renderRoomList();
@@ -14361,7 +14425,9 @@ window.addEventListener('pagehide', function() {
       state.messages.push(msg);
       state.lastRead[currentRoom] = msg.ts;
       saveState();
+      if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet('投稿をスプレッドシートに保存しました');
+      if (typeof propagateMessageChangeToOtherBranches === 'function') propagateMessageChangeToOtherBranches(msg, 'upsert');
       closeReplyModal();
       renderRoomList();
       renderMessages();
@@ -15358,6 +15424,7 @@ window.addEventListener('pagehide', function() {
           state.messages = (state.messages || []).filter(m => !oldMsgIdSet.has(m.id));
           state.tasks = (state.tasks || []).filter(t => !oldTaskIdSet.has(t.id));
           saveState();
+          if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
           if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
           if (typeof renderRoomList === 'function') renderRoomList();
           if (typeof renderMessages === 'function') renderMessages();
@@ -17783,7 +17850,7 @@ function getSpreadsheetId(branchName) {
 function getSyncKeys(branchName) {
   return [
     STORAGE_KEY_1,
-    'kawakyu-chatwork-messages-v1',
+    messagesKeyName(branchName),
     `仮締め記録_${branchName}`,
     `salesRecords_${branchName}`,
     `dailyTaskRecords_${branchName}`,
@@ -17834,9 +17901,10 @@ function getSyncKeysForTab(tabBtnId, branchName) {
         .concat([shakenLegacyKeyName(branchName)]);
     case 'state':
       // メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目・代車台数・車検予定入力
-      // 不可設定等（BRANCH_SETTINGS_FIELDS）は営業所専用セルへ保存する。STORAGE_KEY_1には
-      // 今も残る他の設定（営業所リスト・管理者パスワード等）のため引き続き対象に含める。
-      return [STORAGE_KEY_1, 'kawakyu-chatwork-messages-v1', branchSettingsKeyName(branchName)];
+      // 不可設定等（BRANCH_SETTINGS_FIELDS）、連絡ノートのメッセージは、いずれも営業所専用
+      // セルへ保存する。STORAGE_KEY_1には今も残る他の設定（営業所リスト・管理者パスワード等）
+      // のため引き続き対象に含める。
+      return [STORAGE_KEY_1, messagesKeyName(branchName), branchSettingsKeyName(branchName)];
     default:
       return getSyncKeys(branchName);
   }
@@ -17999,41 +18067,59 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
   try {
     const result = await gasRequest('load', spreadsheetId);
     if (!result || !result.ok || !result.data) return;
-    // 営業所共通設定セル（STORAGE_KEY_1）に今も残るのは、連絡ノートのメッセージと
-    // 販売実績表の項目設定（いずれも全営業所で共有される、数少ないトップレベルの共通データ）
-    // のみ。メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目等の営業所別データは、
-    // 営業所専用セル（branchSettings_営業所名）で個別にマージする
-    // （mergeRemoteBranchSettingsBeforeSave参照）ため、ここでは扱わない。
+    // 営業所共通設定セル（STORAGE_KEY_1）に今も残るのは、販売実績表の項目設定
+    // （全営業所で共有される、数少ないトップレベルの共通データ）のみ。連絡ノートの
+    // メッセージ（mergeRemoteMessagesBeforeSave）、メンバー・タスク・ブックマーク・
+    // シフト共通設定・日常業務項目等の営業所別データ（mergeRemoteBranchSettingsBeforeSave）は
+    // それぞれ営業所専用セルで個別にマージするため、ここでは扱わない。
     const raw = result.data[STORAGE_KEY_1] || result.data['kawakyu-chatwork-v5'];
-    const messagesRaw = result.data['kawakyu-chatwork-messages-v1'];
-    if (!raw && !messagesRaw) return;
-
-    // 連絡ノートのメッセージ本体は営業所をまたいで共有される、唯一のトップレベル配列。
-    // 新形式（専用キー）を優先し、まだ専用キーが無い（旧バージョンの端末が保存した）場合は
-    // 旧形式（設定データに同梱）からも読み取る。
-    let remoteMessages;
-    try {
-      if (messagesRaw) remoteMessages = JSON.parse(messagesRaw).messages;
-    } catch (e) {}
-    if (!Array.isArray(remoteMessages) && raw) {
-      try { remoteMessages = JSON.parse(raw).messages; } catch (e) {}
-    }
-    if (Array.isArray(remoteMessages)) {
-      state.messages = mergeArrayById(state.messages, remoteMessages);
-    }
+    if (!raw) return;
 
     // 販売実績表の項目設定は全営業所共通のトップレベル配列（idあり）
-    if (raw) {
-      const remote = JSON.parse(raw);
-      if (Array.isArray(remote.salesItems)) {
-        state.salesItems = mergeArrayById(state.salesItems, remote.salesItems);
-      }
+    const remote = JSON.parse(raw);
+    if (Array.isArray(remote.salesItems)) {
+      state.salesItems = mergeArrayById(state.salesItems, remote.salesItems);
     }
 
     saveState();
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
   }
+}
+
+// 連絡ノートのメッセージ（この営業所が送信元 or 宛先のものだけ）を、営業所専用セル
+// （messages_営業所名）から保存前マージする。mergeRemoteBranchSettingsBeforeSave等と
+// 同じ構造（リモート取得→IDマージ→取得の成否に関わらず必ずローカルの最新内容を書き戻す）。
+// 他営業所宛てメッセージの新規投稿・編集・削除そのものは、この関数ではなく
+// propagateMessageChangeToOtherBranchesが相手営業所のスプレッドシートへ直接反映する。
+async function mergeRemoteMessagesBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId) return;
+  let localMessages = [];
+  try {
+    const raw = localStorage.getItem(messagesKeyName(branchName));
+    if (raw) localMessages = JSON.parse(raw).messages || [];
+  } catch (e) {}
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    let raw = (result && result.ok && result.data) ? result.data[messagesKeyName(branchName)] : null;
+    // この営業所自身がまだ専用セルへの移行後の保存を一度もしていない場合、
+    // 旧形式（全営業所共有のkawakyu-chatwork-messages-v1）へフォールバックする。
+    if (!raw && result && result.ok && result.data) {
+      raw = result.data['kawakyu-chatwork-messages-v1'];
+    }
+    if (raw) {
+      const remoteMessages = JSON.parse(raw).messages;
+      if (Array.isArray(remoteMessages)) {
+        localMessages = mergeArrayById(localMessages, remoteMessages);
+      }
+    }
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+  localStorage.setItem(messagesKeyName(branchName), JSON.stringify({ messages: localMessages }));
+  // 他営業所ぶんの保存（管理者が他営業所のデータを編集して保存する場合等）で、今表示中の
+  // state.messagesまで書き換えてしまわないよう、自分自身の営業所の場合だけ反映する。
+  if (branchName === state.currentBranch) state.messages = localMessages;
 }
 
 // メンバー・タスク・ブックマーク・ブックマークカテゴリ・予定プリセット・シフト共通設定・
@@ -18328,8 +18414,11 @@ async function syncToSheet(branchName, keysOverride) {
   }
   const spreadsheetId = getSpreadsheetId(branchName);
   const keys = keysOverride || getSyncKeys(branchName);
-  if (keys.includes(STORAGE_KEY_1) || keys.includes('kawakyu-chatwork-messages-v1')) {
+  if (keys.includes(STORAGE_KEY_1)) {
     await mergeRemoteStateArraysBeforeSave(spreadsheetId);
+  }
+  if (keys.includes(messagesKeyName(branchName))) {
+    await mergeRemoteMessagesBeforeSave(branchName, spreadsheetId);
   }
   if (keys.includes(`shifts_${branchName}`)) {
     await mergeRemoteShiftsBeforeSave(branchName, spreadsheetId);
@@ -18405,6 +18494,7 @@ const KEY_LABEL_PREFIX = {
   'sidebarTasks_': '予定タブのタスク一覧',
   'shakenReservations_': '車検予約データ',
   'branchSettings_': '営業所設定（メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目等）',
+  'messages_': '連絡ノートのメッセージ（営業所専用）',
 };
 
 function describeKeyForWarning(key) {
@@ -18514,6 +18604,11 @@ async function doSyncFromSheet(branchName) {
   // ここでは取りこぼさないよう明示的に許可し、ダウンロードできるようにする
   // （loadState()側の旧形式フォールバックで正しく復元される）。
   const legacyStateKey = 'kawakyu-chatwork-v5';
+  // 連絡ノートのメッセージも、まだ営業所専用セル（messages_営業所名）へ移行済みの保存を
+  // 一度もしていない営業所は、リモートのシートに旧・全営業所共有の単一キーしか無い。
+  // keysには含めていないが、ここでは取りこぼさないよう明示的に許可し、ダウンロードできる
+  // ようにする（loadState()側のloadMessagesFromStorageのフォールバックで正しく復元される）。
+  const legacyMessagesKey = 'kawakyu-chatwork-messages-v1';
   // 車検予約・仮締め記録は月別に分割されたキー（例: shakenReservations_営業所名_YYYY-MM）を
   // 使うため、静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
   const shakenMonthlyPrefix = `shakenReservations_${branchName}_`;
@@ -18521,9 +18616,10 @@ async function doSyncFromSheet(branchName) {
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     const isLegacyStateKey = (k === legacyStateKey);
+    const isLegacyMessagesKey = (k === legacyMessagesKey);
     const isShakenMonthlyKey = k.indexOf(shakenMonthlyPrefix) === 0;
     const isKasimeMonthlyKey = k.indexOf(kasimeMonthlyPrefix) === 0;
-    if ((!keys.includes(k) && !isLegacyStateKey && !isShakenMonthlyKey && !isKasimeMonthlyKey) || v === undefined || v === null || v === '') return;
+    if ((!keys.includes(k) && !isLegacyStateKey && !isLegacyMessagesKey && !isShakenMonthlyKey && !isKasimeMonthlyKey) || v === undefined || v === null || v === '') return;
     let valueToStore = v;
     if (k === STORAGE_KEY_1 || isLegacyStateKey) {
       // currentBranchは「この端末が今ログインしている営業所」を表すローカルな値。
@@ -18750,6 +18846,53 @@ async function propagateSalesItemsToOtherBranches() {
     } catch (err) {
       console.error('salesItems propagation failed for', b.name, err);
       return { branch: b.name, ok: false };
+    }
+  }));
+  const failed = results.filter(r => !r.ok);
+  if (failed.length) {
+    appToast(`一部の営業所（${failed.map(f => f.branch).join('・')}）への反映に失敗しました`);
+  }
+}
+
+// 連絡ノートのメッセージへの変更（新規投稿・編集・削除）を、そのメッセージに関係する
+// 「自分以外の営業所」（送信元 or 宛先。旧・営業所分離前のメッセージはlegacyBranches全員）の
+// スプレッドシートへ直接反映する。propagateSalesItemsToOtherBranchesと同じ「対象営業所の
+// スプレッドシートを直接読み込み→パッチ→書き戻す」パターンだが、対象は関係する1〜数営業所に
+// 限定し、IDベースの追加・上書き・削除を行う（全体上書きはしない）。
+// この直接反映により、ローカル端末だけのゴミ箱リスト（recentlyDeletedIds）に頼らずとも、
+// 削除が相手営業所のスプレッドシートへ確実に反映される。
+async function propagateMessageChangeToOtherBranches(msg, action) {
+  // action: 'upsert' | 'delete'
+  if (!getGasUrl()) return;
+  let targets;
+  if (msg.senderBranch) {
+    const other = (msg.senderBranch === state.currentBranch) ? msg.targetBranch : msg.senderBranch;
+    targets = (other && other !== state.currentBranch) ? [other] : [];
+  } else if (Array.isArray(msg.legacyBranches)) {
+    targets = msg.legacyBranches.filter(b => b !== state.currentBranch);
+  } else {
+    targets = [];
+  }
+  targets = targets.filter(b => getSpreadsheetId(b));
+  if (!targets.length) return;
+  const results = await Promise.all(targets.map(async branchName => {
+    const spreadsheetId = getSpreadsheetId(branchName);
+    try {
+      const loaded = await gasRequest('load', spreadsheetId);
+      let arr = [];
+      const raw = loaded && loaded.data && loaded.data[messagesKeyName(branchName)];
+      if (raw) { try { arr = JSON.parse(raw).messages || []; } catch (e) {} }
+      if (action === 'delete') {
+        arr = arr.filter(m => m.id !== msg.id);
+      } else {
+        const idx = arr.findIndex(m => m.id === msg.id);
+        if (idx >= 0) arr[idx] = cloneJsonValue(msg); else arr.push(cloneJsonValue(msg));
+      }
+      await gasRequest('save', spreadsheetId, { [messagesKeyName(branchName)]: JSON.stringify({ messages: arr }) });
+      return { branch: branchName, ok: true };
+    } catch (err) {
+      console.error('message propagation failed for', branchName, err);
+      return { branch: branchName, ok: false };
     }
   }));
   const failed = results.filter(r => !r.ok);
@@ -19019,7 +19162,7 @@ function simpleSyncSnapshotKey(tabBtnId, dataKey) {
 // 実際の編集が無くてもアプリを開くたびに「連絡ノートが未保存」と誤検知してしまうため、
 // 連絡ノートについてはメッセージ本体（kawakyu-chatwork-messages-v1）だけを比較対象にする。
 function simpleTabTrackedKeys(tabBtnId, keys) {
-  if (tabBtnId === 'state') return (keys || []).filter(k => k === 'kawakyu-chatwork-messages-v1');
+  if (tabBtnId === 'state') return (keys || []).filter(k => k.indexOf('messages_') === 0);
   return keys || [];
 }
 function markTabSyncedForPendingCheck(tabBtnId, keys) {
