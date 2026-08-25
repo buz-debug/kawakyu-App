@@ -8245,6 +8245,7 @@ window.addEventListener('pagehide', function() {
     const STATE_TOPLEVEL_KEYS_CELL1 = [
       'userName', 'branches', 'currentBranch', 'adminPassword', 'legacyMessagesMigrated',
       'salesItems', 'salesItemsMigrated', 'dailyTaskItemsMigrated', 'dataRetentionMonths',
+      'branchSettingsMigrated',
     ];
     // state.branchData[営業所名]内の項目のうち、専用の営業所別セルだけに保存し、
     // このセルには含めない（二重保存を避けるため）もの。読み込み時にloadState()側で、
@@ -8254,6 +8255,23 @@ window.addEventListener('pagehide', function() {
       sidebarTasks: 'sidebarTasks_',
       shakenReservations: 'shakenReservations_',
     };
+    // メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目など、営業所ごとに
+    // 異なるにも関わらず「営業所共通設定」セルに間借りしていた項目群。営業所を追加するたびに
+    // 全営業所の全スプレッドシートへ他営業所ぶんも重複して書き込まれ、セルサイズが営業所数に
+    // 比例して増え続けてしまっていたため、この17項目をまとめて1つの営業所専用セル
+    // （branchSettings_営業所名）へ切り出す。個々には小さいデータのため、schedules等のように
+    // 項目ごとに専用セルを分けず、1営業所につき1セルにまとめる。
+    function branchSettingsKeyName(branchName) {
+      return `branchSettings_${branchName}`;
+    }
+    const BRANCH_SETTINGS_ARRAY_ID_FIELDS = ['members', 'tasks', 'bookmarks', 'dailyTaskItems'];
+    const BRANCH_SETTINGS_FLAT_FIELDS = [
+      'businessHours', 'timeFrames', 'timeFrameOrder', 'calcConditions', 'shiftDeadline',
+      'lastRead', 'timeUnit', 'scheduleTimeStart', 'scheduleTimeEnd',
+      'bookmarkCategories', 'schedulePresets', 'loanerCarCount',
+      'shakenBlockDates', 'shakenBlockWeekdays',
+    ];
+    const BRANCH_SETTINGS_FIELDS = [...BRANCH_SETTINGS_ARRAY_ID_FIELDS, ...BRANCH_SETTINGS_FLAT_FIELDS];
     // 連絡ノートのメッセージは他の設定データより大きく増え続けるため、別セルに分けて保存する。
     const MESSAGES_STORAGE_KEY = 'kawakyu-chatwork-messages-v1';
     const COLORS = ['#4a7fb5','#5b7c9d','#7c6b9d','#c45c3e','#8b5cf6','#0891b2','#ca8a04'];
@@ -8541,36 +8559,28 @@ window.addEventListener('pagehide', function() {
       return state.branchData[branchName];
     }
 
-    // メンバー・項目設定・シフト共通設定など「営業所共通設定など」セル内の設定系データを
-    // 保存前マージする際のベースライン（前回サーバーとやり取りした時点の値）を作る。
-    // ページ読み込み直後（初期化完了時）に一度取り、保存が成功するたびに「今回保存した内容」へ
-    // 更新することで、個々の編集箇所にマーキング処理を仕込まなくても、実際に変更した
-    // フィールドだけを正しく検出できる（mergeRemoteStateArraysBeforeSaveから参照する）。
+    // メンバー・項目設定・シフト共通設定など、営業所専用セル（branchSettings_営業所名）内の
+    // 設定系データを保存前マージする際のベースライン（前回サーバーとやり取りした時点の値）を
+    // 営業所ごとに作る。ページ読み込み直後（初期化完了時）に一度取り、保存が成功するたびに
+    // 「今回保存した内容」へ更新することで、個々の編集箇所にマーキング処理を仕込まなくても、
+    // 実際に変更したフィールドだけを正しく検出できる（mergeRemoteBranchSettingsBeforeSaveから参照する）。
     // bookmarkCategories・schedulePresetsはid管理が無く「削除済みの復活防止」ができないため、
     // 配列全体を1つの値として扱う（この端末が触っていなければリモートの配列をそのまま採用、
     // 触っていれば追加・削除を含めてこの端末の配列をそのまま残す）。
-    const STATE_SETTINGS_BRANCH_FLAT_KEYS = [
-      'businessHours', 'timeFrames', 'timeFrameOrder', 'calcConditions', 'shiftDeadline',
-      'lastRead', 'timeUnit', 'scheduleTimeStart', 'scheduleTimeEnd',
-      'bookmarkCategories', 'schedulePresets', 'loanerCarCount',
-      'shakenBlockDates', 'shakenBlockWeekdays',
-    ];
-    let stateSettingsBaseline = null;
-    function buildStateSettingsSnapshot() {
-      const branches = {};
+    let branchSettingsBaselines = {};
+    function buildBranchSettingsSnapshot(branchName) {
+      const bucket = (state.branchData && state.branchData[branchName]) || {};
+      const flat = {};
+      BRANCH_SETTINGS_FLAT_FIELDS.forEach(key => { flat[key] = bucket[key]; });
+      return flat;
+    }
+    function captureBranchSettingsBaseline(branchName) {
+      branchSettingsBaselines[branchName] = cloneJsonValue(buildBranchSettingsSnapshot(branchName));
+    }
+    function captureAllBranchSettingsBaselines() {
       Object.keys(state.branchData || {}).forEach(branchName => {
-        const bucket = state.branchData[branchName] || {};
-        const flat = {};
-        STATE_SETTINGS_BRANCH_FLAT_KEYS.forEach(key => { flat[key] = bucket[key]; });
-        branches[branchName] = { flat };
+        captureBranchSettingsBaseline(branchName);
       });
-      return { branches };
-    }
-    function captureStateSettingsBaseline() {
-      stateSettingsBaseline = cloneJsonValue(buildStateSettingsSnapshot());
-    }
-    function markStateSettingsSynced() {
-      captureStateSettingsBaseline();
     }
 
     // 旧バージョン（営業所ごとに分かれていない単一データ）からの移行。
@@ -8661,7 +8671,7 @@ window.addEventListener('pagehide', function() {
     // ここまでで初期化・移行処理は完了。この時点の設定値を「前回サーバーとやり取りした時点」の
     // ベースラインとして記録しておく（保存前マージで、この端末が実際に変更したフィールドだけを
     // 正しく検出するために使う）。
-    captureStateSettingsBaseline();
+    captureAllBranchSettingsBaselines();
 
     let currentRoom = 'all';
     let currentTab = 'chat';
@@ -8815,6 +8825,22 @@ window.addEventListener('pagehide', function() {
         if (sawAny || legacyRaw !== null) {
           if (!result[branchName]) result[branchName] = {};
           result[branchName].shakenReservations = combined;
+        }
+
+        // メンバー・シフト共通設定・日常業務項目等（BRANCH_SETTINGS_FIELDS）：
+        // 1営業所につき1セル（branchSettings_営業所名）にまとめて保存しているため、
+        // 1回だけ読み込んで該当フィールドをまとめて反映する。専用セルがまだ無い
+        // （＝この営業所をこの端末でまだ一度も移行していない）場合は何もしない
+        // （migrateBranchSettingsIntoDedicatedCellが初回移行を担当する）。
+        const branchSettingsRaw = localStorage.getItem(branchSettingsKeyName(branchName));
+        if (branchSettingsRaw !== null) {
+          try {
+            const parsed = JSON.parse(branchSettingsRaw);
+            if (!result[branchName]) result[branchName] = {};
+            BRANCH_SETTINGS_FIELDS.forEach(field => {
+              if (field in parsed) result[branchName][field] = parsed[field];
+            });
+          } catch (e) {}
         }
       });
       return result;
@@ -8984,7 +9010,7 @@ window.addEventListener('pagehide', function() {
         const bucket = state.branchData[branchName] || {};
         const b1 = {};
         Object.keys(bucket).forEach(key => {
-          if (dedicatedFields.includes(key)) return;
+          if (dedicatedFields.includes(key) || BRANCH_SETTINGS_FIELDS.includes(key)) return;
           b1[key] = bucket[key];
         });
         cell1.branchData[branchName] = b1;
@@ -12132,6 +12158,25 @@ window.addEventListener('pagehide', function() {
       // ログイン前でのsaveState()は避ける（詳しい経緯はlegacyMessagesMigrated側の
       // 同様のコメントを参照）。移行結果はメモリ上のstateに残るため、ログイン時に
       // 正しく永続化される。
+      if (localStorage.getItem('kawakyu_logged_in') === '1') saveState();
+    })();
+
+    // メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目等（BRANCH_SETTINGS_FIELDS）を、
+    // 営業所共通設定セルへの間借りから、営業所専用セル（branchSettings_営業所名）へ切り出す
+    // （営業所が増えるたびに全営業所ぶん重複してセルサイズが膨らむ問題への対策）。
+    // 営業所ごとに、専用セルがまだ無ければ、今のbranchData（旧セルから読み込み済みの内容）を
+    // そのままコピーする。既存データは失わない（コピーのみ、旧セル側の削除は行わない）。
+    (function migrateBranchSettingsIntoDedicatedCell() {
+      if (state.branchSettingsMigrated) return;
+      if (!Array.isArray(state.branches) || typeof ensureBranchBucket !== 'function') return;
+      state.branches.forEach(b => {
+        if (localStorage.getItem(branchSettingsKeyName(b.name)) !== null) return; // 移行済み
+        const bucket = ensureBranchBucket(b.name);
+        const payload = {};
+        BRANCH_SETTINGS_FIELDS.forEach(f => { payload[f] = bucket[f]; });
+        localStorage.setItem(branchSettingsKeyName(b.name), JSON.stringify(payload));
+      });
+      state.branchSettingsMigrated = true;
       if (localStorage.getItem('kawakyu_logged_in') === '1') saveState();
     })();
 
@@ -15588,6 +15633,27 @@ async function switchShiftViewBranch(name, silent) {
         }
     }
 
+    // 時間枠・営業時間・休日集計条件・提出締切（businessHours等）も同様に、この端末が
+    // その営業所をまだ一度も同期していなければ空/古いままになるため、その場で取得して反映する。
+    if (typeof getGasUrl === 'function' && typeof getSpreadsheetId === 'function' && typeof mergeRemoteBranchSettingsBeforeSave === 'function' && getGasUrl() && getSpreadsheetId(name)) {
+        await mergeRemoteBranchSettingsBeforeSave(name, getSpreadsheetId(name));
+        if (shiftViewBranch === name) {
+            const freshBucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(name) : null;
+            businessHours = (freshBucket && freshBucket.businessHours) ? cloneShiftSettingValue(freshBucket.businessHours) : businessHours;
+            timeFrames = (freshBucket && freshBucket.timeFrames) ? cloneShiftSettingValue(freshBucket.timeFrames) : timeFrames;
+            timeFrameOrder = (freshBucket && freshBucket.timeFrameOrder) ? cloneShiftSettingValue(freshBucket.timeFrameOrder) : timeFrameOrder;
+            calcConditions = (freshBucket && freshBucket.calcConditions) ? cloneShiftSettingValue(freshBucket.calcConditions) : calcConditions;
+            shiftDeadline = (freshBucket && freshBucket.shiftDeadline) ? cloneShiftSettingValue(freshBucket.shiftDeadline) : shiftDeadline;
+            if (typeof renderTimeFrameEditor === "function") renderTimeFrameEditor();
+            if (typeof renderTimeframeList === "function") renderTimeframeList();
+            if (typeof renderMultiselectDropdowns === "function") renderMultiselectDropdowns();
+            if (startEl) startEl.value = businessHours.start;
+            if (endEl) endEl.value = businessHours.end;
+            if (dayEl) dayEl.value = shiftDeadline.day;
+            if (timeEl) timeEl.value = shiftDeadline.time;
+        }
+    }
+
     if (!silent) sfShowToast(`「${name}」のシフトを表示しています`);
 }
 
@@ -17725,6 +17791,7 @@ function getSyncKeys(branchName) {
     `schedules_${branchName}`,
     `sidebarTasks_${branchName}`,
     `shakenReservations_${branchName}`,
+    branchSettingsKeyName(branchName),
   ];
 }
 
@@ -17736,19 +17803,19 @@ function getSyncKeys(branchName) {
 function getSyncKeysForTab(tabBtnId, branchName) {
   switch (tabBtnId) {
     case 'shift':
-      // 時間枠・営業時間・休日集計条件・提出締切は「営業所共通設定」セルにまとめて
-      // 保存するため、shiftsデータと合わせてSTORAGE_KEY_1も対象に含める
+      // 時間枠・営業時間・休日集計条件・提出締切は営業所専用セル（branchSettings_営業所名）に
+      // まとめて保存するため、shiftsデータと合わせて対象に含める
       // （予定カレンダー・車検予約等の大きいデータは専用セルにしかないためシフト保存には無関係）。
       return [
         `shifts_${branchName}`,
-        STORAGE_KEY_1,
+        branchSettingsKeyName(branchName),
       ];
     case 'sales':
       // 項目設定（全営業所共通）は「営業所共通設定」セルにまとめて保存する。
       return [STORAGE_KEY_1, `salesRecords_${branchName}`];
     case 'daily':
-      // 項目設定は「営業所共通設定」セルにまとめて保存する。
-      return [STORAGE_KEY_1, `dailyTaskRecords_${branchName}`];
+      // 項目設定（dailyTaskItems）は営業所専用セル（branchSettings_営業所名）にまとめて保存する。
+      return [branchSettingsKeyName(branchName), `dailyTaskRecords_${branchName}`];
     case 'kasime':
       // 仮締め記録は月別に分割されたキー全て（＋旧単一キー。移行済みなら空のまま送るだけで無害）を対象にする。
       // 入力下書き（仮締め入力下書き_営業所名）は1台の端末が今まさに入力中の一時データのため、
@@ -17766,7 +17833,10 @@ function getSyncKeysForTab(tabBtnId, branchName) {
         .map(mk => shakenMonthlyKeyName(branchName, mk))
         .concat([shakenLegacyKeyName(branchName)]);
     case 'state':
-      return [STORAGE_KEY_1, 'kawakyu-chatwork-messages-v1'];
+      // メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目・代車台数・車検予定入力
+      // 不可設定等（BRANCH_SETTINGS_FIELDS）は営業所専用セルへ保存する。STORAGE_KEY_1には
+      // 今も残る他の設定（営業所リスト・管理者パスワード等）のため引き続き対象に含める。
+      return [STORAGE_KEY_1, 'kawakyu-chatwork-messages-v1', branchSettingsKeyName(branchName)];
     default:
       return getSyncKeys(branchName);
   }
@@ -17929,9 +17999,11 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
   try {
     const result = await gasRequest('load', spreadsheetId);
     if (!result || !result.ok || !result.data) return;
-    // このマージ対象（tasks/bookmarks/members/dailyTaskItems・シフト共通設定等・salesItems）は
-    // すべて営業所共通設定セル（STORAGE_KEY_1）にある。まだそのセルを保存したことがない営業所
-    // （旧セルkawakyu-chatwork-v5のみ）にも対応できるよう、両方を確認する。
+    // 営業所共通設定セル（STORAGE_KEY_1）に今も残るのは、連絡ノートのメッセージと
+    // 販売実績表の項目設定（いずれも全営業所で共有される、数少ないトップレベルの共通データ）
+    // のみ。メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目等の営業所別データは、
+    // 営業所専用セル（branchSettings_営業所名）で個別にマージする
+    // （mergeRemoteBranchSettingsBeforeSave参照）ため、ここでは扱わない。
     const raw = result.data[STORAGE_KEY_1] || result.data['kawakyu-chatwork-v5'];
     const messagesRaw = result.data['kawakyu-chatwork-messages-v1'];
     if (!raw && !messagesRaw) return;
@@ -17950,43 +18022,9 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
       state.messages = mergeArrayById(state.messages, remoteMessages);
     }
 
-    // 連絡ノートのタスク・ブックマーク・メンバー・日常業務項目・ブックマークカテゴリ・予定プリセット・
-    // シフト共通設定は、いずれも営業所ごとに state.branchData[営業所名][項目] に保持されているため
-    // （state.tasks 等はそのプロキシに過ぎない）、営業所ごとにマージする。
-    // 予定カレンダー（schedules）・タスク一覧（sidebarTasks）・車検予約・仮締め記録は、
-    // それぞれ独立した保存キーで個別にマージするため、ここでは扱わない。
+    // 販売実績表の項目設定は全営業所共通のトップレベル配列（idあり）
     if (raw) {
       const remote = JSON.parse(raw);
-      const ARRAY_ID_PER_BRANCH_KEYS = ['tasks', 'bookmarks', 'members', 'dailyTaskItems'];
-      const baseline = stateSettingsBaseline || buildStateSettingsSnapshot();
-      if (remote.branchData && typeof remote.branchData === 'object') {
-        if (!state.branchData) state.branchData = {};
-        Object.keys(remote.branchData).forEach(branchName => {
-          const remoteBucket = remote.branchData[branchName];
-          if (!remoteBucket) return;
-          const localBucket = (typeof ensureBranchBucket === 'function')
-            ? ensureBranchBucket(branchName)
-            : (state.branchData[branchName] || (state.branchData[branchName] = {}));
-          // id付きの項目（追加は必ず反映。削除時はmarkIdsAsDeletedで復活を防いでいる）
-          ARRAY_ID_PER_BRANCH_KEYS.forEach(key => {
-            localBucket[key] = mergeArrayById(localBucket[key], remoteBucket[key]);
-          });
-          // シフト共通設定など「フラットな設定値」は、前回同期時点（baseline）と比べて
-          // この端末が実際に変更したものだけローカル優先、触れていないものはリモートを採用する
-          const baseBucket = (baseline.branches && baseline.branches[branchName]) || {};
-          const localFlat = {};
-          const remoteFlat = {};
-          STATE_SETTINGS_BRANCH_FLAT_KEYS.forEach(key => {
-            localFlat[key] = localBucket[key];
-            remoteFlat[key] = remoteBucket[key];
-          });
-          const mergedFlat = mergeFlatDictByBaseline(localFlat, remoteFlat, baseBucket.flat || {});
-          STATE_SETTINGS_BRANCH_FLAT_KEYS.forEach(key => {
-            if (mergedFlat[key] !== undefined) localBucket[key] = mergedFlat[key];
-          });
-        });
-      }
-      // 販売実績表の項目設定は全営業所共通のトップレベル配列（idあり）
       if (Array.isArray(remote.salesItems)) {
         state.salesItems = mergeArrayById(state.salesItems, remote.salesItems);
       }
@@ -17996,6 +18034,66 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
   }
+}
+
+// メンバー・タスク・ブックマーク・ブックマークカテゴリ・予定プリセット・シフト共通設定・
+// 日常業務項目・代車台数・車検予定入力不可設定（BRANCH_SETTINGS_FIELDS）を、営業所専用セル
+// （branchSettings_営業所名）から保存前マージする。mergeRemoteShiftsBeforeSave等と同じ構造。
+async function mergeRemoteBranchSettingsBeforeSave(branchName, spreadsheetId) {
+  if (!spreadsheetId || typeof ensureBranchBucket !== 'function') return;
+  const bucket = ensureBranchBucket(branchName);
+  try {
+    const result = await gasRequest('load', spreadsheetId);
+    let raw = (result && result.ok && result.data) ? result.data[branchSettingsKeyName(branchName)] : null;
+    // この営業所自身がまだ専用セルへの移行後の保存を一度もしていない場合、
+    // リモート（その営業所自身のスプレッドシート）にはまだ branchSettings_営業所名 が無い。
+    // その場合は、旧セル（STORAGE_KEY_1、またはさらに古いkawakyu-chatwork-v5）に残っている
+    // branchData[この営業所]へフォールバックする（他営業所閲覧時、その営業所がまだ
+    // 一度もこの新しい保存フローを通っていなくても、正しい最新値を取得できるようにするため）。
+    if (!raw && result && result.ok && result.data) {
+      const legacyRaw = result.data[STORAGE_KEY_1] || result.data['kawakyu-chatwork-v5'];
+      if (legacyRaw) {
+        try {
+          const legacyParsed = JSON.parse(legacyRaw);
+          const legacyBucket = legacyParsed.branchData && legacyParsed.branchData[branchName];
+          if (legacyBucket) raw = JSON.stringify(legacyBucket);
+        } catch (e) {}
+      }
+    }
+    if (raw) {
+      const remote = JSON.parse(raw);
+      // id付きの項目（追加は必ず反映。削除時はmarkIdsAsDeletedで復活を防いでいる）
+      BRANCH_SETTINGS_ARRAY_ID_FIELDS.forEach(key => {
+        bucket[key] = mergeArrayById(bucket[key], remote[key]);
+      });
+      // シフト共通設定など「フラットな設定値」は、前回同期時点（baseline）と比べて
+      // この端末が実際に変更したものだけローカル優先、触れていないものはリモートを採用する
+      const baseline = branchSettingsBaselines[branchName] || {};
+      const localFlat = {};
+      const remoteFlat = {};
+      BRANCH_SETTINGS_FLAT_FIELDS.forEach(key => {
+        localFlat[key] = bucket[key];
+        remoteFlat[key] = remote[key];
+      });
+      const mergedFlat = mergeFlatDictByBaseline(localFlat, remoteFlat, baseline);
+      BRANCH_SETTINGS_FLAT_FIELDS.forEach(key => {
+        if (mergedFlat[key] !== undefined) bucket[key] = mergedFlat[key];
+      });
+    }
+  } catch (e) {
+    // 通信できない場合は、ローカルの内容のみで保存を続行する
+  }
+  // 【重要】ここでsaveState()は呼ばない。BRANCH_SETTINGS_FIELDSは専用セルにのみ保存する
+  // dedicatedフィールドのため（buildStateCellPayloadで除外される）、saveState()を呼んでも
+  // このマージ結果自体は営業所共通設定セルへは反映されない＝呼ぶ意味が無いばかりか、
+  // 他の保存処理と競合するリスクがある（詳しい経緯はmergeRemoteShakenBeforeSave内の
+  // 同様のコメントを参照）。
+  // リモート取得の成否・マージの有無に関わらず、必ず現在のローカル内容を専用セルへ
+  // 書き出す（そうしないと、リモートにまだ専用セルが無い場合や通信できない場合に、
+  // この端末で行った編集が一切書き出されないまま保存されてしまう）。
+  const payload = {};
+  BRANCH_SETTINGS_FIELDS.forEach(f => { payload[f] = bucket[f]; });
+  localStorage.setItem(branchSettingsKeyName(branchName), JSON.stringify(payload));
 }
 
 // フラットな辞書型データ（キー単位で1つの値を持つデータ）向けの3点マージ共通処理。
@@ -18254,6 +18352,9 @@ async function syncToSheet(branchName, keysOverride) {
   if (keys.includes(`仮締め記録_${branchName}`)) {
     await mergeRemoteKasimeBeforeSave(branchName, spreadsheetId);
   }
+  if (keys.includes(branchSettingsKeyName(branchName))) {
+    await mergeRemoteBranchSettingsBeforeSave(branchName, spreadsheetId);
+  }
   const data = {};
   keys.forEach(k => {
     const v = localStorage.getItem(k);
@@ -18267,10 +18368,10 @@ async function syncToSheet(branchName, keysOverride) {
     checkCellSizeBeforeSave(data);
   }
   const saveResult = await gasRequest('save', spreadsheetId, data);
-  // 設定系データ（営業所共通設定セル：STORAGE_KEY_1）の保存に成功したら、その時点の内容を次回の
-  // 保存前マージのベースラインとして記録し直す（以後、実際に変更したフィールドだけを検出できるようにする）。
-  if (keys.includes(STORAGE_KEY_1) && typeof markStateSettingsSynced === 'function') {
-    markStateSettingsSynced();
+  // 設定系データ（営業所専用セル：branchSettings_営業所名）の保存に成功したら、その時点の内容を
+  // 次回の保存前マージのベースラインとして記録し直す（以後、実際に変更したフィールドだけを検出できるようにする）。
+  if (keys.includes(branchSettingsKeyName(branchName)) && typeof captureBranchSettingsBaseline === 'function') {
+    captureBranchSettingsBaseline(branchName);
   }
   return saveResult;
 }
@@ -18282,7 +18383,7 @@ const CELL_CHAR_WARNING_RATIO = 0.8;
 // GAS側（kawakyu_gas.gs）の説明列と同じ考え方の対応表。
 const KEY_LABEL_EXACT = {
   'kawakyu-chatwork-v5': '営業所共通設定など（旧・使用停止）',
-  'kawakyu-chatwork-v5-1': '営業所共通設定（メンバー・シフト設定・ブックマーク項目・管理者設定など）',
+  'kawakyu-chatwork-v5-1': '営業所共通設定（営業所リスト・管理者パスワード・販売実績表の項目設定など）',
   'kawakyu-chatwork-v5-2': '営業所共通設定②（旧・使用停止。予定カレンダーは専用セルに一本化済み）',
   'kawakyu-chatwork-v5-3': '営業所共通設定③（旧・使用停止。予定タスク・車検予約は専用セルに一本化済み）',
   'kawakyu-chatwork-messages-v1': '連絡ノートのメッセージ',
@@ -18303,6 +18404,7 @@ const KEY_LABEL_PREFIX = {
   'schedules_': '予定カレンダーデータ',
   'sidebarTasks_': '予定タブのタスク一覧',
   'shakenReservations_': '車検予約データ',
+  'branchSettings_': '営業所設定（メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目等）',
 };
 
 function describeKeyForWarning(key) {
