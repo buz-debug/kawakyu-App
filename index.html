@@ -12241,12 +12241,20 @@ window.addEventListener('pagehide', function() {
       if (state.messagesSplitMigrated) return;
       if (!Array.isArray(state.branches)) return;
       const allMessages = state.messages || [];
+      // 送信元・宛先の情報が無い古いメッセージ（営業所分離よりさらに前の投稿）は、
+      // 実際にタグ付きメッセージでやり取りした実績のある（＝分離前から使われていた）
+      // 営業所にだけ引き継ぐ。新しく追加したばかりの営業所を巻き込まないため。
+      const taggedBranches = new Set();
+      allMessages.forEach(m => {
+        if (m.senderBranch) taggedBranches.add(m.senderBranch);
+        if (m.targetBranch) taggedBranches.add(m.targetBranch);
+      });
       state.branches.forEach(b => {
         if (localStorage.getItem(messagesKeyName(b.name)) !== null) return; // 移行済み
         const visible = allMessages.filter(m => {
           if (m.senderBranch) return m.senderBranch === b.name || m.targetBranch === b.name;
           if (Array.isArray(m.legacyBranches)) return m.legacyBranches.includes(b.name);
-          return true;
+          return taggedBranches.has(b.name);
         });
         localStorage.setItem(messagesKeyName(b.name), JSON.stringify({ messages: visible }));
       });
@@ -15603,6 +15611,7 @@ window.addEventListener('pagehide', function() {
       // あるため、全ブロックの実行が終わるのを待ってから呼び出す。
       setTimeout(() => {
         if (typeof checkCellSizeOnAppReady === 'function') checkCellSizeOnAppReady();
+        if (typeof repairKukoMinamiOrphanMessages === 'function') repairKukoMinamiOrphanMessages();
       }, 0);
     } else {
       showLoginGate();
@@ -18915,6 +18924,46 @@ async function propagateMessageChangeToOtherBranches(msg, action) {
   const failed = results.filter(r => !r.ok);
   if (failed.length) {
     appToast(`一部の営業所（${failed.map(f => f.branch).join('・')}）への反映に失敗しました`);
+  }
+}
+
+// 【一度きりの不具合修正】連絡ノートの営業所専用セル移行で、送信元・宛先の情報が無い
+// 古いメッセージが「判別できない場合は全営業所に表示」という旧ロジックにより、当時まだ
+// 存在しなかった空港南のセルにも誤って全件コピーされてしまっていた分を取り除く。
+// ローカルキャッシュと実際のスプレッドシート、両方から該当しないメッセージを除外する。
+async function repairKukoMinamiOrphanMessages() {
+  const DONE_FLAG = 'kawakyu_kuko_orphan_msg_repair_v1';
+  if (localStorage.getItem(DONE_FLAG) === '1') return;
+  const branchName = '空港南';
+  if (typeof getGasUrl !== 'function' || !getGasUrl()) return;
+  const spreadsheetId = (typeof getSpreadsheetId === 'function') ? getSpreadsheetId(branchName) : null;
+  if (!spreadsheetId) return;
+  const key = messagesKeyName(branchName);
+  const belongsToKuko = m => m.senderBranch === branchName || m.targetBranch === branchName
+    || (Array.isArray(m.legacyBranches) && m.legacyBranches.includes(branchName));
+  try {
+    const loaded = await gasRequest('load', spreadsheetId);
+    const raw = loaded && loaded.data && loaded.data[key];
+    if (raw) {
+      let arr = [];
+      try { arr = JSON.parse(raw).messages || []; } catch (e) {}
+      const fixed = arr.filter(belongsToKuko);
+      if (fixed.length !== arr.length) {
+        await gasRequest('save', spreadsheetId, { [key]: JSON.stringify({ messages: fixed }) });
+      }
+    }
+    try {
+      const localRaw = localStorage.getItem(key);
+      if (localRaw) {
+        const localArr = JSON.parse(localRaw).messages || [];
+        const localFixed = localArr.filter(belongsToKuko);
+        localStorage.setItem(key, JSON.stringify({ messages: localFixed }));
+        if (state.currentBranch === branchName) state.messages = localFixed;
+      }
+    } catch (e) {}
+    localStorage.setItem(DONE_FLAG, '1');
+  } catch (err) {
+    console.error('kuko orphan message repair failed', err);
   }
 }
 
