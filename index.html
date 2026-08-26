@@ -8285,16 +8285,18 @@ window.addEventListener('pagehide', function() {
     const MESSAGES_STORAGE_KEY = 'kawakyu-chatwork-messages-v1';
     const COLORS = ['#4a7fb5','#5b7c9d','#7c6b9d','#c45c3e','#8b5cf6','#0891b2','#ca8a04'];
 
-    // 新形式（営業所専用キー） > 中間形式（旧・全営業所共有の専用キー） > 最古形式（設定データに
-    // 同梱）の順にフォールバックして読み取る（移行用）。
+    // 月別セル（新形式） > 営業所専用の単一セル（中間形式） > 旧・全営業所共有の専用キー
+    // > 最古形式（設定データに同梱）の順にフォールバックして読み取る（移行用）。
+    // 単一セルのみ存在する場合は、読み込み時に一度だけ月別セルへ分割する
+    // （車検予約の遅延移行と同じ方式）。
     function loadMessagesFromStorage(branchName, legacyEmbedded) {
-      try {
-        const raw = localStorage.getItem(messagesKeyName(branchName));
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed.messages)) return parsed.messages;
+      const local = readLocalMessagesForBranch(branchName);
+      if (local.messages.length || local.hadMonthlyCells) {
+        if (!local.hadMonthlyCells && local.messages.length) {
+          persistMessagesByMonth(branchName, local.messages);
         }
-      } catch (e) {}
+        return local.messages;
+      }
       try {
         const raw = localStorage.getItem(MESSAGES_STORAGE_KEY);
         if (raw) {
@@ -8317,6 +8319,110 @@ window.addEventListener('pagehide', function() {
         if (Array.isArray(m.legacyBranches)) return m.legacyBranches.includes(branchName);
         return true;
       });
+    }
+
+    // 連絡ノートのメッセージも、車検予約・仮締め記録と同じ「月別セル分割」パターンを採る
+    // （1営業所・1セルのままだと利用頻度が増えた際に5万文字の上限に達するため）。
+    // アプリ内部（state.messages）は従来どおり1本のフラット配列のままとし、月別セルへの
+    // 分割・結合はlocalStorageの読み書き・リモート同期の境界でのみ行う。
+    function messagesBookmarkedKeyName(branchName) {
+      return `bookmarkedMessages_${branchName}`;
+    }
+    function messagesMonthKeyOf(msg) {
+      const ts = msg && msg.ts;
+      if (typeof ts !== 'number' || !isFinite(ts)) return null;
+      const d = new Date(ts);
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+    function messagesMonthlyKeyName(branchName, monthKey) {
+      return `messages_${branchName}_${monthKey}`;
+    }
+    // ローカルストレージに存在する、この営業所の月別キー一覧（YYYY-MM部分）を返す
+    function messagesLocalMonthKeys(branchName) {
+      const prefix = `messages_${branchName}_`;
+      const months = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) months.push(k.slice(prefix.length));
+      }
+      return months;
+    }
+    function groupMessagesByMonth(messages) {
+      const groups = {};
+      (messages || []).forEach(m => {
+        const mk = messagesMonthKeyOf(m) || 'unknown';
+        (groups[mk] || (groups[mk] = [])).push(m);
+      });
+      return groups;
+    }
+
+    // 月別セル＋ブックマーク保存用セルを合成してフラット配列で返す（副作用なし）。
+    // 月別セルが1つも無ければ、旧形式（分割前の単一セル）の内容を返す。
+    function readLocalMessagesForBranch(branchName) {
+      let combined = [];
+      let sawMonthly = false;
+      messagesLocalMonthKeys(branchName).forEach(mk => {
+        try {
+          const raw = localStorage.getItem(messagesMonthlyKeyName(branchName, mk));
+          if (raw === null) return;
+          sawMonthly = true;
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) combined = combined.concat(arr);
+        } catch (e) {}
+      });
+      if (!sawMonthly) {
+        try {
+          const raw = localStorage.getItem(messagesKeyName(branchName));
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed.messages)) combined = parsed.messages.slice();
+          }
+        } catch (e) {}
+      }
+      // ブックマーク保存用セル：保存期間切れで月別セルから既に外れているブックマーク済み
+      // メッセージを合成する（idで重複除去。まだ期限内で月別セル側にも残っていても実害ない）。
+      try {
+        const bmRaw = localStorage.getItem(messagesBookmarkedKeyName(branchName));
+        if (bmRaw) {
+          const bmArr = JSON.parse(bmRaw);
+          if (Array.isArray(bmArr) && bmArr.length) {
+            const seen = new Set(combined.map(m => m && m.id));
+            bmArr.forEach(m => { if (m && m.id && !seen.has(m.id)) { combined.push(m); seen.add(m.id); } });
+          }
+        }
+      } catch (e) {}
+      return { messages: combined, hadMonthlyCells: sawMonthly };
+    }
+
+    // フラット配列を月別セル＋ブックマーク保存用セルへ書き出す（保存/読込の境界でのみ分割）。
+    // 現在ブックマークされているメッセージのうち、保存期間（dataRetentionMonths.note）を
+    // 過ぎているものだけは月別セルへの書き戻しから除外し、bookmarkedMessages側だけを正とする
+    // （そうしないと古い月のセルがいつまでも完全には空にならず、「ブックマークを外す＝最後の
+    // コピーが消える」という前提が成り立たなくなる）。期限内のブックマークは両方に残る
+    // （冗長だが実害なし。外した時点で通常の期間経過削除に戻る）。
+    function persistMessagesByMonth(branchName, messages, extraMonthKeys) {
+      const bookmarks = (typeof state !== 'undefined' && state && Array.isArray(state.bookmarks)) ? state.bookmarks : [];
+      const limits = (typeof state !== 'undefined' && state && state.dataRetentionMonths) ? state.dataRetentionMonths : {};
+      const cutoffTs = (limits.note > 0 && typeof monthsAgoCutoffTs === 'function') ? monthsAgoCutoffTs(limits.note) : null;
+      const bookmarkedIds = new Set(bookmarks.map(b => b.msgId));
+
+      const forMonthly = (messages || []).filter(m => {
+        if (!m || !bookmarkedIds.has(m.id)) return true;
+        if (cutoffTs === null) return true;
+        return !(m.ts && m.ts < cutoffTs);
+      });
+      const groups = groupMessagesByMonth(forMonthly);
+      const monthSet = new Set([
+        ...Object.keys(groups),
+        ...messagesLocalMonthKeys(branchName),
+        ...(extraMonthKeys || []),
+      ]);
+      monthSet.forEach(mk => {
+        localStorage.setItem(messagesMonthlyKeyName(branchName, mk), JSON.stringify(groups[mk] || []));
+      });
+
+      const bookmarkedCopies = (messages || []).filter(m => m && bookmarkedIds.has(m.id));
+      localStorage.setItem(messagesBookmarkedKeyName(branchName), JSON.stringify(bookmarkedCopies));
     }
 
     let storageAvailable = false;
@@ -9062,7 +9168,7 @@ window.addEventListener('pagehide', function() {
       if (!state.currentBranch) return;
       try {
         const scoped = filterMessagesForBranch(state.messages, state.currentBranch);
-        localStorage.setItem(messagesKeyName(state.currentBranch), JSON.stringify({ messages: scoped }));
+        persistMessagesByMonth(state.currentBranch, scoped);
       } catch (e) {}
     }
 
@@ -9597,7 +9703,16 @@ window.addEventListener('pagehide', function() {
               opt.addEventListener('click', ev => {
                 ev.stopPropagation();
                 if (opt.dataset.unbm) {
-                  removeBookmarksForMessage(wrap.dataset.msgid);
+                  const msgId = wrap.dataset.msgid;
+                  if (typeof isBookmarkedMessageOnlyCopyExpired === 'function' && isBookmarkedMessageOnlyCopyExpired(msgId)) {
+                    openModal(
+                      'ブックマークを解除',
+                      'このメッセージは保存期間を過ぎているため、ブックマークを外すと完全に削除され、元に戻せません。よろしいですか？',
+                      () => removeBookmarkAndDeleteExpiredMessage(msgId)
+                    );
+                  } else {
+                    removeBookmarksForMessage(msgId);
+                  }
                 } else {
                   addBookmark(wrap.dataset.msgid, opt.dataset.cat);
                 }
@@ -10852,13 +10967,21 @@ window.addEventListener('pagehide', function() {
         : (typeof kasimeLocalMonthKeys === 'function'
           ? kasimeLocalMonthKeys(branchName).map(mk => kasimeMonthlyKeyName(branchName, mk)).sort()
           : []);
+      // 連絡ノートのメッセージも月別に分割されたキーを使う。
+      const messagesPrefix = `messages_${branchName}_`;
+      const messagesMonthlyDisplayKeys = dataOverride
+        ? Object.keys(dataOverride).filter(k => k.indexOf(messagesPrefix) === 0).sort()
+        : (typeof messagesLocalMonthKeys === 'function'
+          ? messagesLocalMonthKeys(branchName).map(mk => messagesMonthlyKeyName(branchName, mk)).sort()
+          : []);
       // 月別キーが1つでも見えている（＝この営業所は既に移行済み）なら、旧形式の単一キーは
       // 常に空/無意味なので一覧に出さない（行を手動削除した場合も、そのキー自体は
       // getSyncKeysの固定リストに含まれているため、この除外をしないと0文字のまま出続けてしまう）。
       const legacyKeysToHide = new Set();
       if (shakenMonthlyDisplayKeys.length) legacyKeysToHide.add(`shakenReservations_${branchName}`);
       if (kasimeMonthlyDisplayKeys.length) legacyKeysToHide.add(`仮締め記録_${branchName}`);
-      const keys = staticKeys.filter(k => !legacyKeysToHide.has(k)).concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys);
+      if (messagesMonthlyDisplayKeys.length) legacyKeysToHide.add(messagesKeyName(branchName));
+      const keys = staticKeys.filter(k => !legacyKeysToHide.has(k)).concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys, messagesMonthlyDisplayKeys);
       const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
       const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
 
@@ -10888,10 +11011,14 @@ window.addEventListener('pagehide', function() {
         const pct = Math.min(100, Math.round((len / limit) * 100));
         // 連絡ノートのメッセージが想定より大きい場合に原因を一目で確認できるよう、
         // 件数の内訳（自社投稿・自社宛・分離前の旧データ・分類不明）を表示する。
+        // 月別セル（新形式・生配列）と旧・単一セル（{messages:[...]}ラッパー）の両方に対応する。
         let breakdownHtml = '';
-        if (typeof messagesKeyName === 'function' && key === messagesKeyName(branchName) && raw) {
+        const isMessagesLegacyKey = (typeof messagesKeyName === 'function' && key === messagesKeyName(branchName));
+        const isMessagesMonthlyKey = key.indexOf(messagesPrefix) === 0;
+        if ((isMessagesLegacyKey || isMessagesMonthlyKey) && raw) {
           try {
-            const parsedMsgs = JSON.parse(raw).messages || [];
+            const parsedRaw = JSON.parse(raw);
+            const parsedMsgs = isMessagesLegacyKey ? (parsedRaw.messages || []) : (Array.isArray(parsedRaw) ? parsedRaw : []);
             let own = 0, received = 0, legacy = 0, other = 0;
             parsedMsgs.forEach(m => {
               if (m.senderBranch === branchName) own++;
@@ -12921,9 +13048,21 @@ window.addEventListener('pagehide', function() {
       if (exists) { showToast('既にブックマーク済みです'); return; }
       state.bookmarks.push({ id: uid(), msgId, category: category || '', ts: Date.now() });
       saveState();
+      if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
       renderRoomList();
       renderMessages();
+    }
+
+    // 保存期間を過ぎたメッセージがブックマーク中の場合、月別セルからは既に除外され
+    // bookmarkedMessages_${branchName}だけが最後のコピーになっている。この状態で
+    // ブックマークを外すと完全に削除されてしまうかどうかを判定する。
+    function isBookmarkedMessageOnlyCopyExpired(msgId) {
+      const limits = (state.dataRetentionMonths || {});
+      if (!(limits.note > 0)) return false;
+      const msg = state.messages.find(m => m.id === msgId);
+      if (!msg || !msg.ts || typeof monthsAgoCutoffTs !== 'function') return false;
+      return msg.ts < monthsAgoCutoffTs(limits.note);
     }
 
     function removeBookmarksForMessage(msgId) {
@@ -12932,7 +13071,24 @@ window.addEventListener('pagehide', function() {
       }
       state.bookmarks = (state.bookmarks || []).filter(b => b.msgId !== msgId);
       saveState();
+      if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
       if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートからブックマークを外しました');
+      renderRoomList();
+      renderMessages();
+    }
+
+    // 保存期間切れで保存用セルにしか残っていないメッセージのブックマークを外す場合の、
+    // 確認ダイアログOK時の処理。ブックマークだけでなくメッセージ本体も完全に削除する。
+    function removeBookmarkAndDeleteExpiredMessage(msgId) {
+      const msg = state.messages.find(m => m.id === msgId);
+      const bmIds = (state.bookmarks || []).filter(b => b.msgId === msgId).map(b => b.id);
+      if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([msgId, ...bmIds]);
+      state.bookmarks = (state.bookmarks || []).filter(b => b.msgId !== msgId);
+      state.messages = (state.messages || []).filter(m => m.id !== msgId);
+      saveState();
+      if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートから削除しました');
+      if (msg && typeof propagateMessageChangeToOtherBranches === 'function') propagateMessageChangeToOtherBranches(msg, 'delete');
       renderRoomList();
       renderMessages();
     }
@@ -17906,6 +18062,7 @@ function getSyncKeys(branchName) {
   return [
     STORAGE_KEY_1,
     messagesKeyName(branchName),
+    messagesBookmarkedKeyName(branchName),
     `仮締め記録_${branchName}`,
     `salesRecords_${branchName}`,
     `dailyTaskRecords_${branchName}`,
@@ -17956,10 +18113,17 @@ function getSyncKeysForTab(tabBtnId, branchName) {
         .concat([shakenLegacyKeyName(branchName)]);
     case 'state':
       // メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目・代車台数・車検予定入力
-      // 不可設定等（BRANCH_SETTINGS_FIELDS）、連絡ノートのメッセージは、いずれも営業所専用
-      // セルへ保存する。STORAGE_KEY_1には今も残る他の設定（営業所リスト・管理者パスワード等）
-      // のため引き続き対象に含める。
-      return [STORAGE_KEY_1, messagesKeyName(branchName), branchSettingsKeyName(branchName)];
+      // 不可設定等（BRANCH_SETTINGS_FIELDS）は営業所専用セルへ保存する。STORAGE_KEY_1には
+      // 今も残る他の設定（営業所リスト・管理者パスワード等）のため引き続き対象に含める。
+      // 連絡ノートのメッセージは、車検予約・仮締め記録と同様、月別に分割されたキー全て
+      // ＋ブックマーク保存用セル＋旧単一キー（移行済みなら空のまま送るだけで無害）を対象にする。
+      return [
+        STORAGE_KEY_1,
+        ...messagesLocalMonthKeys(branchName).map(mk => messagesMonthlyKeyName(branchName, mk)),
+        messagesKeyName(branchName),
+        messagesBookmarkedKeyName(branchName),
+        branchSettingsKeyName(branchName),
+      ];
     default:
       return getSyncKeys(branchName);
   }
@@ -18147,34 +18311,57 @@ async function mergeRemoteStateArraysBeforeSave(spreadsheetId) {
 // 同じ構造（リモート取得→IDマージ→取得の成否に関わらず必ずローカルの最新内容を書き戻す）。
 // 他営業所宛てメッセージの新規投稿・編集・削除そのものは、この関数ではなく
 // propagateMessageChangeToOtherBranchesが相手営業所のスプレッドシートへ直接反映する。
+// 車検予約・仮締め記録と同様、月別に分割されたキー全て＋ブックマーク保存用セル＋旧単一キー
+// （さらに旧い全営業所共有キー）を結合してマージし、結果を月別ローカルキーへ再分割する。
 async function mergeRemoteMessagesBeforeSave(branchName, spreadsheetId) {
   if (!spreadsheetId) return;
-  let localMessages = [];
-  try {
-    const raw = localStorage.getItem(messagesKeyName(branchName));
-    if (raw) localMessages = JSON.parse(raw).messages || [];
-  } catch (e) {}
+  const localMessages = readLocalMessagesForBranch(branchName).messages;
   try {
     const result = await gasRequest('load', spreadsheetId);
-    let raw = (result && result.ok && result.data) ? result.data[messagesKeyName(branchName)] : null;
-    // この営業所自身がまだ専用セルへの移行後の保存を一度もしていない場合、
-    // 旧形式（全営業所共有のkawakyu-chatwork-messages-v1）へフォールバックする。
-    if (!raw && result && result.ok && result.data) {
-      raw = result.data['kawakyu-chatwork-messages-v1'];
+    if (!result || !result.ok || !result.data) return;
+    const prefix = `messages_${branchName}_`;
+    const legacyKey = messagesKeyName(branchName);
+    const bmKey = messagesBookmarkedKeyName(branchName);
+    let remoteMessages = [];
+    const remoteMonthKeys = [];
+    Object.keys(result.data).forEach(k => {
+      if (k.indexOf(prefix) !== 0) return;
+      remoteMonthKeys.push(k.slice(prefix.length));
+      try {
+        const arr = JSON.parse(result.data[k]);
+        if (Array.isArray(arr)) remoteMessages = remoteMessages.concat(arr);
+      } catch (e) {}
+    });
+    if (result.data[bmKey]) {
+      try {
+        const bmArr = JSON.parse(result.data[bmKey]);
+        if (Array.isArray(bmArr)) remoteMessages = remoteMessages.concat(bmArr);
+      } catch (e) {}
     }
-    if (raw) {
-      const remoteMessages = JSON.parse(raw).messages;
-      if (Array.isArray(remoteMessages)) {
-        localMessages = mergeArrayById(localMessages, remoteMessages);
-      }
+    // この営業所自身がまだ月別セルへの移行後の保存を一度もしていない場合、旧形式
+    // （営業所専用の単一セル、さらに旧い全営業所共有のkawakyu-chatwork-messages-v1）へ
+    // フォールバックする。
+    if (!remoteMonthKeys.length && result.data[legacyKey]) {
+      try {
+        const legacyParsed = JSON.parse(result.data[legacyKey]);
+        if (Array.isArray(legacyParsed.messages)) remoteMessages = remoteMessages.concat(legacyParsed.messages);
+      } catch (e) {}
     }
+    if (!remoteMonthKeys.length && !result.data[legacyKey] && result.data['kawakyu-chatwork-messages-v1']) {
+      try {
+        const oldShared = JSON.parse(result.data['kawakyu-chatwork-messages-v1']);
+        if (Array.isArray(oldShared.messages)) remoteMessages = remoteMessages.concat(oldShared.messages);
+      } catch (e) {}
+    }
+    const merged = mergeArrayById(localMessages, remoteMessages);
+    persistMessagesByMonth(branchName, merged, remoteMonthKeys);
+    localStorage.setItem(legacyKey, JSON.stringify({ messages: [] })); // 旧セルは以後空として扱う（移行済みマーク）
+    // 他営業所ぶんの保存（管理者が他営業所のデータを編集して保存する場合等）で、今表示中の
+    // state.messagesまで書き換えてしまわないよう、自分自身の営業所の場合だけ反映する。
+    if (branchName === state.currentBranch) state.messages = merged;
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
   }
-  localStorage.setItem(messagesKeyName(branchName), JSON.stringify({ messages: localMessages }));
-  // 他営業所ぶんの保存（管理者が他営業所のデータを編集して保存する場合等）で、今表示中の
-  // state.messagesまで書き換えてしまわないよう、自分自身の営業所の場合だけ反映する。
-  if (branchName === state.currentBranch) state.messages = localMessages;
 }
 
 // メンバー・タスク・ブックマーク・ブックマークカテゴリ・予定プリセット・シフト共通設定・
@@ -18550,6 +18737,7 @@ const KEY_LABEL_PREFIX = {
   'shakenReservations_': '車検予約データ',
   'branchSettings_': '営業所設定（メンバー・タスク・ブックマーク・シフト共通設定・日常業務項目等）',
   'messages_': '連絡ノートのメッセージ（営業所専用）',
+  'bookmarkedMessages_': '連絡ノートのブックマーク保存用データ（保存期間切れの元セルが無くても残る）',
 };
 
 function describeKeyForWarning(key) {
@@ -18668,13 +18856,17 @@ async function doSyncFromSheet(branchName) {
   // 使うため、静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
   const shakenMonthlyPrefix = `shakenReservations_${branchName}_`;
   const kasimeMonthlyPrefix = `仮締め記録_${branchName}_`;
+  // 連絡ノートのメッセージも月別に分割されたキー（messages_営業所名_YYYY-MM）を使うため、
+  // 静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
+  const messagesMonthlyPrefix = `messages_${branchName}_`;
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     const isLegacyStateKey = (k === legacyStateKey);
     const isLegacyMessagesKey = (k === legacyMessagesKey);
     const isShakenMonthlyKey = k.indexOf(shakenMonthlyPrefix) === 0;
     const isKasimeMonthlyKey = k.indexOf(kasimeMonthlyPrefix) === 0;
-    if ((!keys.includes(k) && !isLegacyStateKey && !isLegacyMessagesKey && !isShakenMonthlyKey && !isKasimeMonthlyKey) || v === undefined || v === null || v === '') return;
+    const isMessagesMonthlyKey = k.indexOf(messagesMonthlyPrefix) === 0;
+    if ((!keys.includes(k) && !isLegacyStateKey && !isLegacyMessagesKey && !isShakenMonthlyKey && !isKasimeMonthlyKey && !isMessagesMonthlyKey) || v === undefined || v === null || v === '') return;
     let valueToStore = v;
     if (k === STORAGE_KEY_1 || isLegacyStateKey) {
       // currentBranchは「この端末が今ログインしている営業所」を表すローカルな値。
@@ -18722,7 +18914,25 @@ async function doSyncFromSheet(branchName) {
     } catch (e) {}
     localStorage.setItem(kasimeLegacyKeyName(branchName), '[]');
   }
-  if ((needsShakenRemoteMigration || needsKasimeRemoteMigration) && getGasUrl() && spreadsheetId) {
+  // 連絡ノートのメッセージ：今回ダウンロードした旧形式の単一キーにまだ内容が残っていた場合、
+  // この営業所のスプレッドシート側がまだ月別分割へ移行していないということなので、同様に
+  // この場で月別データを作成してすぐスプレッドシート側へアップロードし、移行を完了させる。
+  const messagesLegacyRaw = (result.data || {})[messagesKeyName(branchName)];
+  let needsMessagesRemoteMigration = false;
+  try {
+    if (messagesLegacyRaw) {
+      const parsedLegacy = JSON.parse(messagesLegacyRaw);
+      needsMessagesRemoteMigration = Array.isArray(parsedLegacy.messages) && parsedLegacy.messages.length > 0;
+    }
+  } catch (e) {}
+  if (needsMessagesRemoteMigration) {
+    try {
+      const parsedLegacy = JSON.parse(messagesLegacyRaw);
+      if (Array.isArray(parsedLegacy.messages) && parsedLegacy.messages.length) persistMessagesByMonth(branchName, parsedLegacy.messages);
+    } catch (e) {}
+    localStorage.setItem(messagesKeyName(branchName), JSON.stringify({ messages: [] }));
+  }
+  if ((needsShakenRemoteMigration || needsKasimeRemoteMigration || needsMessagesRemoteMigration) && getGasUrl() && spreadsheetId) {
     try {
       const migrateKeys = [];
       if (needsShakenRemoteMigration) {
@@ -18730,6 +18940,9 @@ async function doSyncFromSheet(branchName) {
       }
       if (needsKasimeRemoteMigration) {
         migrateKeys.push(...kasimeLocalMonthKeys(branchName).map(mk => kasimeMonthlyKeyName(branchName, mk)), kasimeLegacyKeyName(branchName));
+      }
+      if (needsMessagesRemoteMigration) {
+        migrateKeys.push(...messagesLocalMonthKeys(branchName).map(mk => messagesMonthlyKeyName(branchName, mk)), messagesKeyName(branchName), messagesBookmarkedKeyName(branchName));
       }
       await syncToSheet(branchName, migrateKeys);
     } catch (e) {
@@ -18930,20 +19143,22 @@ async function propagateMessageChangeToOtherBranches(msg, action) {
   }
   targets = targets.filter(b => getSpreadsheetId(b));
   if (!targets.length) return;
+  const mk = messagesMonthKeyOf(msg) || 'unknown';
   const results = await Promise.all(targets.map(async branchName => {
     const spreadsheetId = getSpreadsheetId(branchName);
+    const cellKey = messagesMonthlyKeyName(branchName, mk);
     try {
       const loaded = await gasRequest('load', spreadsheetId);
       let arr = [];
-      const raw = loaded && loaded.data && loaded.data[messagesKeyName(branchName)];
-      if (raw) { try { arr = JSON.parse(raw).messages || []; } catch (e) {} }
+      const raw = loaded && loaded.data && loaded.data[cellKey];
+      if (raw) { try { arr = JSON.parse(raw) || []; } catch (e) {} }
       if (action === 'delete') {
         arr = arr.filter(m => m.id !== msg.id);
       } else {
         const idx = arr.findIndex(m => m.id === msg.id);
         if (idx >= 0) arr[idx] = cloneJsonValue(msg); else arr.push(cloneJsonValue(msg));
       }
-      await gasRequest('save', spreadsheetId, { [messagesKeyName(branchName)]: JSON.stringify({ messages: arr }) });
+      await gasRequest('save', spreadsheetId, { [cellKey]: JSON.stringify(arr) });
       return { branch: branchName, ok: true };
     } catch (err) {
       console.error('message propagation failed for', branchName, err);
