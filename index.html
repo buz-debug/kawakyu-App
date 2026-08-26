@@ -8305,6 +8305,20 @@ window.addEventListener('pagehide', function() {
       return Array.isArray(legacyEmbedded) ? legacyEmbedded : [];
     }
 
+    // 中間形式（旧・全営業所共有キー）からの読込フォールバック時、他営業所ぶんのメッセージが
+    // 混ざったまま読み込まれることがある（例：この端末が別の営業所として使われていた際の
+    // ローカルキャッシュが残っている場合）。state.messagesは常にこの営業所から見える分だけに
+    // 絞り込んでおく（表示時のisMessageVisibleToCurrentBranchと同じ判定基準）。これを怠ると、
+    // saveMessagesLocal()が絞り込み前の内容をそのまま営業所専用セルへ書き出してしまう。
+    function filterMessagesForBranch(messages, branchName) {
+      if (!Array.isArray(messages)) return [];
+      return messages.filter(m => {
+        if (m.senderBranch) return m.senderBranch === branchName || m.targetBranch === branchName;
+        if (Array.isArray(m.legacyBranches)) return m.legacyBranches.includes(branchName);
+        return true;
+      });
+    }
+
     let storageAvailable = false;
     let memoryStore = null;
 
@@ -8884,7 +8898,7 @@ window.addEventListener('pagehide', function() {
               adminPassword: s.adminPassword || undefined,
               legacyMessagesMigrated: s.legacyMessagesMigrated || false,
               members: normalizeMembers(s.members),
-              messages: loadMessagesFromStorage(s.currentBranch, s.messages),
+              messages: filterMessagesForBranch(loadMessagesFromStorage(s.currentBranch, s.messages), s.currentBranch),
               tasks: Array.isArray(s.tasks) ? s.tasks : [],
               lastRead: s.lastRead || {},
               bookmarkCategories: (Array.isArray(s.bookmarkCategories) && s.bookmarkCategories.length)
@@ -9047,7 +9061,8 @@ window.addEventListener('pagehide', function() {
     function saveMessagesLocal() {
       if (!state.currentBranch) return;
       try {
-        localStorage.setItem(messagesKeyName(state.currentBranch), JSON.stringify({ messages: Array.isArray(state.messages) ? state.messages : [] }));
+        const scoped = filterMessagesForBranch(state.messages, state.currentBranch);
+        localStorage.setItem(messagesKeyName(state.currentBranch), JSON.stringify({ messages: scoped }));
       } catch (e) {}
     }
 
@@ -10885,6 +10900,9 @@ window.addEventListener('pagehide', function() {
               else other++;
             });
             breakdownHtml = `<div style="font-size:11px;color:var(--muted);margin-top:2px;">内訳：件数${parsedMsgs.length.toLocaleString()}件（自社投稿${own} / 自社宛${received} / 旧データ${legacy}${other ? ' / 分類不明' + other : ''}）</div>`;
+            if (branchName === '空港南' && other > 0 && typeof manualRepairKukoMinamiOrphanMessages === 'function') {
+              breakdownHtml += `<button onclick="manualRepairKukoMinamiOrphanMessages()" style="margin-top:6px;font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer;">分類不明のデータを今すぐ修正する</button>`;
+            }
           } catch (e) {}
         }
         return `<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;">
@@ -15611,8 +15629,19 @@ window.addEventListener('pagehide', function() {
       // あるため、全ブロックの実行が終わるのを待ってから呼び出す。
       setTimeout(() => {
         if (typeof checkCellSizeOnAppReady === 'function') checkCellSizeOnAppReady();
-        if (typeof repairKukoMinamiOrphanMessages === 'function') repairKukoMinamiOrphanMessages();
       }, 0);
+      // repairKukoMinamiOrphanMessagesは後方ブロック（Block C）で定義されるため、
+      // 単発のsetTimeout(0)だと読み込みタイミング次第で「typeof===function」に
+      // 引っかからず静かにスキップされることがある（waitForLateBlocksThenCleanupと同じ理由）。
+      // 確実に実行されるよう、同じリトライ方式を使う。
+      (function waitForLateBlocksThenRepairKuko(attemptsLeft) {
+        if (typeof repairKukoMinamiOrphanMessages === 'function') {
+          repairKukoMinamiOrphanMessages();
+          return;
+        }
+        if (attemptsLeft <= 0) return;
+        setTimeout(() => waitForLateBlocksThenRepairKuko(attemptsLeft - 1), 100);
+      })(20);
     } else {
       showLoginGate();
     }
@@ -18931,23 +18960,26 @@ async function propagateMessageChangeToOtherBranches(msg, action) {
 // 古いメッセージが「判別できない場合は全営業所に表示」という旧ロジックにより、当時まだ
 // 存在しなかった空港南のセルにも誤って全件コピーされてしまっていた分を取り除く。
 // ローカルキャッシュと実際のスプレッドシート、両方から該当しないメッセージを除外する。
-async function repairKukoMinamiOrphanMessages() {
-  const DONE_FLAG = 'kawakyu_kuko_orphan_msg_repair_v1';
-  if (localStorage.getItem(DONE_FLAG) === '1') return;
+const KUKO_ORPHAN_REPAIR_DONE_FLAG = 'kawakyu_kuko_orphan_msg_repair_v1';
+async function repairKukoMinamiOrphanMessages(force) {
+  if (!force && localStorage.getItem(KUKO_ORPHAN_REPAIR_DONE_FLAG) === '1') return { status: 'already_done' };
   const branchName = '空港南';
-  if (typeof getGasUrl !== 'function' || !getGasUrl()) return;
+  if (typeof getGasUrl !== 'function' || !getGasUrl()) return { status: 'no_gas_url' };
   const spreadsheetId = (typeof getSpreadsheetId === 'function') ? getSpreadsheetId(branchName) : null;
-  if (!spreadsheetId) return;
+  if (!spreadsheetId) return { status: 'no_spreadsheet_id' };
   const key = messagesKeyName(branchName);
   const belongsToKuko = m => m.senderBranch === branchName || m.targetBranch === branchName
     || (Array.isArray(m.legacyBranches) && m.legacyBranches.includes(branchName));
   try {
     const loaded = await gasRequest('load', spreadsheetId);
     const raw = loaded && loaded.data && loaded.data[key];
+    let before = 0, after = 0;
     if (raw) {
       let arr = [];
       try { arr = JSON.parse(raw).messages || []; } catch (e) {}
+      before = arr.length;
       const fixed = arr.filter(belongsToKuko);
+      after = fixed.length;
       if (fixed.length !== arr.length) {
         await gasRequest('save', spreadsheetId, { [key]: JSON.stringify({ messages: fixed }) });
       }
@@ -18961,9 +18993,26 @@ async function repairKukoMinamiOrphanMessages() {
         if (state.currentBranch === branchName) state.messages = localFixed;
       }
     } catch (e) {}
-    localStorage.setItem(DONE_FLAG, '1');
+    localStorage.setItem(KUKO_ORPHAN_REPAIR_DONE_FLAG, '1');
+    return { status: 'ok', before, after };
   } catch (err) {
     console.error('kuko orphan message repair failed', err);
+    return { status: 'error', message: err && err.message };
+  }
+}
+
+async function manualRepairKukoMinamiOrphanMessages() {
+  appToast('修正を実行しています…');
+  const result = await repairKukoMinamiOrphanMessages(true);
+  if (result.status === 'ok') {
+    appToast(`修正しました（${result.before}件 → ${result.after}件）`);
+  } else if (result.status === 'no_gas_url' || result.status === 'no_spreadsheet_id') {
+    appToast('GAS URL または空港南のスプレッドシートIDが未設定のため修正できません');
+  } else {
+    appToast('修正に失敗しました: ' + (result.message || result.status));
+  }
+  if (typeof fetchAdminCellSizeLatest === 'function' && typeof adminCellSizeBranch !== 'undefined' && adminCellSizeBranch === '空港南') {
+    fetchAdminCellSizeLatest();
   }
 }
 
