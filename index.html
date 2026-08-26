@@ -10974,6 +10974,13 @@ window.addEventListener('pagehide', function() {
         : (typeof messagesLocalMonthKeys === 'function'
           ? messagesLocalMonthKeys(branchName).map(mk => messagesMonthlyKeyName(branchName, mk)).sort()
           : []);
+      // シフトのマス目データも月別に分割されたキーを使う。
+      const shiftPrefix = `shifts_${branchName}_`;
+      const shiftMonthlyDisplayKeys = dataOverride
+        ? Object.keys(dataOverride).filter(k => k.indexOf(shiftPrefix) === 0).sort()
+        : (typeof shiftLocalMonthKeys === 'function'
+          ? shiftLocalMonthKeys(branchName).map(mk => shiftMonthlyKeyName(branchName, mk)).sort()
+          : []);
       // 月別キーが1つでも見えている（＝この営業所は既に移行済み）なら、旧形式の単一キーは
       // 常に空/無意味なので一覧に出さない（行を手動削除した場合も、そのキー自体は
       // getSyncKeysの固定リストに含まれているため、この除外をしないと0文字のまま出続けてしまう）。
@@ -10981,7 +10988,8 @@ window.addEventListener('pagehide', function() {
       if (shakenMonthlyDisplayKeys.length) legacyKeysToHide.add(`shakenReservations_${branchName}`);
       if (kasimeMonthlyDisplayKeys.length) legacyKeysToHide.add(`仮締め記録_${branchName}`);
       if (messagesMonthlyDisplayKeys.length) legacyKeysToHide.add(messagesKeyName(branchName));
-      const keys = staticKeys.filter(k => !legacyKeysToHide.has(k)).concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys, messagesMonthlyDisplayKeys);
+      if (shiftMonthlyDisplayKeys.length) legacyKeysToHide.add(`shifts_${branchName}`);
+      const keys = staticKeys.filter(k => !legacyKeysToHide.has(k)).concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys, messagesMonthlyDisplayKeys, shiftMonthlyDisplayKeys);
       const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
       const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
 
@@ -15700,7 +15708,7 @@ window.addEventListener('pagehide', function() {
           }
         });
         if (shiftChanged) {
-          localStorage.setItem(shiftKey('shifts'), JSON.stringify(shifts));
+          persistShiftsByMonth(shiftViewBranch, shifts);
           if (typeof shiftSaveToSheet === 'function') shiftSaveToSheet();
         }
       }
@@ -15829,6 +15837,80 @@ function shiftKey(base) {
     return `${base}_${shiftViewBranch}`;
 }
 
+// シフトデータ（日付×スタッフのフラット辞書）も、連絡ノート・車検予約・仮締め記録と同じ
+// 「月別セル分割」パターンを採る（アプリ導入以来の全期間ぶんが1セルに溜まり続け、5万文字の
+// 上限に達するのを防ぐため）。アプリ内部（shifts）は従来どおり1本のフラット辞書のままとし、
+// 月別セルへの分割・結合はlocalStorageの読み書き・リモート同期の境界でのみ行う。
+function shiftMonthKeyOfKey(key) {
+    const d = (typeof extractDateFromLegacyKey === 'function') ? extractDateFromLegacyKey(key) : null;
+    return d ? d.slice(0, 7) : null;
+}
+function shiftMonthlyKeyName(branchName, monthKey) {
+    return `shifts_${branchName}_${monthKey}`;
+}
+function shiftLegacyKeyName(branchName) {
+    return `shifts_${branchName}`; // 旧形式（月別分割前の単一セル）
+}
+function shiftLocalMonthKeys(branchName) {
+    const prefix = `shifts_${branchName}_`;
+    const months = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) months.push(k.slice(prefix.length));
+    }
+    return months;
+}
+function groupShiftsByMonth(shiftsDict) {
+    const groups = {};
+    Object.keys(shiftsDict || {}).forEach(key => {
+        const mk = shiftMonthKeyOfKey(key) || 'unknown';
+        (groups[mk] || (groups[mk] = {}))[key] = shiftsDict[key];
+    });
+    return groups;
+}
+function persistShiftsByMonth(branchName, shiftsDict, extraMonthKeys) {
+    const groups = groupShiftsByMonth(shiftsDict);
+    const monthSet = new Set([
+        ...Object.keys(groups),
+        ...shiftLocalMonthKeys(branchName),
+        ...(extraMonthKeys || []),
+    ]);
+    monthSet.forEach(mk => {
+        localStorage.setItem(shiftMonthlyKeyName(branchName, mk), JSON.stringify(groups[mk] || {}));
+    });
+}
+function readLocalShiftsForBranch(branchName) {
+    let combined = {};
+    let sawMonthly = false;
+    shiftLocalMonthKeys(branchName).forEach(mk => {
+        try {
+            const raw = localStorage.getItem(shiftMonthlyKeyName(branchName, mk));
+            if (raw === null) return;
+            sawMonthly = true;
+            const dict = JSON.parse(raw);
+            if (dict && typeof dict === 'object') Object.assign(combined, dict);
+        } catch (e) {}
+    });
+    if (!sawMonthly) {
+        try {
+            const raw = localStorage.getItem(shiftLegacyKeyName(branchName));
+            if (raw) {
+                const dict = JSON.parse(raw);
+                if (dict && typeof dict === 'object') combined = dict;
+            }
+        } catch (e) {}
+    }
+    return { shifts: combined, hadMonthlyCells: sawMonthly };
+}
+// 読込＋（旧形式のみの場合は一度だけ）月別セルへの分割移行
+function loadShiftsForBranch(branchName) {
+    const local = readLocalShiftsForBranch(branchName);
+    if (!local.hadMonthlyCells && Object.keys(local.shifts).length) {
+        persistShiftsByMonth(branchName, local.shifts);
+    }
+    return local.shifts;
+}
+
 // ── シフト作成ウインドウ専用の備考欄（メインのシフト表示・スマホ表示には出さない） ──
 // 営業所・年月ごとにメモを保存する。あくまで作成作業のメモであり、手入力のみ。
 // 文字が枠に入りきらない場合は、入力欄内を手動でドラッグ（カーソル移動）すれば見える（自動スクロールはしない）。
@@ -15869,7 +15951,7 @@ async function switchShiftViewBranch(name, silent) {
     if (!name || name === shiftViewBranch) { return; }
     shiftViewBranch = name;
 
-    shifts = JSON.parse(localStorage.getItem(shiftKey("shifts"))) || {};
+    shifts = loadShiftsForBranch(name);
     const bucket = (typeof ensureBranchBucket === "function") ? ensureBranchBucket(name) : null;
     businessHours = (bucket && bucket.businessHours) ? cloneShiftSettingValue(bucket.businessHours) : { start: "09:00", end: "18:00" };
     timeFrames = (bucket && bucket.timeFrames) ? cloneShiftSettingValue(bucket.timeFrames) : {
@@ -15904,7 +15986,7 @@ async function switchShiftViewBranch(name, silent) {
     if (typeof getGasUrl === 'function' && typeof getSpreadsheetId === 'function' && typeof mergeRemoteShiftsBeforeSave === 'function' && getGasUrl() && getSpreadsheetId(name)) {
         await mergeRemoteShiftsBeforeSave(name, getSpreadsheetId(name));
         if (shiftViewBranch === name) {
-            shifts = JSON.parse(localStorage.getItem(shiftKey("shifts"))) || {};
+            shifts = readLocalShiftsForBranch(name).shifts;
             renderViewTable();
             if (typeof renderEditTable === "function") renderEditTable();
             if (typeof renderWishTable === "function") renderWishTable();
@@ -16005,7 +16087,7 @@ function shiftStaffNames(){
         : (typeof ensureBranchBucket === "function" ? ensureBranchBucket(branchName).members.filter(m => !m.system) : []);
     return (list || []).map(m => m.name);
 }
-let shifts = JSON.parse(localStorage.getItem(shiftKey("shifts"))) || {};
+let shifts = (typeof loadShiftsForBranch === 'function') ? loadShiftsForBranch(shiftViewBranch) : {};
 
 // 「保存」を押さずに閉じた場合に、編集前の状態へ本当に戻せるようにするためのスナップショット。
 // シート同期に成功した時点（markShiftsSynced）でクリアされ、次に編集が入った時点（markShiftsDirtyBeforeEdit）で
@@ -16027,7 +16109,7 @@ function markShiftsSynced() {
 function revertUnsavedShiftChanges() {
     if (shiftsCleanSnapshot !== null) {
         shifts = JSON.parse(shiftsCleanSnapshot);
-        localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
+        persistShiftsByMonth(shiftViewBranch, shifts);
         shiftsCleanSnapshot = null;
     }
     if (typeof clearUnsavedBaseline === 'function') clearUnsavedBaseline('shift');
@@ -16622,7 +16704,7 @@ function saveShiftFromPopup(key, value) {
     markShiftsDirtyBeforeEdit();
     shifts[key] = value;
     window._hasUnsyncedTabChanges = true;
-    localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
+    persistShiftsByMonth(shiftViewBranch, shifts);
 
     const ticks = generateHourTicks();
     renderTimelineBody(ticks);
@@ -16879,7 +16961,7 @@ function saveShift(key,value){
     markShiftsDirtyBeforeEdit();
     shifts[key] = value;
     window._hasUnsyncedTabChanges = true;
-    localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
+    persistShiftsByMonth(shiftViewBranch, shifts);
     renderViewTable();
     renderEditTable();
     if (typeof renderWishTable === "function") renderWishTable();
@@ -17342,13 +17424,13 @@ function shiftRenameStaffInData(oldName, newName){
             delete shifts[key];
         }
     });
-    localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
+    persistShiftsByMonth(shiftViewBranch, shifts);
     if (typeof renderViewTable === "function") renderViewTable();
     if (typeof renderEditTable === "function") renderEditTable();
 }
 function shiftDeleteStaffData(name){
     Object.keys(shifts).forEach(key=>{ if(key.includes(`-${name}`)){ delete shifts[key]; } });
-    localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
+    persistShiftsByMonth(shiftViewBranch, shifts);
     if (typeof renderViewTable === "function") renderViewTable();
     if (typeof renderEditTable === "function") renderEditTable();
 }
@@ -17453,7 +17535,7 @@ function deleteTimeFrame(code){
 
 function saveTimeFrames(){
     persistShiftSettings();
-    localStorage.setItem(shiftKey("shifts"), JSON.stringify(shifts));
+    persistShiftsByMonth(shiftViewBranch, shifts);
     renderTimeFrameEditor(); renderTimeframeList(); renderViewTable(); renderEditTable(); renderMultiselectDropdowns();
     settingsDirty = true;
 }
@@ -18085,8 +18167,11 @@ function getSyncKeysForTab(tabBtnId, branchName) {
       // 時間枠・営業時間・休日集計条件・提出締切は営業所専用セル（branchSettings_営業所名）に
       // まとめて保存するため、shiftsデータと合わせて対象に含める
       // （予定カレンダー・車検予約等の大きいデータは専用セルにしかないためシフト保存には無関係）。
+      // シフトのマス目データは車検予約・仮締め記録・連絡ノートと同様、月別に分割されたキー
+      // 全て（＋旧単一キー。移行済みなら空のまま送るだけで無害）を対象にする。
       return [
-        `shifts_${branchName}`,
+        ...shiftLocalMonthKeys(branchName).map(mk => shiftMonthlyKeyName(branchName, mk)),
+        shiftLegacyKeyName(branchName),
         branchSettingsKeyName(branchName),
       ];
     case 'sales':
@@ -18454,19 +18539,39 @@ function valuesEqualForMerge(a, b) {
 
 // シフトのマス目（日付×スタッフ）は複数端末・複数スタッフが同時に編集しうる高リスクなデータのため、
 // 保存前にサーバーの最新シフトを取得し、この端末で実際に編集したマスだけを残す形でマージする。
+// 車検予約・仮締め記録・連絡ノートと同様、月別に分割されたキー全て＋旧単一キーを結合して
+// マージし、結果を月別ローカルキーへ再分割する。mergeFlatDictByBaselineはremoteに存在する
+// キーについてのみbaseを参照するため、全月分をまとめて1回だけマージ呼び出しすれば、
+// 月ごとに分けて呼ぶのと結果は同じ（キーが年月日を含むため月をまたいだ衝突もない）。
 async function mergeRemoteShiftsBeforeSave(branchName, spreadsheetId) {
   if (!spreadsheetId || typeof shifts === 'undefined') return;
   try {
     const result = await gasRequest('load', spreadsheetId);
     if (!result || !result.ok || !result.data) return;
-    const raw = result.data[`shifts_${branchName}`];
-    if (!raw) return;
-    const remoteShifts = JSON.parse(raw);
+    const prefix = `shifts_${branchName}_`;
+    const legacyKey = shiftLegacyKeyName(branchName);
+    let remoteShifts = {};
+    const remoteMonthKeys = [];
+    Object.keys(result.data).forEach(k => {
+      if (k.indexOf(prefix) !== 0) return;
+      remoteMonthKeys.push(k.slice(prefix.length));
+      try {
+        const dict = JSON.parse(result.data[k]);
+        if (dict && typeof dict === 'object') Object.assign(remoteShifts, dict);
+      } catch (e) {}
+    });
+    if (!remoteMonthKeys.length && result.data[legacyKey]) {
+      try {
+        const legacyParsed = JSON.parse(result.data[legacyKey]);
+        if (legacyParsed && typeof legacyParsed === 'object') Object.assign(remoteShifts, legacyParsed);
+      } catch (e) {}
+    }
     const baseline = (typeof shiftsCleanSnapshot !== 'undefined' && shiftsCleanSnapshot !== null)
       ? JSON.parse(shiftsCleanSnapshot)
       : shifts;
     shifts = mergeFlatDictByBaseline(shifts, remoteShifts, baseline);
-    localStorage.setItem(shiftKey('shifts'), JSON.stringify(shifts));
+    persistShiftsByMonth(shiftViewBranch, shifts, remoteMonthKeys);
+    localStorage.setItem(legacyKey, JSON.stringify({})); // 旧セルは以後空として扱う（移行済みマーク）
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
   }
@@ -18859,6 +18964,9 @@ async function doSyncFromSheet(branchName) {
   // 連絡ノートのメッセージも月別に分割されたキー（messages_営業所名_YYYY-MM）を使うため、
   // 静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
   const messagesMonthlyPrefix = `messages_${branchName}_`;
+  // シフトのマス目データも月別に分割されたキー（shifts_営業所名_YYYY-MM）を使うため、
+  // 静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
+  const shiftMonthlyPrefix = `shifts_${branchName}_`;
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     const isLegacyStateKey = (k === legacyStateKey);
@@ -18866,7 +18974,8 @@ async function doSyncFromSheet(branchName) {
     const isShakenMonthlyKey = k.indexOf(shakenMonthlyPrefix) === 0;
     const isKasimeMonthlyKey = k.indexOf(kasimeMonthlyPrefix) === 0;
     const isMessagesMonthlyKey = k.indexOf(messagesMonthlyPrefix) === 0;
-    if ((!keys.includes(k) && !isLegacyStateKey && !isLegacyMessagesKey && !isShakenMonthlyKey && !isKasimeMonthlyKey && !isMessagesMonthlyKey) || v === undefined || v === null || v === '') return;
+    const isShiftMonthlyKey = k.indexOf(shiftMonthlyPrefix) === 0;
+    if ((!keys.includes(k) && !isLegacyStateKey && !isLegacyMessagesKey && !isShakenMonthlyKey && !isKasimeMonthlyKey && !isMessagesMonthlyKey && !isShiftMonthlyKey) || v === undefined || v === null || v === '') return;
     let valueToStore = v;
     if (k === STORAGE_KEY_1 || isLegacyStateKey) {
       // currentBranchは「この端末が今ログインしている営業所」を表すローカルな値。
@@ -18932,7 +19041,25 @@ async function doSyncFromSheet(branchName) {
     } catch (e) {}
     localStorage.setItem(messagesKeyName(branchName), JSON.stringify({ messages: [] }));
   }
-  if ((needsShakenRemoteMigration || needsKasimeRemoteMigration || needsMessagesRemoteMigration) && getGasUrl() && spreadsheetId) {
+  // シフトのマス目データ：今回ダウンロードした旧形式の単一キーにまだ内容が残っていた場合、
+  // この営業所のスプレッドシート側がまだ月別分割へ移行していないということなので、同様に
+  // この場で月別データを作成してすぐスプレッドシート側へアップロードし、移行を完了させる。
+  const shiftLegacyRaw = (result.data || {})[shiftLegacyKeyName(branchName)];
+  let needsShiftRemoteMigration = false;
+  try {
+    if (shiftLegacyRaw) {
+      const legacyParsed = JSON.parse(shiftLegacyRaw);
+      needsShiftRemoteMigration = !!(legacyParsed && typeof legacyParsed === 'object' && Object.keys(legacyParsed).length);
+    }
+  } catch (e) {}
+  if (needsShiftRemoteMigration) {
+    try {
+      const legacyParsed = JSON.parse(shiftLegacyRaw);
+      if (legacyParsed && typeof legacyParsed === 'object' && Object.keys(legacyParsed).length) persistShiftsByMonth(branchName, legacyParsed);
+    } catch (e) {}
+    localStorage.setItem(shiftLegacyKeyName(branchName), JSON.stringify({}));
+  }
+  if ((needsShakenRemoteMigration || needsKasimeRemoteMigration || needsMessagesRemoteMigration || needsShiftRemoteMigration) && getGasUrl() && spreadsheetId) {
     try {
       const migrateKeys = [];
       if (needsShakenRemoteMigration) {
@@ -18943,6 +19070,9 @@ async function doSyncFromSheet(branchName) {
       }
       if (needsMessagesRemoteMigration) {
         migrateKeys.push(...messagesLocalMonthKeys(branchName).map(mk => messagesMonthlyKeyName(branchName, mk)), messagesKeyName(branchName), messagesBookmarkedKeyName(branchName));
+      }
+      if (needsShiftRemoteMigration) {
+        migrateKeys.push(...shiftLocalMonthKeys(branchName).map(mk => shiftMonthlyKeyName(branchName, mk)), shiftLegacyKeyName(branchName));
       }
       await syncToSheet(branchName, migrateKeys);
     } catch (e) {
@@ -19429,7 +19559,7 @@ function buildUnsavedDetail(tab) {
     });
   } else if (tab === 'shift') {
     let current;
-    try { current = JSON.parse(localStorage.getItem(`shifts_${state.currentBranch}`) || '{}'); } catch (e) { current = {}; }
+    try { current = readLocalShiftsForBranch(state.currentBranch).shifts; } catch (e) { current = {}; }
     const byDate = {};
     computeShiftDictChanges(current, baseline).forEach(key => {
       const m = /^(\d+)-(\d+)-(\d+)-(.+)$/.exec(key);
@@ -19452,7 +19582,7 @@ function revertPendingSaveForTab(tab) {
     if (info && info.snapshot) {
       if (tab === 'shift') {
         shifts = JSON.parse(info.snapshot);
-        localStorage.setItem(shiftKey('shifts'), JSON.stringify(shifts));
+        persistShiftsByMonth(shiftViewBranch, shifts);
         shiftsCleanSnapshot = null;
         if (typeof renderViewTable === 'function') renderViewTable();
       } else if (tab === 'daily') {
