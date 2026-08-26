@@ -536,6 +536,23 @@
       margin: 0;
       cursor: pointer;
     }
+    .bm-picker-save-wrap {
+      padding: 6px 14px 2px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+    .bm-picker-save-btn {
+      width: 100%;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 0;
+      border: 1px solid var(--cw-green);
+      border-radius: 4px;
+      background: var(--cw-green);
+      color: #fff;
+      cursor: pointer;
+    }
+    .bm-picker-save-btn:hover { opacity: .85; }
 
     .btn-bookmark {
       box-sizing: border-box;
@@ -9706,38 +9723,35 @@ window.addEventListener('pagehide', function() {
           // 他を全閉じ
           document.querySelectorAll('.bm-picker-wrap.open').forEach(w => w.classList.remove('open'));
           if (!isOpen) {
-            // 常に最新カテゴリで再構築
+            // 常に最新カテゴリで再構築（チェックの付け外し自体はまだ何も保存しない）
             dropdown.innerHTML = buildBmOptions(wrap.dataset.msgid);
             // ドロップダウン内のクリックが外側クリック判定（閉じる処理）に伝播しないようにする
-            // （チェックボックスを複数回付け外しする間、開いたままにするため）
+            // （複数の項目にチェックを付けてから、まとめて保存できるようにするため）
             dropdown.addEventListener('click', ev => ev.stopPropagation());
-            dropdown.querySelectorAll('input[type="checkbox"][data-cat]').forEach(cb => {
-              cb.addEventListener('change', () => {
+            const saveBtn = dropdown.querySelector('[data-bm-save]');
+            if (saveBtn) {
+              saveBtn.addEventListener('click', () => {
                 const msgId = wrap.dataset.msgid;
-                const category = cb.dataset.cat;
-                if (cb.checked) {
-                  addBookmarkCategory(msgId, category);
-                } else {
-                  const remaining = (state.bookmarks || []).filter(b => b.msgId === msgId && b.category !== category).length;
-                  if (remaining === 0 && typeof isBookmarkedMessageOnlyCopyExpired === 'function' && isBookmarkedMessageOnlyCopyExpired(msgId)) {
-                    cb.checked = true; // 確認されるまで元に戻しておく
-                    openModal(
-                      'ブックマークを解除',
-                      'このメッセージは保存期間を過ぎているため、ブックマークを外すと完全に削除され、元に戻せません。よろしいですか？',
-                      () => {
-                        removeBookmarkAndDeleteExpiredMessage(msgId);
-                        cb.checked = false;
-                        updateBookmarkButtonState(btn, msgId);
-                      }
-                    );
-                    return;
-                  }
-                  removeBookmarkCategory(msgId, category);
+                const newCats = new Set([...dropdown.querySelectorAll('input[type="checkbox"][data-cat]:checked')].map(cb => cb.dataset.cat));
+                const oldCats = new Set((state.bookmarks || []).filter(b => b.msgId === msgId).map(b => b.category));
+                const willBeEmpty = newCats.size === 0 && oldCats.size > 0;
+                if (willBeEmpty && typeof isBookmarkedMessageOnlyCopyExpired === 'function' && isBookmarkedMessageOnlyCopyExpired(msgId)) {
+                  openModal(
+                    'ブックマークを解除',
+                    'このメッセージは保存期間を過ぎているため、ブックマークを外すと完全に削除され、元に戻せません。よろしいですか？',
+                    () => {
+                      removeBookmarkAndDeleteExpiredMessage(msgId);
+                      wrap.classList.remove('open');
+                    }
+                  );
+                  return;
                 }
+                applyBookmarkChanges(msgId, newCats);
                 updateBookmarkButtonState(btn, msgId);
                 if (typeof renderRoomList === 'function') renderRoomList();
+                wrap.classList.remove('open');
               });
-            });
+            }
             wrap.classList.add('open');
           }
         });
@@ -13059,6 +13073,10 @@ window.addEventListener('pagehide', function() {
     // 項目が複数あるとき、1つずつクリックするたびに閉じてしまうと選び直しが面倒なため、
     // チェックボックス形式にして開いたまま複数の項目を付け外しできるようにする
     // （「ブックマークをはずす」の専用行は廃止：全項目のチェックを外せば同じ結果になる）。
+    // このアプリの他タブ（シフト・日常業務・販売実績表等）と同じ基本方式に合わせ、
+    // チェックボックスの付け外し自体はまだ何も確定せず、「保存」ボタンを押した時点で
+    // まとめて反映する（連絡ノートで保存ボタン無しに即時反映されるのは、既読状態と
+    // メンション確認チェックのみ）。
     function buildBmOptions(msgId) {
       const configuredCats = state.bookmarkCategories || [];
       const usedCats = (state.bookmarks || []).filter(b => b.msgId === msgId).map(b => b.category);
@@ -13066,10 +13084,11 @@ window.addEventListener('pagehide', function() {
       const cats = Array.from(new Set([...configuredCats, ...usedCats]));
       if (!cats.length) return `<div class="bm-picker-option" style="color:var(--muted);cursor:default;">項目がありません</div>`;
       const checkedCats = new Set(usedCats);
-      return cats.map(c => `<label class="bm-picker-option bm-picker-checkbox-option">
+      const optionsHtml = cats.map(c => `<label class="bm-picker-option bm-picker-checkbox-option">
         <input type="checkbox" data-cat="${escapeHtml(c)}"${checkedCats.has(c) ? ' checked' : ''}>
         <span>${escapeHtml(c || '（未分類）')}</span>
       </label>`).join('');
+      return optionsHtml + `<div class="bm-picker-save-wrap"><button type="button" class="bm-picker-save-btn" data-bm-save="1">保存</button></div>`;
     }
 
     function updateBookmarkButtonState(btn, msgId) {
@@ -13078,26 +13097,24 @@ window.addEventListener('pagehide', function() {
       btn.textContent = has ? 'ブックマーク済' : 'ブックマーク';
     }
 
-    // チェックボックスの付け外し1回ぶんの処理。呼び出し側（ドロップダウンを開いたまま
-    // 複数回トグルできるようにするため）が再描画のタイミングを制御できるよう、
-    // ここでは画面の再描画は行わない。
-    function addBookmarkCategory(msgId, category) {
+    // ドロップダウンの「保存」時にまとめて反映する。newCats＝保存時点でチェックが
+    // 入っていた項目の集合。追加・削除ぶんをまとめて1回の保存にする。
+    function applyBookmarkChanges(msgId, newCats) {
       if (!state.bookmarks) state.bookmarks = [];
-      if (state.bookmarks.find(b => b.msgId === msgId && b.category === category)) return;
-      state.bookmarks.push({ id: uid(), msgId, category: category || '', ts: Date.now() });
+      const oldCats = new Set((state.bookmarks || []).filter(b => b.msgId === msgId).map(b => b.category));
+      const toAdd = [...newCats].filter(c => !oldCats.has(c));
+      const toRemove = [...oldCats].filter(c => !newCats.has(c));
+      if (!toAdd.length && !toRemove.length) return;
+      const removedIds = [];
+      state.bookmarks = state.bookmarks.filter(b => {
+        if (b.msgId === msgId && toRemove.includes(b.category)) { removedIds.push(b.id); return false; }
+        return true;
+      });
+      toAdd.forEach(c => state.bookmarks.push({ id: uid(), msgId, category: c || '', ts: Date.now() }));
+      if (removedIds.length && typeof markIdsAsDeleted === 'function') markIdsAsDeleted(removedIds);
       saveState();
       if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
-    }
-
-    function removeBookmarkCategory(msgId, category) {
-      const target = (state.bookmarks || []).find(b => b.msgId === msgId && b.category === category);
-      if (!target) return;
-      if (typeof markIdsAsDeleted === 'function') markIdsAsDeleted([target.id]);
-      state.bookmarks = state.bookmarks.filter(b => b !== target);
-      saveState();
-      if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
-      if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートからブックマークを外しました');
+      if (typeof stateSaveToSheet === 'function') stateSaveToSheet('スプレッドシートに保存しました');
     }
 
     // 保存期間を過ぎたメッセージがブックマーク中の場合、月別セルからは既に除外され
