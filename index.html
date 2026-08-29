@@ -2418,6 +2418,14 @@
       outline-offset: 1px;
     }
 
+    /* 車検予約カレンダーも同様に、追加・変更した予約バーを一時的に震わせて知らせる */
+    .shaken-bar.chip-shake,
+    .shaken-checkin-line.chip-shake {
+      animation: scheduleChipShake .5s ease-in-out 4;
+      outline: 2px solid #f97316;
+      outline-offset: 1px;
+    }
+
     /* ===== 仮締めタブ ===== */
     /* #kasime-wrap自体に左右の余白を付けると、左カラム（仮締め履歴、色付きパネル）まで
        画面端から浮いてしまい、連絡ノート・予定タブの常設サイドバー（常に画面端まで
@@ -9780,6 +9788,7 @@ window.addEventListener('pagehide', function() {
             msg.dismissedMentions.push(name);
           }
           saveState();
+          if (typeof saveMessagesLocal === 'function') saveMessagesLocal();
           if (typeof stateSaveToSheet === 'function') stateSaveToSheet();
           tag.classList.toggle('dismissed');
         });
@@ -14079,14 +14088,16 @@ window.addEventListener('pagehide', function() {
       }
 
       if (!shakenBucket().shakenReservations) shakenBucket().shakenReservations = [];
+      const newShakenId = uid();
       shakenBucket().shakenReservations.push({
-        id: uid(), customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
+        id: newShakenId, customer, carModel, plateNumber, inspectionDate, checkinDate, checkinTime,
         deliveryDate, deliveryTime, reservationType, loanerCar: loanerVal === '1', note, ts: Date.now(),
       });
       saveState();
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeOverlay(document.getElementById('addShakenModal'));
       renderShakenView();
+      if (typeof shakeShakenBar === 'function') shakeShakenBar(newShakenId);
     });
 
     // ── 編集モーダル ──
@@ -14335,6 +14346,7 @@ window.addEventListener('pagehide', function() {
 
       const r = (shakenBucket().shakenReservations || []).find(x => x.id === editingShakenId);
       if (!r) { closeShakenEditModal(); return; }
+      const savedShakenId = editingShakenId;
       r.customer = customer;
       r.carModel = carModel;
       r.plateNumber = plateNumber;
@@ -14356,6 +14368,7 @@ window.addEventListener('pagehide', function() {
       if (typeof shakenSaveToSheet === 'function') shakenSaveToSheet();
       closeShakenEditModal();
       renderShakenView();
+      if (typeof shakeShakenBar === 'function') shakeShakenBar(savedShakenId);
       // 予定タブの「40日前TEL」「事前点検日程」タスクは車検予約データから毎回算出しているため、
       // 予定タブを開いていなくても保存直後に反映されるよう、ここでも再描画しておく
       if (typeof render4ColTasks === 'function') render4ColTasks();
@@ -15206,6 +15219,18 @@ window.addEventListener('pagehide', function() {
       if (!chip) return;
       chip.classList.add('chip-shake');
       setTimeout(() => chip.classList.remove('chip-shake'), 2000);
+    }
+
+    // 車検予約カレンダーの追加・変更版。1件の予約が入庫日〜通検日の線・通検日バー・
+    // 納車日の線など複数の要素として同時に描画されることがあるため、該当idの要素は
+    // 全て震わせる（予定タブは1件1要素のためquerySelectorで足りるが、こちらはquerySelectorAll）。
+    function shakeShakenBar(id) {
+      if (!id) return;
+      const bars = document.querySelectorAll(`.shaken-bar[data-sid="${id}"], .shaken-checkin-line[data-sid="${id}"]`);
+      bars.forEach(bar => {
+        bar.classList.add('chip-shake');
+        setTimeout(() => bar.classList.remove('chip-shake'), 2000);
+      });
     }
 
     document.getElementById('scheduleResultClose').addEventListener('click', () => {
