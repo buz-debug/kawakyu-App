@@ -1928,6 +1928,14 @@
 
     .member-color-dropdown.open { display: grid; }
 
+    /* 予定プルダウン管理は、色ボタンが行の一番左の列にあるため、right:0のままだと
+       ドロップダウンが行・パネルの左外側にはみ出して見切れてしまう。左端に揃えて
+       右方向（列の空きスペース側）に開くようにする。 */
+    .member-color-dropdown.align-left {
+      right: auto;
+      left: 0;
+    }
+
     .member-system-badge {
       font-size: 10px;
       color: var(--cw-green-dark);
@@ -10433,7 +10441,7 @@ window.addEventListener('pagehide', function() {
         return `<li class="settings-row-grid" style="grid-template-columns:${presetCols};">
         <div class="member-color-picker-wrap" id="presetRowColorWrap_${i}">
           <button type="button" class="member-color-btn has-color" style="width:22px;height:22px;padding:0;background:${color};" title="色を選択" onclick="toggleInlineColorDropdown('presetRowColorWrap_${i}')"></button>
-          <div id="presetRowColorPalette_${i}" class="member-color-dropdown"></div>
+          <div id="presetRowColorPalette_${i}" class="member-color-dropdown align-left"></div>
         </div>
         ${isFixed
           ? `<span style="font-size:12px;">${escapeHtml(p.name)}<span style="font-size:10px;color:var(--muted);margin-left:4px;" title="項目名は固定です">🔒</span></span>`
@@ -14548,11 +14556,17 @@ window.addEventListener('pagehide', function() {
 
       // 「その日に何が起きるか」だけを見せる。入庫〜通検の期間全体を出すと
       // 「今日は入庫なのか通検なのか」が分かりづらいため、その日が入庫日なら
-      // 「◯時入庫」、通検日なら「通検」という単発の予定として扱う
-      // （同日に両方が該当する場合は、それぞれ別項目として表示する）。
+      // 「◯時入庫」、通検日なら「通検」という単発の予定として扱う。
+      // 入庫日と通検日が同じ日の予約は、カレンダービュー（週表示）と同様に
+      // 別々の項目にせず1つにまとめる（そうしないと同じ顧客が別予約に見えてしまうため）。
       const events = [];
       (shakenBucket().shakenReservations || []).forEach(r => {
         if (r.cancelled) return;
+        const sameDay = r.checkinDate === r.inspectionDate;
+        if (sameDay && r.checkinDate === iso) {
+          events.push({ type: 'checkin-inspection', sortKey: r.checkinTime || '', r });
+          return;
+        }
         if (r.checkinDate === iso) events.push({ type: 'checkin', sortKey: r.checkinTime || '', r });
         if (r.inspectionDate === iso) events.push({ type: 'inspection', sortKey: '99:99', r });
       });
@@ -14563,7 +14577,8 @@ window.addEventListener('pagehide', function() {
         list.innerHTML = '<div class="day-detail-empty">この日の予定はありません</div>';
       } else {
         list.innerHTML = events.map(({ type, r }) => {
-          const label = type === 'checkin' ? `入庫${r.checkinTime || ''}` : '通検';
+          const label = type === 'checkin-inspection' ? `入庫${r.checkinTime || ''}・通検`
+            : type === 'checkin' ? `入庫${r.checkinTime || ''}` : '通検';
           const meta = shakenTypeMeta(r);
           return `
           <div class="day-detail-item" data-sid="${r.id}">
