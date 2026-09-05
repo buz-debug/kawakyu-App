@@ -8957,6 +8957,49 @@ window.addEventListener('pagehide', function() {
       });
     }
 
+    // 予定カレンダーも車検予約と同じ理由（件数が増え続けるとセル上限に達する）で、
+    // 日付（date）の年月（YYYY-MM）ごとに専用セル（schedules_${branchName}_${YYYY-MM}）へ
+    // 分割して保存する。アプリ内部（state.schedules）は従来どおり1つのフラット配列のままとし、
+    // 分割・結合は保存/読込の境界だけで行う。
+    function scheduleMonthKeyOf(schedule) {
+      const d = schedule && schedule.date;
+      return (typeof d === 'string' && d.length >= 7) ? d.slice(0, 7) : null;
+    }
+    function scheduleMonthlyKeyName(branchName, monthKey) {
+      return `schedules_${branchName}_${monthKey}`;
+    }
+    function scheduleLegacyKeyName(branchName) {
+      return `schedules_${branchName}`; // 旧形式（月別分割前の単一セル）
+    }
+    function scheduleLocalMonthKeys(branchName) {
+      const prefix = `schedules_${branchName}_`;
+      const months = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(prefix) === 0) months.push(k.slice(prefix.length));
+      }
+      return months;
+    }
+    function groupSchedulesByMonth(schedules) {
+      const groups = {};
+      (schedules || []).forEach(s => {
+        const mk = scheduleMonthKeyOf(s) || 'unknown'; // dateが無い異常データも失わないための保険
+        (groups[mk] || (groups[mk] = [])).push(s);
+      });
+      return groups;
+    }
+    function persistSchedulesByMonth(branchName, schedules, extraMonthKeys) {
+      const groups = groupSchedulesByMonth(schedules);
+      const monthSet = new Set([
+        ...Object.keys(groups),
+        ...scheduleLocalMonthKeys(branchName),
+        ...(extraMonthKeys || []),
+      ]);
+      monthSet.forEach(mk => {
+        localStorage.setItem(scheduleMonthlyKeyName(branchName, mk), JSON.stringify(groups[mk] || []));
+      });
+    }
+
     // schedules・sidebarTasks・shakenReservationsは営業所共通設定セルには保存せず、
     // それぞれの専用セル（schedules_営業所名 等）だけを正として扱う（二重保存を避けるため）。
     // 読み込んだbranchDataに、ローカルにある専用セルの内容を上書きで反映する
@@ -8965,7 +9008,7 @@ window.addEventListener('pagehide', function() {
       const result = branchData || {};
       (branchNames || []).forEach(branchName => {
         Object.keys(STATE_BRANCH_KEYS_DEDICATED).forEach(field => {
-          if (field === 'shakenReservations') return; // 下で専用処理（月別分割のため）
+          if (field === 'shakenReservations' || field === 'schedules') return; // 下で専用処理（月別分割のため）
           const raw = localStorage.getItem(STATE_BRANCH_KEYS_DEDICATED[field] + branchName);
           if (raw === null) return;
           try {
@@ -9004,6 +9047,37 @@ window.addEventListener('pagehide', function() {
         if (sawAny || legacyRaw !== null) {
           if (!result[branchName]) result[branchName] = {};
           result[branchName].shakenReservations = combined;
+        }
+
+        // 予定カレンダー：車検予約と同様、月別キーを連結して1つのフラット配列に復元する。
+        if (typeof scheduleLocalMonthKeys === 'function') {
+          const scheduleMonthKeys = scheduleLocalMonthKeys(branchName);
+          let scheduleCombined = [];
+          let scheduleSawAny = false;
+          scheduleMonthKeys.forEach(mk => {
+            const raw = localStorage.getItem(scheduleMonthlyKeyName(branchName, mk));
+            if (raw === null) return;
+            scheduleSawAny = true;
+            try {
+              const arr = JSON.parse(raw);
+              if (Array.isArray(arr)) scheduleCombined = scheduleCombined.concat(arr);
+            } catch (e) {}
+          });
+          const scheduleLegacyRaw = localStorage.getItem(scheduleLegacyKeyName(branchName));
+          if (!scheduleSawAny && scheduleLegacyRaw) {
+            try {
+              const legacyArr = JSON.parse(scheduleLegacyRaw);
+              if (Array.isArray(legacyArr) && legacyArr.length) {
+                persistSchedulesByMonth(branchName, legacyArr);
+                localStorage.setItem(scheduleLegacyKeyName(branchName), '[]');
+                scheduleCombined = legacyArr;
+              }
+            } catch (e) {}
+          }
+          if (scheduleSawAny || scheduleLegacyRaw !== null) {
+            if (!result[branchName]) result[branchName] = {};
+            result[branchName].schedules = scheduleCombined;
+          }
         }
 
         // メンバー・シフト共通設定・日常業務項目等（BRANCH_SETTINGS_FIELDS）：
@@ -11031,6 +11105,13 @@ window.addEventListener('pagehide', function() {
         : (typeof shiftLocalMonthKeys === 'function'
           ? shiftLocalMonthKeys(branchName).map(mk => shiftMonthlyKeyName(branchName, mk)).sort()
           : []);
+      // 予定カレンダーも月別に分割されたキーを使う。
+      const schedulePrefix = `schedules_${branchName}_`;
+      const scheduleMonthlyDisplayKeys = dataOverride
+        ? Object.keys(dataOverride).filter(k => k.indexOf(schedulePrefix) === 0).sort()
+        : (typeof scheduleLocalMonthKeys === 'function'
+          ? scheduleLocalMonthKeys(branchName).map(mk => scheduleMonthlyKeyName(branchName, mk)).sort()
+          : []);
       // 月別キーが1つでも見えている（＝この営業所は既に移行済み）なら、旧形式の単一キーは
       // 常に空/無意味なので一覧に出さない（行を手動削除した場合も、そのキー自体は
       // getSyncKeysの固定リストに含まれているため、この除外をしないと0文字のまま出続けてしまう）。
@@ -11039,7 +11120,8 @@ window.addEventListener('pagehide', function() {
       if (kasimeMonthlyDisplayKeys.length) legacyKeysToHide.add(`仮締め記録_${branchName}`);
       if (messagesMonthlyDisplayKeys.length) legacyKeysToHide.add(messagesKeyName(branchName));
       if (shiftMonthlyDisplayKeys.length) legacyKeysToHide.add(`shifts_${branchName}`);
-      const keys = staticKeys.filter(k => !legacyKeysToHide.has(k)).concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys, messagesMonthlyDisplayKeys, shiftMonthlyDisplayKeys);
+      if (scheduleMonthlyDisplayKeys.length) legacyKeysToHide.add(`schedules_${branchName}`);
+      const keys = staticKeys.filter(k => !legacyKeysToHide.has(k)).concat(shakenMonthlyDisplayKeys, kasimeMonthlyDisplayKeys, messagesMonthlyDisplayKeys, shiftMonthlyDisplayKeys, scheduleMonthlyDisplayKeys);
       const limit = (typeof CELL_CHAR_LIMIT !== 'undefined') ? CELL_CHAR_LIMIT : 50000;
       const warnRatio = (typeof CELL_CHAR_WARNING_RATIO !== 'undefined') ? CELL_CHAR_WARNING_RATIO : 0.8;
 
@@ -18271,7 +18353,10 @@ function getSyncKeysForTab(tabBtnId, branchName) {
         .map(mk => kasimeMonthlyKeyName(branchName, mk))
         .concat([kasimeLegacyKeyName(branchName)]);
     case 'schedule':
-      return [`schedules_${branchName}`];
+      // 月別に分割されたキー全て（＋旧単一キー。移行済みなら空のまま送るだけで無害）を対象にする。
+      return scheduleLocalMonthKeys(branchName)
+        .map(mk => scheduleMonthlyKeyName(branchName, mk))
+        .concat([scheduleLegacyKeyName(branchName)]);
     case 'sidebarTask':
       return [`sidebarTasks_${branchName}`];
     case 'shaken':
@@ -18711,21 +18796,39 @@ async function mergeRemoteDailyRecordsBeforeSave(branchName, spreadsheetId) {
 
 // 予定タブの「予定カレンダー」は、連絡ノート等の他のstateデータと保存キーを分離した独立管理のため、
 // 専用のマージ処理を持つ（ロジックはmergeArrayByIdと同じ：削除済みIDは復活させない）。
+// 車検予約と同様、月別に分割されたキー全て＋旧単一キーを結合してマージし、
+// 結果を月別ローカルキーへ再分割する。
 async function mergeRemoteScheduleBeforeSave(branchName, spreadsheetId) {
   if (!spreadsheetId || typeof ensureBranchBucket !== 'function') return;
   try {
     const result = await gasRequest('load', spreadsheetId);
     if (!result || !result.ok || !result.data) return;
-    const raw = result.data[`schedules_${branchName}`];
-    if (!raw) return;
-    const remoteSchedules = JSON.parse(raw);
+    const prefix = `schedules_${branchName}_`;
+    const legacyKey = scheduleLegacyKeyName(branchName);
+    let remoteSchedules = [];
+    const remoteMonthKeys = [];
+    Object.keys(result.data).forEach(k => {
+      if (k.indexOf(prefix) !== 0) return;
+      remoteMonthKeys.push(k.slice(prefix.length));
+      try {
+        const arr = JSON.parse(result.data[k]);
+        if (Array.isArray(arr)) remoteSchedules = remoteSchedules.concat(arr);
+      } catch (e) {}
+    });
+    if (!remoteMonthKeys.length && result.data[legacyKey]) {
+      try {
+        const legacyArr = JSON.parse(result.data[legacyKey]);
+        if (Array.isArray(legacyArr)) remoteSchedules = remoteSchedules.concat(legacyArr);
+      } catch (e) {}
+    }
     const bucket = ensureBranchBucket(branchName);
     bucket.schedules = mergeArrayById(bucket.schedules, remoteSchedules);
     // schedulesは専用セル（schedules_営業所名）にのみ保存するdedicatedフィールドのため
     // （buildStateCellPayloadで除外される）、saveState()を呼んでもこのマージ結果自体は
     // 反映されない＝呼ぶ意味が無いばかりか、他の保存処理と競合するリスクがあるため呼ばない
     // （詳しい経緯はmergeRemoteShakenBeforeSave内の同様のコメントを参照）。
-    localStorage.setItem(`schedules_${branchName}`, JSON.stringify(bucket.schedules));
+    persistSchedulesByMonth(branchName, bucket.schedules, remoteMonthKeys);
+    localStorage.setItem(legacyKey, '[]'); // 旧セルは以後空として扱う（移行済みマーク）
   } catch (e) {
     // 通信できない場合は、ローカルの内容のみで保存を続行する
   }
@@ -19050,6 +19153,9 @@ async function doSyncFromSheet(branchName) {
   // シフトのマス目データも月別に分割されたキー（shifts_営業所名_YYYY-MM）を使うため、
   // 静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
   const shiftMonthlyPrefix = `shifts_${branchName}_`;
+  // 予定カレンダーも月別に分割されたキー（schedules_営業所名_YYYY-MM）を使うため、
+  // 静的なkeysリストには載っていない未知の月も前方一致で受け入れる。
+  const scheduleMonthlyPrefix = `schedules_${branchName}_`;
   let count = 0;
   Object.entries(result.data || {}).forEach(([k, v]) => {
     const isLegacyStateKey = (k === legacyStateKey);
@@ -19058,7 +19164,8 @@ async function doSyncFromSheet(branchName) {
     const isKasimeMonthlyKey = k.indexOf(kasimeMonthlyPrefix) === 0;
     const isMessagesMonthlyKey = k.indexOf(messagesMonthlyPrefix) === 0;
     const isShiftMonthlyKey = k.indexOf(shiftMonthlyPrefix) === 0;
-    if ((!keys.includes(k) && !isLegacyStateKey && !isLegacyMessagesKey && !isShakenMonthlyKey && !isKasimeMonthlyKey && !isMessagesMonthlyKey && !isShiftMonthlyKey) || v === undefined || v === null || v === '') return;
+    const isScheduleMonthlyKey = k.indexOf(scheduleMonthlyPrefix) === 0;
+    if ((!keys.includes(k) && !isLegacyStateKey && !isLegacyMessagesKey && !isShakenMonthlyKey && !isKasimeMonthlyKey && !isMessagesMonthlyKey && !isShiftMonthlyKey && !isScheduleMonthlyKey) || v === undefined || v === null || v === '') return;
     let valueToStore = v;
     if (k === STORAGE_KEY_1 || isLegacyStateKey) {
       // currentBranchは「この端末が今ログインしている営業所」を表すローカルな値。
@@ -19142,7 +19249,19 @@ async function doSyncFromSheet(branchName) {
     } catch (e) {}
     localStorage.setItem(shiftLegacyKeyName(branchName), JSON.stringify({}));
   }
-  if ((needsShakenRemoteMigration || needsKasimeRemoteMigration || needsMessagesRemoteMigration || needsShiftRemoteMigration) && getGasUrl() && spreadsheetId) {
+  // 予定カレンダー：今回ダウンロードした旧形式の単一キーにまだ内容が残っていた場合、
+  // この営業所のスプレッドシート側がまだ月別分割へ移行していないということなので、同様に
+  // この場で月別データを作成してすぐスプレッドシート側へアップロードし、移行を完了させる。
+  const scheduleLegacyRaw = (result.data || {})[scheduleLegacyKeyName(branchName)];
+  const needsScheduleRemoteMigration = !!scheduleLegacyRaw && scheduleLegacyRaw !== '[]';
+  if (needsScheduleRemoteMigration) {
+    try {
+      const legacyArr = JSON.parse(scheduleLegacyRaw);
+      if (Array.isArray(legacyArr) && legacyArr.length) persistSchedulesByMonth(branchName, legacyArr);
+    } catch (e) {}
+    localStorage.setItem(scheduleLegacyKeyName(branchName), '[]');
+  }
+  if ((needsShakenRemoteMigration || needsKasimeRemoteMigration || needsMessagesRemoteMigration || needsShiftRemoteMigration || needsScheduleRemoteMigration) && getGasUrl() && spreadsheetId) {
     try {
       const migrateKeys = [];
       if (needsShakenRemoteMigration) {
@@ -19156,6 +19275,9 @@ async function doSyncFromSheet(branchName) {
       }
       if (needsShiftRemoteMigration) {
         migrateKeys.push(...shiftLocalMonthKeys(branchName).map(mk => shiftMonthlyKeyName(branchName, mk)), shiftLegacyKeyName(branchName));
+      }
+      if (needsScheduleRemoteMigration) {
+        migrateKeys.push(...scheduleLocalMonthKeys(branchName).map(mk => scheduleMonthlyKeyName(branchName, mk)), scheduleLegacyKeyName(branchName));
       }
       await syncToSheet(branchName, migrateKeys);
     } catch (e) {
@@ -19271,7 +19393,7 @@ function stateSaveToSheet(successMsg, branchName) { return _tabSaveToSheet('stat
 // それぞれ専用のキーで独立して保存する。保存前に現在の内容を専用キーへ書き出してから送信する。
 function scheduleSaveToSheet(successMsg) {
   const branchName = (typeof state !== 'undefined') ? state.currentBranch : null;
-  if (branchName) localStorage.setItem(`schedules_${branchName}`, JSON.stringify(state.schedules || []));
+  if (branchName) persistSchedulesByMonth(branchName, state.schedules || []);
   return _tabSaveToSheet('schedule', successMsg);
 }
 function sidebarTaskSaveToSheet(successMsg) {
