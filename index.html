@@ -4633,6 +4633,13 @@
 #dailyTableHead, #dailyTable {
     width: max-content;
 }
+/* PCによってはスクロールバーが（macOSのオーバーレイ表示と違い）表示領域の中に
+   スペースを取るため、横スクロールバーが表の最下段の行に重なって見切れてしまう
+   ことがある。最下段の下に余白を確保しておき、その余白部分がスクロールバーと
+   重なるようにする（実データの行が隠れないようにする）。 */
+#dailyTable {
+    padding-bottom: 20px;
+}
 #dailyTableSide {
     width: 300px;
 }
@@ -12738,18 +12745,6 @@ window.addEventListener('pagehide', function() {
       headTable.innerHTML = headerRow;
       sideTable.innerHTML = sideHtml;
       table.innerHTML = bodyHtml;
-      // 月末の担当者欄を項目欄のすぐ隣まで手動でスクロールできるよう、表の右側に
-      // 表示幅ぶんの余白を確保する（全項目が画面に収まっている場合でも、この余白分だけ
-      // 左右スクロールできるようになる）。見出し側（headTable）にも同じ幅の余白を
-      // 付けることで、スクロール位置を合わせても日付欄と担当者欄がずれない。
-      // 余白は表示幅そのものではなく「表示幅－日付列1列分」にする。表示幅ぴったりだと
-      // 最大までスクロールした時に最終日の列まで画面外へ押し出されてしまうため。
-      if (bodyWrapper) {
-        const DAY_COL_W = 30; // #dailyTable .daily-day-col の幅と合わせる
-        const scrollPad = Math.max(0, bodyWrapper.clientWidth - DAY_COL_W) + 'px';
-        table.style.paddingRight = scrollPad;
-        headTable.style.paddingRight = scrollPad;
-      }
       if (bodyWrapper && headWrapper) headWrapper.scrollLeft = bodyWrapper.scrollLeft;
       if (bodyWrapper && sideWrapper) sideWrapper.scrollTop = bodyWrapper.scrollTop;
     }
