@@ -8098,6 +8098,7 @@ window.addEventListener('pagehide', function() {
         <button type="button" class="settings-menu-btn" onclick="openGasModal()">スプレッドシート連携（GAS）</button>
         <button type="button" class="settings-menu-btn" onclick="openAdminRetentionModal()">データ保存期間の設定</button>
         <button type="button" class="settings-menu-btn" onclick="openAdminCellSizeModal()">セル使用文字数の確認</button>
+        <button type="button" class="settings-menu-btn" onclick="openExportLocalMigrationModal()">ローカル版移行用データの書き出し</button>
       </div>
 
       <div class="modal-actions" style="margin-top:16px;justify-content:space-between;">
@@ -8150,6 +8151,23 @@ window.addEventListener('pagehide', function() {
       <div id="adminCellSizeList" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;"></div>
       <div class="modal-actions" style="margin-top:16px;">
         <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('adminCellSizeModal'))">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ローカル版移行用データの書き出しモーダル -->
+  <div class="modal-overlay settings-modal" id="exportLocalMigrationModal" role="dialog" aria-modal="true">
+    <div class="modal" style="max-width:480px;">
+      <h3 class="settings-panel-title">ローカル版移行用データの書き出し</h3>
+      <p class="settings-note" style="margin-bottom:12px;">選択した営業所の現在のスプレッドシート内容を、ローカル版アプリがそのまま読み込める形式（JSONファイル）でダウンロードします。ダウンロードしたファイルは、ファイル名を変更せずに、ローカル版で指定する保存先フォルダへそのまま置いてください。</p>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">営業所：</span>
+        <select id="exportLocalMigrationBranchSelect" onchange="switchExportLocalMigrationBranch(this.value)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:4px;font-size:12px;"></select>
+        <button type="button" id="exportLocalMigrationBtn" onclick="runExportLocalMigration()" style="flex-shrink:0;padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:12px;background:var(--surface);cursor:pointer;white-space:nowrap;">エクスポート</button>
+      </div>
+      <div id="exportLocalMigrationStatus" style="font-size:11px;color:var(--muted);"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button type="button" class="sf-close-btn" onclick="closeOverlay(document.getElementById('exportLocalMigrationModal'))">閉じる</button>
       </div>
     </div>
   </div>
@@ -11224,6 +11242,65 @@ window.addEventListener('pagehide', function() {
         appToast('最新データの取得に失敗しました: ' + e.message);
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = '最新を取得'; }
+      }
+    }
+
+    // ── ローカル版移行用データの書き出し ──
+    // 既存のload処理（gasRequest('load', spreadsheetId)）をそのまま使い、
+    // 返ってきたデータ（ローカル版が期待する{キー:値}形式そのもの）をJSONファイルとして
+    // ダウンロードさせるだけの機能。GASサーバー側（kawakyu_gas.gs）には一切手を加えていない。
+    let exportLocalMigrationBranch = null;
+
+    function openExportLocalMigrationModal() {
+      const sel = document.getElementById('exportLocalMigrationBranchSelect');
+      if (sel) {
+        sel.innerHTML = (state.branches || []).map(b =>
+          `<option value="${escapeHtml(b.name)}">${escapeHtml(b.name)}</option>`
+        ).join('');
+        exportLocalMigrationBranch = state.currentBranch;
+        sel.value = exportLocalMigrationBranch;
+      }
+      const statusEl = document.getElementById('exportLocalMigrationStatus');
+      if (statusEl) statusEl.textContent = '';
+      openOverlay(document.getElementById('exportLocalMigrationModal'));
+    }
+
+    function switchExportLocalMigrationBranch(branchName) {
+      exportLocalMigrationBranch = branchName;
+      const statusEl = document.getElementById('exportLocalMigrationStatus');
+      if (statusEl) statusEl.textContent = '';
+    }
+
+    async function runExportLocalMigration() {
+      const branchName = exportLocalMigrationBranch;
+      if (!branchName) return;
+      const btn = document.getElementById('exportLocalMigrationBtn');
+      const statusEl = document.getElementById('exportLocalMigrationStatus');
+      const spreadsheetId = (typeof getSpreadsheetId === 'function') ? getSpreadsheetId(branchName) : null;
+      if (!spreadsheetId || typeof getGasUrl !== 'function' || !getGasUrl()) {
+        appToast('GAS URLとスプレッドシートIDを設定してください');
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.textContent = '書き出し中…'; }
+      if (statusEl) statusEl.textContent = '';
+      try {
+        const result = await gasRequest('load', spreadsheetId);
+        const json = JSON.stringify(result.data || {}, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `kawakyu_data_${branchName}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (statusEl) statusEl.textContent = `「${branchName}」のデータを書き出しました（kawakyu_data_${branchName}.json）。`;
+      } catch (e) {
+        appToast('データの取得に失敗しました: ' + e.message);
+        if (statusEl) statusEl.textContent = 'エラー: ' + e.message;
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'エクスポート'; }
       }
     }
 
